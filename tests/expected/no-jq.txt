@@ -1,0 +1,2 @@
+[statusline] jq not found - install jq
+exit=0

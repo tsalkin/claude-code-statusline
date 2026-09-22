@@ -1,0 +1,7 @@
+{
+  "session_id": "5d1e2c3b-0000-4000-8000-000000000001",
+  "transcript_path": "__ROOT__/home/.claude/projects/example/missing.jsonl",
+  "model": { "id": "claude-sonnet-5", "display_name": "Sonnet 5" },
+  "workspace": { "current_dir": "__ROOT__/work/myproject", "project_dir": "__ROOT__/work/myproject" },
+  "context_window": { "used_percentage": 10, "remaining_percentage": 90, "context_window_size": 200000 }
+}

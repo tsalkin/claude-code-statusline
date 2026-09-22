@@ -1,0 +1,13 @@
+{
+  "session_id": "7a7a7a7a-1111-4222-8333-444444444444",
+  "model": { "id": "claude-opus-5", "display_name": "Opus 5" },
+  "workspace": { "current_dir": "__ROOT__/work/myproject", "project_dir": "__ROOT__/work/myproject" },
+  "effort": { "level": "xhigh" },
+  "thinking": { "enabled": false },
+  "context_window": { "used_percentage": 87.6, "remaining_percentage": 12.4, "context_window_size": 200000 },
+  "prompt_cache": { "warm": false, "hit_ratio": 0.4, "recache_tokens_if_cold": 175300 },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 85, "resets_at": 1789990000 },
+    "seven_day": { "used_percentage": 64.9 }
+  }
+}
