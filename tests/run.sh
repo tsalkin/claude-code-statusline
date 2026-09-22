@@ -112,6 +112,33 @@ mkdir -p "$CASE_ROOT/home/.claude/todos"
 cp "$FIX/todo.json" "$CASE_ROOT/home/.claude/todos/0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31-agent-0f3c9a2e.json"
 check gsd-task "$(render full.json)"
 
+# 11-13. Remote-control badge from the session registry ($HOME/.claude/sessions/*.json).
+# The decoy record belongs to another session and is bridged: it must never light the badge.
+SID=0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31   # session_id in full.json
+make_sessions() {  # make_sessions <bridgeSessionId or empty>
+    mkdir -p "$CASE_ROOT/home/.claude/sessions"
+    printf '{"pid":222,"sessionId":"aaaaaaaa-0000-4000-8000-00000000dead","bridgeSessionId":"bridge-decoy"}\n' \
+        > "$CASE_ROOT/home/.claude/sessions/222.json"
+    [ "$1" = "-" ] && return
+    if [ -n "$1" ]; then
+        printf '{"pid":111,"sessionId":"%s","bridgeSessionId":"%s"}\n' "$SID" "$1"
+    else
+        printf '{"pid":111,"sessionId":"%s"}\n' "$SID"
+    fi > "$CASE_ROOT/home/.claude/sessions/111.json"
+}
+
+# 11. This session is bridged: "📡 RC" right after the model
+new_case rc-on; make_git; make_sessions bridge-0001
+check rc-on "$(render full.json)"
+
+# 12. This session has a record but no bridgeSessionId: no badge
+new_case rc-off; make_git; make_sessions ""
+check rc-off "$(render full.json)"
+
+# 13. No record for this session_id at all (only the decoy): no badge
+new_case rc-no-record; make_git; make_sessions -
+check rc-no-record "$(render full.json)"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

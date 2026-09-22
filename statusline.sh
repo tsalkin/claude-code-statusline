@@ -1,7 +1,7 @@
 #!/bin/bash
 # claude-code-statusline — a two-line status line for Claude Code.
 #
-# Line 1: model · effort · context · prompt cache · usage limits · session time
+# Line 1: model · [remote control] · effort · context · prompt cache · usage limits · session time
 # Line 2: [GSD state] · [tasks] · project · git branch · worktree
 #
 # Claude Code pipes a JSON payload to this script on stdin after every assistant
@@ -44,6 +44,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_PROJECT:=1}"
 : "${STATUSLINE_SHOW_GIT:=1}"
 : "${STATUSLINE_SHOW_WORKTREE:=1}"
+: "${STATUSLINE_SHOW_RC:=1}"               # "📡 RC" while the session is under remote control
 
 # Thresholds
 : "${STATUSLINE_BAR_LEN:=6}"
@@ -487,9 +488,22 @@ if [ "$STATUSLINE_SHOW_TASKS" = "1" ] && { [ -n "$STATUSLINE_TASKS_CMD" ] || [ -
     fi
 fi
 
+# === Remote control (claude.ai / phone) =====================================
+# The status-line JSON has no remote-control field (checked against the docs and
+# the 2.1.278 schema). The session registry does: ~/.claude/sessions/<pid>.json
+# carries bridgeSessionId while the session is bridged. Undocumented — if it ever
+# disappears, the badge just goes quiet.
+rc_part=""
+if [ "$STATUSLINE_SHOW_RC" = "1" ] && [ -n "$session_id" ] && [ -d "$HOME/.claude/sessions" ]; then
+    rc_id=$(jq -r --arg s "$session_id" 'select(.sessionId == $s) | .bridgeSessionId // empty' \
+        "$HOME"/.claude/sessions/*.json 2>/dev/null | head -1)
+    [ -n "$rc_id" ] && rc_part="\033[1;32m📡 RC\033[0m"
+fi
+
 # === Build output (two lines) ===============================================
 line1_parts=()
 [ "$STATUSLINE_SHOW_MODEL" = "1" ] && [ -n "$model_name" ] && line1_parts+=("[${model_name}]")
+[ -n "$rc_part" ] && line1_parts+=("$rc_part")
 [ "$STATUSLINE_SHOW_EFFORT" = "1" ] && line1_parts+=("$effort_part")
 [ "$STATUSLINE_SHOW_CONTEXT" = "1" ] && line1_parts+=("${bar} ${used_int}% (${tokens_display}/${context_display})")
 [ -n "$cache_part" ] && line1_parts+=("$cache_part")
