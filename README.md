@@ -30,7 +30,7 @@ In the terminal every block is colored (green → yellow → red as things get e
 | Block | Source (payload field) | Meaning |
 |---|---|---|
 | `[Opus 5 (1M context)]` | `model.display_name` | Which model is answering. |
-| `📡 RC` | `~/.claude/sessions/*.json` (not the payload) | The session is under remote control (claude.ai / phone). See below. |
+| `📡 RC` | `~/.claude/sessions/*.json` (not the payload) | This session is currently reachable via Remote Control (claude.ai / phone). See below. |
 | `⚡high` | `effort.level` | Current reasoning effort. Green `low`/`auto`, cyan `medium`, yellow `high`, magenta `xhigh`/`max`. |
 | `✦` | `thinking.enabled` | Extended thinking is on. |
 | `(≠xhigh)` | `effort.level` vs `effortLevel` in `settings.json` | You are running **below** the effort configured globally (for example a per-model override lowered it). Shown in red. |
@@ -40,7 +40,7 @@ In the terminal every block is colored (green → yellow → red as things get e
 | `W:88%` | `rate_limits.seven_day.*` | 7-day budget remaining. |
 | `⏱ 1h 20m` | transcript file age | How long this session has been running. |
 
-**Remote-control badge.** A green `📡 RC` right after the model means this session is being driven remotely (claude.ai or the phone app). The status-line payload has no remote-control field, so the script looks for this session's `session_id` in Claude Code's session registry, `$HOME/.claude/sessions/*.json`, and shows the badge when that record has a non-empty `bridgeSessionId`. That field is **undocumented**: a future Claude Code version may rename or drop it, and then the badge simply stays silent — nothing breaks. Whether it is cleared the moment remote control is switched off has not been verified. To hide the badge, set `STATUSLINE_SHOW_RC=0`.
+**Remote-control badge.** A green `📡 RC` right after the model means this session is currently reachable via Remote Control (claude.ai or the phone app). The status-line payload has no remote-control field, so the script looks for this session's `session_id` in Claude Code's session registry, `~/.claude/sessions/*.json` (or `$CLAUDE_CONFIG_DIR/sessions` if you set that variable), and shows the badge when that record has a non-empty `bridgeSessionId`. That field is **undocumented**: a future Claude Code version may rename or drop it, and then the badge simply stays silent — nothing breaks. Switching Remote Control on and off was checked live on Claude Code 2.1.278 (22.09.2026): the badge goes out on disconnect and comes back on reconnect. To hide the badge, set `STATUSLINE_SHOW_RC=0`.
 
 ### Line 2 — where you are
 
@@ -178,7 +178,7 @@ tests/run.sh            # renders every case in tests/fixtures and compares byte
 tests/run.sh --update   # rewrite tests/expected after an intended change (review the diff!)
 ```
 
-Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record), `jq` missing. Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
+Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), `jq` missing. Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
 
 ## License
 

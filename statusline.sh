@@ -490,13 +490,14 @@ fi
 
 # === Remote control (claude.ai / phone) =====================================
 # The status-line JSON has no remote-control field (checked against the docs and
-# the 2.1.278 schema). The session registry does: ~/.claude/sessions/<pid>.json
-# carries bridgeSessionId while the session is bridged. Undocumented — if it ever
-# disappears, the badge just goes quiet.
+# the 2.1.278 schema). The session registry does: $CLAUDE_DIR/sessions/<pid>.json
+# carries bridgeSessionId while the session is reachable via Remote Control
+# (cleared on disconnect, refilled on reconnect — checked live on 2.1.278).
+# Undocumented — if it ever disappears, the badge just goes quiet.
 rc_part=""
-if [ "$STATUSLINE_SHOW_RC" = "1" ] && [ -n "$session_id" ] && [ -d "$HOME/.claude/sessions" ]; then
+if [ "$STATUSLINE_SHOW_RC" = "1" ] && [ -n "$session_id" ] && [ -d "$CLAUDE_DIR/sessions" ]; then
     rc_id=$(jq -r --arg s "$session_id" 'select(.sessionId == $s) | .bridgeSessionId // empty' \
-        "$HOME"/.claude/sessions/*.json 2>/dev/null | head -1)
+        "$CLAUDE_DIR"/sessions/*.json 2>/dev/null | head -1)
     [ -n "$rc_id" ] && rc_part="\033[1;32m📡 RC\033[0m"
 fi
 

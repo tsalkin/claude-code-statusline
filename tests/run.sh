@@ -112,19 +112,20 @@ mkdir -p "$CASE_ROOT/home/.claude/todos"
 cp "$FIX/todo.json" "$CASE_ROOT/home/.claude/todos/0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31-agent-0f3c9a2e.json"
 check gsd-task "$(render full.json)"
 
-# 11-13. Remote-control badge from the session registry ($HOME/.claude/sessions/*.json).
+# 11-14. Remote-control badge from the session registry ($CLAUDE_DIR/sessions/*.json).
 # The decoy record belongs to another session and is bridged: it must never light the badge.
 SID=0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31   # session_id in full.json
-make_sessions() {  # make_sessions <bridgeSessionId or empty>
-    mkdir -p "$CASE_ROOT/home/.claude/sessions"
+make_sessions() {  # make_sessions <bridgeSessionId or empty or -> [claude dir]
+    local sdir="${2:-$CASE_ROOT/home/.claude}/sessions"
+    mkdir -p "$sdir"
     printf '{"pid":222,"sessionId":"aaaaaaaa-0000-4000-8000-00000000dead","bridgeSessionId":"bridge-decoy"}\n' \
-        > "$CASE_ROOT/home/.claude/sessions/222.json"
+        > "$sdir/222.json"
     [ "$1" = "-" ] && return
     if [ -n "$1" ]; then
         printf '{"pid":111,"sessionId":"%s","bridgeSessionId":"%s"}\n' "$SID" "$1"
     else
         printf '{"pid":111,"sessionId":"%s"}\n' "$SID"
-    fi > "$CASE_ROOT/home/.claude/sessions/111.json"
+    fi > "$sdir/111.json"
 }
 
 # 11. This session is bridged: "📡 RC" right after the model
@@ -138,6 +139,10 @@ check rc-off "$(render full.json)"
 # 13. No record for this session_id at all (only the decoy): no badge
 new_case rc-no-record; make_git; make_sessions -
 check rc-no-record "$(render full.json)"
+
+# 14. CLAUDE_CONFIG_DIR points elsewhere: the registry is read from there
+new_case rc-config-dir; make_git; make_sessions bridge-0002 "$CASE_ROOT/altclaude"
+check rc-config-dir "$(render full.json CLAUDE_CONFIG_DIR="$CASE_ROOT/altclaude")"
 
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
