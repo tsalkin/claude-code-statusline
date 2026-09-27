@@ -121,6 +121,20 @@ mkdir -p "$CASE_ROOT/home/.claude/todos"
 cp "$FIX/todo.json" "$CASE_ROOT/home/.claude/todos/0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31-agent-0f3c9a2e.json"
 check gsd-task "$(render full.json)"
 
+# 15. Session time counts from the transcript's birth, not from its last write:
+# the file is born now, "now" is 1h 2m later, and it was just written to.
+new_case session-time; make_git
+transcript="$CASE_ROOT/home/.claude/projects/example/0f3c9a2e.jsonl"
+mkdir -p "${transcript%/*}" && : > "$transcript"
+if [[ "$OSTYPE" == "darwin"* ]]; then born=$(stat -f %B "$transcript"); else born=$(stat -c %W "$transcript"); fi
+case "$born" in
+    ''|0|-|*[!0-9]*) echo "skip     session-time (no birth time on this file system)" ;;
+    *)  later=$((born + 3720))
+        touch -d "@$later" "$transcript" 2>/dev/null \
+            || touch -t "$(date -r "$later" +%Y%m%d%H%M.%S)" "$transcript"
+        check session-time "$(render full.json STATUSLINE_NOW="$later" STATUSLINE_SHOW_LIMITS=0)" ;;
+esac
+
 # 11-14. Remote-control badge from the session registry ($CLAUDE_DIR/sessions/*.json).
 # The decoy record belongs to another session and is bridged: it must never light the badge.
 SID=0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31   # session_id in full.json

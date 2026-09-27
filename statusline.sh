@@ -113,10 +113,14 @@ project=$(basename "$current_dir")
 # === Session time (from transcript file birth) ==============================
 session_time="0m"
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+    # Birth time, not modification time: the transcript is appended after every
+    # message, so its mtime is always "just now". GNU stat prints 0 or "-" when the
+    # file system keeps no birth time; then the mtime is all there is.
     if [[ "$OSTYPE" == "darwin"* ]]; then
         start=$(stat -f %B "$transcript" 2>/dev/null)
     else
-        start=$(stat -c %Y "$transcript" 2>/dev/null)
+        start=$(stat -c %W "$transcript" 2>/dev/null)
+        case "$start" in ''|0|-|*[!0-9]*) start=$(stat -c %Y "$transcript" 2>/dev/null) ;; esac
     fi
     if [ -n "$start" ]; then
         elapsed=$(( NOW - start ))
