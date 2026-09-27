@@ -12,6 +12,14 @@ One bash script, `bash` + `jq`, MIT-licensed. Every block can be switched off, e
 
 ## What it looks like
 
+Live, on the author's machines — macOS (Ghostty) and Windows 11 (Git Bash). The third line is Claude Code's own.
+
+![Status line on macOS](docs/screenshots/macos.png)
+
+![Status line on Windows 11, Git Bash](docs/screenshots/windows.png)
+
+Every block, with all optional modules on:
+
 ```
 [Opus 5 (1M context)] | ⚡high✦(≠xhigh) | ▰▰▱▱▱▱ 42% (420K/1000K) | ◈95% | H:70% 2h10m W:88% | ⏱ 1h 20m
 ⬆ /gsd-update | v1.2 Auth rewrite · executing · session tokens (3/7) | ⚑ #12 fix login +1 /5 | myproject | git:(main) | ⑂ feature-x

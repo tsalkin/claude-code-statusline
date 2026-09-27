@@ -12,6 +12,14 @@
 
 ## Как выглядит
 
+Вживую, на машинах автора — macOS (Ghostty) и Windows 11 (Git Bash). Третья строка — собственная строка Claude Code.
+
+![Строка статуса на macOS](docs/screenshots/macos.png)
+
+![Строка статуса на Windows 11, Git Bash](docs/screenshots/windows.png)
+
+Все блоки, с включёнными необязательными модулями:
+
 ```
 [Opus 5 (1M context)] | ⚡high✦(≠xhigh) | ▰▰▱▱▱▱ 42% (420K/1000K) | ◈95% | H:70% 2h10m W:88% | ⏱ 1h 20m
 ⬆ /gsd-update | v1.2 Auth rewrite · executing · session tokens (3/7) | ⚑ #12 fix login +1 /5 | myproject | git:(main) | ⑂ feature-x
