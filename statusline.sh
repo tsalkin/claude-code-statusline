@@ -82,24 +82,31 @@ mtime() {  # file modification time, epoch seconds
 }
 
 # === Extract from JSON ======================================================
-current_dir=$(echo "$input" | jq -r '.workspace.current_dir // ""')
-project_dir=$(echo "$input" | jq -r '.workspace.project_dir // ""')
-model_name=$(echo "$input" | jq -r '.model.display_name // ""')
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
-context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
-remaining_pct=$(echo "$input" | jq -r '.context_window.remaining_percentage // 100')
-transcript=$(echo "$input" | jq -r '.transcript_path // ""')
-session_id=$(echo "$input" | jq -r '.session_id // ""')
-effort=$(echo "$input" | jq -r '.effort.level // "auto"')
-thinking=$(echo "$input" | jq -r '.thinking.enabled // false')
-cache_warm=$(echo "$input" | jq -r '.prompt_cache.warm // false')
-cache_hit=$(echo "$input" | jq -r '.prompt_cache.hit_ratio // empty')
-cache_cold_tokens=$(echo "$input" | jq -r '.prompt_cache.recache_tokens_if_cold // empty')
-model_id=$(echo "$input" | jq -r '.model.id // ""')
-git_worktree=$(echo "$input" | jq -r '.workspace.git_worktree // ""')
-rl_five_used=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-rl_week_used=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-rl_five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+# One jq for all fields: every process start costs ~40 ms on Windows, and
+# eighteen separate calls made up most of a two-second render. @sh quotes each
+# value for the shell.
+eval "$(printf '%s' "$input" | jq -r '@sh "
+current_dir=\(.workspace.current_dir // "")
+project_dir=\(.workspace.project_dir // "")
+model_name=\(.model.display_name // "")
+used_pct=\(.context_window.used_percentage // 0)
+context_size=\(.context_window.context_window_size // 200000)
+remaining_pct=\(.context_window.remaining_percentage // 100)
+transcript=\(.transcript_path // "")
+session_id=\(.session_id // "")
+effort=\(.effort.level // "auto")
+thinking=\(.thinking.enabled // false)
+cache_warm=\(.prompt_cache.warm // false)
+cache_hit=\(.prompt_cache.hit_ratio // "")
+cache_cold_tokens=\(.prompt_cache.recache_tokens_if_cold // "")
+model_id=\(.model.id // "")
+git_worktree=\(.workspace.git_worktree // "")
+rl_five_used=\(.rate_limits.five_hour.used_percentage // "")
+rl_week_used=\(.rate_limits.seven_day.used_percentage // "")
+rl_five_reset=\(.rate_limits.five_hour.resets_at // "")"' 2>/dev/null)"
+# Input that is not JSON at all leaves everything unset: same defaults as above.
+: "${used_pct:=0}" "${context_size:=200000}" "${remaining_pct:=100}"
+: "${effort:=auto}" "${thinking:=false}" "${cache_warm:=false}"
 
 # === Git branch + project ===================================================
 cd "$current_dir" 2>/dev/null || cd "$project_dir" 2>/dev/null
@@ -268,8 +275,10 @@ except Exception:
 
 build_limits() {  # $1=five_used% $2=week_used% $3=five_reset
     local fl wl tl fc wc
-    fl=$(python3 -c "import sys; print(int(100 - float(sys.argv[1])))" "$1" 2>/dev/null || echo "?")
-    wl=$(python3 -c "import sys; print(int(100 - float(sys.argv[1])))" "$2" 2>/dev/null || echo "?")
+    # remaining % = int(100 - used), truncated toward zero; "?" for a non-number
+    read -r fl wl < <(awk -v f="$1" -v w="$2" 'function left(u) {
+        return (u ~ /^-?[0-9]+(\.[0-9]*)?$/) ? int(100 - u) : "?" }
+        BEGIN { print left(f), left(w) }')
     tl=""
     [ -n "$3" ] && [ "$3" != "null" ] && tl=$(fmt_reset "$3")
     fc=$(usage_color "$fl"); wc=$(usage_color "$wl")
@@ -304,30 +313,49 @@ gsd_update=""
 gsd_task=""
 if [ "$STATUSLINE_SHOW_GSD" = "1" ]; then
     search_dir="$current_dir"
-    for i in $(seq 1 10); do
+    for i in {1..10}; do
         state_file="$search_dir/.planning/STATE.md"
         if [ -f "$state_file" ]; then
-            state_content=$(cat "$state_file")
-            # YAML frontmatter ([[:space:]] for BSD sed)
-            frontmatter=$(echo "$state_content" | sed -n '/^---$/,/^---$/p')
-            gsd_status=$(echo "$frontmatter" | grep '^status:' | head -1 | sed -E 's/^status:[[:space:]]*//' | tr -d '"'"'")
-            gsd_milestone=$(echo "$frontmatter" | grep '^milestone:' | head -1 | sed -E 's/^milestone:[[:space:]]*//' | tr -d '"'"'")
-            gsd_ms_name=$(echo "$frontmatter" | grep '^milestone_name:' | head -1 | sed -E 's/^milestone_name:[[:space:]]*//' | tr -d '"'"'")
-            # Phase line from the body, two formats:
+            # One awk instead of a dozen grep/sed/tr pipes (each a process start):
+            # the first status / milestone / milestone_name inside the YAML
+            # frontmatter blocks (--- … ---, as `sed -n '/^---$/,/^---$/p'`
+            # selects them), quotes removed, and the first "Phase:" line anywhere.
+            gsd_status=""; gsd_milestone=""; gsd_ms_name=""; phase_line=""
+            eval "$(awk '
+                function q(v) { gsub(/\047/, "\047\\\047\047", v); return "\047" v "\047" }
+                function key(k,   v) {
+                    if (seen[k] || index($0, k ":") != 1) return
+                    seen[k] = 1; v = substr($0, length(k) + 2)
+                    sub(/^[[:space:]]*/, "", v); gsub(/["\047]/, "", v); val[k] = v
+                }
+                {
+                    fm = 0
+                    if (inside) { fm = 1; if ($0 ~ /^---$/) inside = 0 }
+                    else if ($0 ~ /^---$/) { inside = 1; fm = 1 }
+                    if (fm) { key("status"); key("milestone"); key("milestone_name") }
+                    if (phase == "" && $0 ~ /^Phase:/) phase = $0
+                }
+                END {
+                    print "gsd_status=" q(val["status"]) "; gsd_milestone=" q(val["milestone"]) \
+                          "; gsd_ms_name=" q(val["milestone_name"]) "; phase_line=" q(phase)
+                }' "$state_file" 2>/dev/null)"
+            # Phase line, two formats:
             #   "Phase: N of M (name)"  and  "Phase: 05 (name) — STATUS"
-            phase_line=$(echo "$state_content" | grep -m1 '^Phase:')
             gsd_phase=""
-            if echo "$phase_line" | grep -qE '^Phase:[[:space:]]*[0-9]+[[:space:]]+of[[:space:]]+[0-9]+'; then
-                gsd_phase=$(echo "$phase_line" | sed -E 's/^Phase:[[:space:]]*([0-9]+)[[:space:]]+of[[:space:]]+([0-9]+)([[:space:]]+\(([^)]+)\))?.*/\4 (\1\/\2)/')
-            elif echo "$phase_line" | grep -qE '^Phase:[[:space:]]*[0-9]+'; then
-                gsd_phase=$(echo "$phase_line" | sed -E 's/^Phase:[[:space:]]*0*([0-9]+)[[:space:]]*\(([^)]+)\).*/\2 (ph\1)/')
+            re_of='^Phase:[[:space:]]*([0-9]+)[[:space:]]+of[[:space:]]+([0-9]+)([[:space:]]+\(([^)]+)\))?'
+            re_num='^Phase:[[:space:]]*0*([0-9]+)[[:space:]]*\(([^)]+)\)'
+            if [[ "$phase_line" =~ $re_of ]]; then
+                gsd_phase="${BASH_REMATCH[4]} (${BASH_REMATCH[1]}/${BASH_REMATCH[2]})"
+            elif [[ "$phase_line" =~ ^Phase:[[:space:]]*[0-9]+ ]]; then
+                gsd_phase="$phase_line"
+                [[ "$phase_line" =~ $re_num ]] && gsd_phase="${BASH_REMATCH[2]} (ph${BASH_REMATCH[1]})"
             fi
 
             gsd_parts=()
             ms_str=""
             [ -n "$gsd_milestone" ] && [ "$gsd_milestone" != "null" ] && ms_str="$gsd_milestone"
             [ -n "$gsd_ms_name" ] && [ "$gsd_ms_name" != "null" ] && [ "$gsd_ms_name" != "milestone" ] && ms_str="$ms_str $gsd_ms_name"
-            ms_str=$(echo "$ms_str" | xargs) # trim
+            read -r -a ms_words <<< "$ms_str"; ms_str="${ms_words[*]}"  # trim, squeeze spaces (was: xargs)
             [ -n "$ms_str" ] && gsd_parts+=("$ms_str")
             [ -n "$gsd_status" ] && [ "$gsd_status" != "null" ] && gsd_parts+=("$gsd_status")
             [ -n "$gsd_phase" ] && gsd_parts+=("$gsd_phase")
