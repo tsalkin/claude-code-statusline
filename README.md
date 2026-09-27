@@ -84,7 +84,7 @@ That's it — the next assistant message redraws the line.
 | `python3` | reset countdown, `H:`/`W:` percentages, effort check, GSD bridge |
 | `curl` | only the usage-limits fallback (below) |
 
-Works on macOS and Linux; Windows via Git Bash is untested.
+Works on macOS, Linux and Windows via Git Bash (tests pass on macOS and on Windows 11 in Git Bash).
 
 ## Configuration
 
@@ -135,7 +135,7 @@ Recent Claude Code versions put `rate_limits` straight into the status-line payl
 
 - macOS: Keychain (`security find-generic-password`),
 - Linux: GNOME Keyring / KWallet via libsecret (`secret-tool`),
-- Windows (Git Bash): Credential Manager via PowerShell,
+- Windows (Git Bash): Credential Manager via PowerShell (`Get-StoredCredential` needs the third-party `CredentialManager` module; not yet verified live),
 
 — takes the OAuth access token from it and asks `https://api.anthropic.com/api/oauth/usage` for your usage. The answer is cached in `~/.claude/.usage-cache.json` (mode 600) for 2 minutes. The token is never written to disk or printed, but it is passed to `curl` as a command-line argument, so for a moment it is visible in the process list to other users of the same machine. This endpoint is not part of the documented public API and may change.
 

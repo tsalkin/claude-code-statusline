@@ -84,7 +84,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 | `python3` | отсчёт до сброса, проценты `H:`/`W:`, сверка усилий, мост GSD |
 | `curl` | только запасной путь лимитов (ниже) |
 
-Работает на macOS и Linux; Windows через Git Bash не проверялся.
+Работает на macOS, Linux и Windows через Git Bash (тесты проходят на macOS и на Windows 11 в Git Bash).
 
 ## Настройки
 
@@ -135,7 +135,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 
 - macOS: связка ключей Keychain (`security find-generic-password`),
 - Linux: GNOME Keyring / KWallet через libsecret (`secret-tool`),
-- Windows (Git Bash): диспетчер учётных данных через PowerShell,
+- Windows (Git Bash): диспетчер учётных данных через PowerShell (`Get-StoredCredential` требует стороннего модуля `CredentialManager`; вживую пока не проверялся),
 
 — берёт из неё OAuth-токен и спрашивает `https://api.anthropic.com/api/oauth/usage` о расходе. Ответ кешируется в `~/.claude/.usage-cache.json` (права 600) на 2 минуты. Токен не пишется на диск и не печатается, но передаётся `curl` аргументом командной строки — на мгновение он виден в списке процессов другим пользователям той же машины. Этот адрес не входит в документированный публичный API и может измениться.
 
