@@ -24,6 +24,15 @@ trap 'rm -rf "$TMP"' EXIT
 NOW=1790000000
 pass=0; fail=0
 
+# PATH inside the sandbox: the system directories plus wherever this machine keeps
+# the tools the script needs (Git Bash: ~/.local/bin, /mingw64/bin; Homebrew; …).
+# TEST_PATH overrides it.
+SANDBOX_PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
+for tool in jq git python3; do
+    tool_path=$(command -v "$tool" 2>/dev/null) || continue
+    case ":$SANDBOX_PATH:" in *":${tool_path%/*}:"*) ;; *) SANDBOX_PATH="${tool_path%/*}:$SANDBOX_PATH" ;; esac
+done
+
 # new_case <name>: fresh sandbox; sets CASE_ROOT and WORK (the project directory)
 new_case() {
     CASE_ROOT="$TMP/$1"
@@ -41,7 +50,7 @@ render() {
     sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/$fixture" \
         | (cd "$WORK" && env -i \
             HOME="$CASE_ROOT/home" \
-            PATH="${TEST_PATH:-/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin}" \
+            PATH="${TEST_PATH:-$SANDBOX_PATH}" \
             TMPDIR="$CASE_ROOT" \
             LANG=en_US.UTF-8 \
             STATUSLINE_NOW="$NOW" \
