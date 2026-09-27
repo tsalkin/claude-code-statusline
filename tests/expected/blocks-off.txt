@@ -1,2 +1,2 @@
-[Opus 5 (1M context)] | [32m━━━━━━[0m 42% (420K/1000K)
+[Opus 5 (1M context)] | [92m▰▰[0;2;32m▱▱▱▱[0m 42% (420K/1000K)
 myproject | [35m⑂ feature-x[0m

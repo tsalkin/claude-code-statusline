@@ -1,2 +1,2 @@
-[Opus 5] | [35m⚡xhigh[0m | [31m━━━━━━[0m 88% (175K/200K) | [31m◈cold 175K[0m | [31mH:15%[0m [33mW:35%[0m | ⏱ 0m
+[Opus 5] | [35m⚡xhigh[0m | [91m▰▰▰▰▰[0;2;31m▱[0m 88% (175K/200K) | [31m◈cold 175K[0m | [31mH:15%[0m [33mW:35%[0m | ⏱ 0m
 [31m⚑ #7 renew certificate[0m [2m+2[0m [2m/4[0m | myproject | git:(main)

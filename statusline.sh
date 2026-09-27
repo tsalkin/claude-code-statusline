@@ -158,16 +158,18 @@ fi
 bar_len=$STATUSLINE_BAR_LEN
 filled=$((used_int * bar_len / 100))
 empty=$((bar_len - filled))
+# ANSI hue: 2 green, 3 yellow, 1 red. Filled part bright (9x), empty part dim (2;3x).
 if [ "$used_int" -lt "$STATUSLINE_CTX_WARN" ]; then
-    ctx_color="\033[32m"
+    ctx_hue=2
 elif [ "$used_int" -lt "$STATUSLINE_CTX_CRIT" ]; then
-    ctx_color="\033[33m"
+    ctx_hue=3
 else
-    ctx_color="\033[31m"
+    ctx_hue=1
 fi
-bar="${ctx_color}"
-for ((i=0; i<filled; i++)); do bar+="━"; done
-for ((i=0; i<empty; i++)); do bar+="━"; done
+bar="\033[9${ctx_hue}m"
+for ((i=0; i<filled; i++)); do bar+="▰"; done
+bar+="\033[0;2;3${ctx_hue}m"
+for ((i=0; i<empty; i++)); do bar+="▱"; done
 bar+="\033[0m"
 
 # === GSD context bridge (for the GSD context-monitor hook) ==================

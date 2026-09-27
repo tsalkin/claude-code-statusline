@@ -16,6 +16,7 @@
 # STATUSLINE_SHOW_PROJECT=1
 # STATUSLINE_SHOW_GIT=1
 # STATUSLINE_SHOW_WORKTREE=1
+# STATUSLINE_SHOW_RC=1
 
 # --- Thresholds ---
 # STATUSLINE_BAR_LEN=6
@@ -28,6 +29,7 @@
 # --- Usage-limits fallback (reads Claude Code credentials from the OS secret store) ---
 # STATUSLINE_USAGE_API=1        # 0 = never touch the credential store or the network
 # STATUSLINE_USAGE_TTL=120
+# STATUSLINE_USAGE_CACHE="$HOME/.claude/.usage-cache.json"   # default: $CLAUDE_DIR/.usage-cache.json
 
 # --- Tasks module: your own tracker, printing {"total":N,"first":"...","priority":0-9,"urgent":N} ---
 # STATUSLINE_TASKS_CMD="$HOME/bin/my-tasks-json"
