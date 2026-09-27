@@ -1,0 +1,1 @@
+{"session_id":"0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31","remaining_percentage":58,"used_pct":50,"timestamp":1790000000}

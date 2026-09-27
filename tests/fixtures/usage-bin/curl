@@ -1,0 +1,7 @@
+#!/bin/bash
+# Fake curl for the usage-limits fallback: answers only if the token came on stdin
+# (-H @-) and never in argv.
+case " $* " in *test-token-0001*) exit 7 ;; esac
+case " $* " in *" -H @- "*) ;; *) exit 7 ;; esac
+grep -qx 'Authorization: Bearer test-token-0001' || exit 22
+printf '{"five_hour":{"utilization":35.5,"resets_at":null},"seven_day":{"utilization":60}}\n'

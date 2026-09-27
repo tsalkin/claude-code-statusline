@@ -26,8 +26,8 @@
 # STATUSLINE_LIMIT_WARN=20
 # STATUSLINE_CACHE_GOOD=90
 
-# --- Usage-limits fallback (reads Claude Code credentials from the OS secret store) ---
-# STATUSLINE_USAGE_API=1        # 0 = never touch the credential store or the network
+# --- Usage-limits fallback (reads Claude Code's stored login: Keychain or ~/.claude/.credentials.json) ---
+# STATUSLINE_USAGE_API=1        # 0 = never touch the stored login or the network
 # STATUSLINE_USAGE_TTL=120
 # STATUSLINE_USAGE_CACHE="$HOME/.claude/.usage-cache.json"   # default: $CLAUDE_DIR/.usage-cache.json
 

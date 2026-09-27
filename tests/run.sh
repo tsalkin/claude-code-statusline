@@ -45,9 +45,11 @@ make_gsd_upd()  { mkdir -p "$CASE_ROOT/home/.cache/gsd" && cp "$FIX/gsd-update-c
 make_settings() { cp "$FIX/settings.json" "$CASE_ROOT/home/.claude/settings.json"; }
 
 # render <fixture> [VAR=value ...]  → prints the status line
+# <fixture> is a name in tests/fixtures or an absolute path.
 render() {
-    local fixture="$1"; shift
-    sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/$fixture" \
+    local fixture="$1" src; shift
+    case "$fixture" in /*) src="$fixture" ;; *) src="$FIX/$fixture" ;; esac
+    sed "s#__ROOT__#$CASE_ROOT#g" "$src" \
         | (cd "$WORK" && env -i \
             HOME="$CASE_ROOT/home" \
             PATH="${TEST_PATH:-$SANDBOX_PATH}" \
@@ -166,6 +168,34 @@ check rc-no-record "$(render full.json)"
 # 14. CLAUDE_CONFIG_DIR points elsewhere: the registry is read from there
 new_case rc-config-dir; make_git; make_sessions bridge-0002 "$CASE_ROOT/altclaude"
 check rc-config-dir "$(render full.json CLAUDE_CONFIG_DIR="$CASE_ROOT/altclaude")"
+
+# 16. Usage-limits fallback: no rate_limits in the payload, the token comes from
+# $CLAUDE_DIR/.credentials.json (Linux, Windows) and reaches curl on stdin, never in
+# argv. Fake curl and security: no network, and the real Keychain is never read.
+new_case usage-fallback
+cp "$FIX/credentials.json" "$CASE_ROOT/home/.claude/.credentials.json"
+check usage-fallback "$(render minimal.json STATUSLINE_USAGE_API=1 \
+    PATH="$FIX/usage-bin:$SANDBOX_PATH")"
+
+# 17. Fallback on, but no stored login anywhere: no H:/W: block, nothing else changes
+new_case usage-no-login
+check usage-no-login "$(render minimal.json STATUSLINE_USAGE_API=1 PATH="$FIX/usage-bin:$SANDBOX_PATH")"
+
+# 18. GSD context bridge lands in $TMPDIR, where the hook's os.tmpdir() looks
+new_case gsd-bridge
+render full.json STATUSLINE_GSD_BRIDGE=1 >/dev/null
+check gsd-bridge "$(cat "$CASE_ROOT/claude-ctx-$SID.json" 2>&1)"
+
+# 19. The walk up to .planning/ stops at $HOME: a STATE.md above it is not ours.
+# Where cygpath exists (Git Bash) current_dir comes Windows-style, as Claude Code
+# sends it there — the spelling that used to walk straight past $HOME.
+new_case gsd-stop-at-home
+WORK="$CASE_ROOT/home/work/myproject"; mkdir -p "$WORK" "$CASE_ROOT/.planning"
+cp "$FIX/STATE.md" "$CASE_ROOT/.planning/STATE.md"
+work_dir="$WORK"; command -v cygpath >/dev/null 2>&1 && work_dir=$(cygpath -w "$WORK")
+jq --arg d "$work_dir" '.workspace.current_dir = $d | .workspace.project_dir = $d' \
+    "$FIX/full.json" > "$CASE_ROOT/payload.json"
+check gsd-stop-at-home "$(render "$CASE_ROOT/payload.json")"
 
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq

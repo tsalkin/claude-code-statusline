@@ -54,8 +54,9 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_LIMIT_WARN:=20}"         # limit remaining % → yellow above, red otherwise
 : "${STATUSLINE_CACHE_GOOD:=90}"         # prompt-cache hit % → green at or above
 
-# Usage-limits fallback: when the payload has no rate_limits, read the Claude Code
-# OAuth token from the OS credential store and ask the usage endpoint. 0 = never.
+# Usage-limits fallback: when the payload has no rate_limits, read the OAuth token
+# from Claude Code's stored login (Keychain or .credentials.json) and ask the
+# usage endpoint. 0 = never.
 : "${STATUSLINE_USAGE_API:=1}"
 : "${STATUSLINE_USAGE_TTL:=120}"
 : "${STATUSLINE_USAGE_CACHE:=$CLAUDE_DIR/.usage-cache.json}"
@@ -173,8 +174,10 @@ for ((i=0; i<empty; i++)); do bar+="▱"; done
 bar+="\033[0m"
 
 # === GSD context bridge (for the GSD context-monitor hook) ==================
-# Writes the normalised context usage to /tmp/claude-ctx-<session>.json so the hook
-# can warn before auto-compaction. Nothing is printed.
+# Writes the normalised context usage to <tmp>/claude-ctx-<session>.json so the hook
+# can warn before auto-compaction. Nothing is printed. <tmp> is where the hook reads:
+# Node's os.tmpdir() — $TMPDIR on macOS and Linux (/var/folders/… on a Mac, not
+# /tmp), %TEMP% on Windows, which Git Bash mounts as /tmp and exports as $TMPDIR.
 gsd_bridge=0
 case "$STATUSLINE_GSD_BRIDGE" in
     1|on|true) gsd_bridge=1 ;;
@@ -188,7 +191,8 @@ r = float(sys.argv[1]); b = float(sys.argv[2])
 usable_rem = max(0, (r - b) / (100 - b) * 100)
 print(int(max(0, min(100, 100 - usable_rem))))
 " "$remaining_pct" "$AUTO_COMPACT_BUFFER_PCT" 2>/dev/null || echo "$used_int")
-    bridge_path="/tmp/claude-ctx-${session_id}.json"
+    bridge_dir="${TMPDIR:-/tmp}"
+    bridge_path="${bridge_dir%/}/claude-ctx-${session_id}.json"
     printf '{"session_id":"%s","remaining_percentage":%s,"used_pct":%s,"timestamp":%s}' \
         "$session_id" "$remaining_pct" "$used_norm" "$NOW" > "$bridge_path" 2>/dev/null
 fi
@@ -197,31 +201,29 @@ fi
 fetch_usage() {
     local token cred_json
 
-    # Step 1: read the Claude Code credentials JSON from the OS secret store
+    # Step 1: the credentials JSON where Claude Code keeps it (code.claude.com/docs/en/iam,
+    # "Credential management"): the Keychain on macOS; $CLAUDE_DIR/.credentials.json on
+    # Linux and Windows, and on macOS when the Keychain refused the write.
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS: Keychain
         cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-    elif [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* || "$OSTYPE" == "win"* ]]; then
-        # Windows (Git Bash / MSYS2 / Cygwin): Credential Manager via PowerShell
-        cred_json=$(powershell.exe -NoProfile -Command \
-            '[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((Get-StoredCredential -Target "Claude Code-credentials" -AsCredentialObject).Password))' 2>/dev/null)
-    else
-        # Linux: GNOME Keyring / KWallet via libsecret
-        cred_json=$(secret-tool lookup service "Claude Code-credentials" 2>/dev/null)
+    fi
+    if [ -z "$cred_json" ] && [ -f "$CLAUDE_DIR/.credentials.json" ]; then
+        cred_json=$(cat "$CLAUDE_DIR/.credentials.json" 2>/dev/null)
     fi
 
     # Step 2: extract the OAuth access token
     if [ -n "$cred_json" ]; then
-        token=$(echo "$cred_json" \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['claudeAiOauth']['accessToken'])" 2>/dev/null)
+        token=$(printf '%s' "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
     fi
 
-    # Step 3: ask the usage endpoint
+    # Step 3: ask the usage endpoint. The Authorization header goes to curl on stdin
+    # (-H @-, printf is a builtin): a token in argv is visible in the process list.
     if [ -n "$token" ]; then
-        curl -sf --max-time 5 "https://api.anthropic.com/api/oauth/usage" \
-            -H "Authorization: Bearer $token" \
-            -H "anthropic-beta: oauth-2025-04-20" \
-            -H "Accept: application/json" 2>/dev/null
+        printf 'Authorization: Bearer %s\n' "$token" \
+            | curl -sf --max-time 5 "https://api.anthropic.com/api/oauth/usage" \
+                -H @- \
+                -H "anthropic-beta: oauth-2025-04-20" \
+                -H "Accept: application/json" 2>/dev/null
     fi
 }
 
@@ -293,11 +295,11 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset
 
 limits_part=""
 if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
-    # Preferred: native rate_limits from the payload (no credential store, no network)
+    # Preferred: native rate_limits from the payload (no stored login, no network)
     if [ -n "$rl_five_used" ]; then
         limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset")
     fi
-    # Fallback: credential store + usage endpoint, only if the payload lacks rate_limits
+    # Fallback: stored login + usage endpoint, only if the payload lacks rate_limits
     if [ -z "$limits_part" ] && [ "$STATUSLINE_USAGE_API" = "1" ]; then
         usage_data=$(get_usage)
         if [ -n "$usage_data" ]; then
@@ -314,7 +316,12 @@ gsd_part=""
 gsd_update=""
 gsd_task=""
 if [ "$STATUSLINE_SHOW_GSD" = "1" ]; then
+    # The stop at $HOME needs one spelling of paths: on Windows current_dir comes
+    # as C:\Users\… while Git Bash's $HOME is /c/Users/…, and the walk went past it.
     search_dir="$current_dir"
+    if [[ "$search_dir" == *\\* || "$search_dir" == [A-Za-z]:* ]] && command -v cygpath >/dev/null 2>&1; then
+        search_dir=$(cygpath -u "$search_dir" 2>/dev/null || printf '%s' "$search_dir")
+    fi
     for i in {1..10}; do
         state_file="$search_dir/.planning/STATE.md"
         if [ -f "$state_file" ]; then

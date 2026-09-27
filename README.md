@@ -81,7 +81,7 @@ That's it — the next assistant message redraws the line.
 | `bash` (3.2+) | everything |
 | `jq` | everything — without it the line prints `jq not found` and nothing else |
 | `git` | branch block (skipped silently if missing) |
-| `python3` | reset countdown, `H:`/`W:` percentages, effort check, GSD bridge |
+| `python3` | reset countdown, effort check, GSD bridge |
 | `curl` | only the usage-limits fallback (below) |
 
 Works on macOS, Linux and Windows via Git Bash. The test suite passes on macOS (bash 3.2), Ubuntu 24.04 (bash 5.2, ext4) and Windows 11 in Git Bash (bash 5.3).
@@ -131,13 +131,12 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 
 Recent Claude Code versions put `rate_limits` straight into the status-line payload, and then this script uses only that — no credentials, no network.
 
-**If the payload has no `rate_limits`**, the script falls back to the old way: it reads Claude Code's own stored login (the entry `Claude Code-credentials`) from the OS secret store —
+**If the payload has no `rate_limits`**, the script falls back to the old way: it reads Claude Code's own stored login from where [Claude Code keeps it](https://code.claude.com/docs/en/iam#credential-management) —
 
-- macOS: Keychain (`security find-generic-password`),
-- Linux: GNOME Keyring / KWallet via libsecret (`secret-tool`; not yet verified live),
-- Windows (Git Bash): Credential Manager via PowerShell (`Get-StoredCredential` needs the third-party `CredentialManager` module; not yet verified live),
+- macOS: the Keychain entry `Claude Code-credentials` (`security find-generic-password`), or `~/.claude/.credentials.json` if Claude Code had to fall back to that file,
+- Linux and Windows (Git Bash): `~/.claude/.credentials.json` (under `$CLAUDE_CONFIG_DIR` if set),
 
-— takes the OAuth access token from it and asks `https://api.anthropic.com/api/oauth/usage` for your usage. The answer is cached in `~/.claude/.usage-cache.json` (mode 600) for 2 minutes. The token is never written to disk or printed, but it is passed to `curl` as a command-line argument, so for a moment it is visible in the process list to other users of the same machine. This endpoint is not part of the documented public API and may change.
+— takes the OAuth access token from it and asks `https://api.anthropic.com/api/oauth/usage` for your usage. The answer is cached in `~/.claude/.usage-cache.json` (mode 600) for 2 minutes. The token is never written to disk, printed or put on a command line: it reaches `curl` on stdin (`-H @-`), so it does not show up in the process list. This endpoint is not part of the documented public API and may change.
 
 To switch the fallback off completely:
 
@@ -145,9 +144,9 @@ To switch the fallback off completely:
 STATUSLINE_USAGE_API=0
 ```
 
-With that set, the script never touches the credential store or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
+With that set, the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
 
-Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `/tmp/claude-ctx-<session>.json`.
+Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
 
 ## Optional modules
 
@@ -178,7 +177,7 @@ tests/run.sh            # renders every case in tests/fixtures and compares byte
 tests/run.sh --update   # rewrite tests/expected after an intended change (review the diff!)
 ```
 
-Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), `jq` missing. Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
+Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, usage-limits fallback (login file, token on stdin; no login at all — with fake `curl` and `security`), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing. Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
 
 ## License
 
