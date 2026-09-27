@@ -172,14 +172,25 @@ check rc-config-dir "$(render full.json CLAUDE_CONFIG_DIR="$CASE_ROOT/altclaude"
 # 16. Usage-limits fallback: no rate_limits in the payload, the token comes from
 # $CLAUDE_DIR/.credentials.json (Linux, Windows) and reaches curl on stdin, never in
 # argv. Fake curl and security: no network, and the real Keychain is never read.
+# The fakes must be executable: PATH lookup skips a file without the x bit (macOS,
+# Linux; Git Bash ignores it), and then the REAL curl and security run — network and
+# Keychain. Refuse to render instead.
+usage_bin_ok() {
+    local t
+    for t in curl security; do
+        [ -x "$FIX/usage-bin/$t" ] && continue
+        echo "FAIL     $1: usage-bin/$t is not executable — the real $t would run"
+        fail=$((fail + 1)); return 1
+    done
+}
 new_case usage-fallback
 cp "$FIX/credentials.json" "$CASE_ROOT/home/.claude/.credentials.json"
-check usage-fallback "$(render minimal.json STATUSLINE_USAGE_API=1 \
+usage_bin_ok usage-fallback && check usage-fallback "$(render minimal.json STATUSLINE_USAGE_API=1 \
     PATH="$FIX/usage-bin:$SANDBOX_PATH")"
 
 # 17. Fallback on, but no stored login anywhere: no H:/W: block, nothing else changes
 new_case usage-no-login
-check usage-no-login "$(render minimal.json STATUSLINE_USAGE_API=1 PATH="$FIX/usage-bin:$SANDBOX_PATH")"
+usage_bin_ok usage-no-login && check usage-no-login "$(render minimal.json STATUSLINE_USAGE_API=1 PATH="$FIX/usage-bin:$SANDBOX_PATH")"
 
 # 18. GSD context bridge lands in $TMPDIR, where the hook's os.tmpdir() looks
 new_case gsd-bridge
