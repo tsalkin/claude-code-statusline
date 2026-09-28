@@ -2,11 +2,11 @@
 
 Updated 2026-09-28 (evening).
 
-**Where we are.** `main` (merged fast-forward from `feat/payload-subagents-plugin`, **not pushed**): payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 33/33 on macOS. See `docs/DEVLOG.md`, entry "payload blocks, subagent rows, plugin". The owner's live status line now runs this code.
+**Where we are.** `main` = `origin/main` (merged from `feat/payload-subagents-plugin`, pushed by the owner 2026-09-28): payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 33/33 on macOS. See `docs/DEVLOG.md`, entry "payload blocks, subagent rows, plugin". The owner's live status line now runs this code.
 
-**Next step.** Owner looks at the live line and pushes (`git push origin main`). Level: *merged*, *live on the owner's Mac*, *not pushed*, *not confirmed by eye*.
+**Next step.** None required. Owner confirms by eye: subagent rows during a run with agents, and a narrowed window dropping blocks. Level: *pushed*, *live on the owner's Mac*, *not confirmed by eye*.
 
-After the push: `/plugin marketplace add tsalkin/claude-code-statusline` + install + `/claude-code-statusline:setup` from GitHub on one machine (verified only from a local git source so far).
+Plugin install from GitHub verified 2026-09-28 in a sandbox `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add tsalkin/claude-code-statusline`, install (version `904204865fbf`), `setup` skill listed, installer through the launcher, render.
 
 **Loose ends.**
 - Linux (Ubuntu 24.04) and Windows 11 Git Bash: the suite has not run there since the new cases (GNU `date -d @`, `cygpath -m` in the installer).
