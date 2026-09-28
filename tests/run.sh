@@ -12,6 +12,7 @@
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="${STATUSLINE_SCRIPT:-$HERE/../statusline.sh}"
+SUB_SCRIPT="${STATUSLINE_SUB_SCRIPT:-$HERE/../subagent-statusline.sh}"
 FIX="$HERE/fixtures"
 EXP="$HERE/expected"
 UPDATE=0
@@ -75,8 +76,9 @@ render() {
             STATUSLINE_NOW="$NOW" \
             STATUSLINE_USAGE_API=0 \
             STATUSLINE_GSD_BRIDGE=0 \
-            "$@" /bin/bash "$SCRIPT")
+            "$@" /bin/bash "${RENDER_SCRIPT:-$SCRIPT}")
 }
+render_sub() { RENDER_SCRIPT="$SUB_SCRIPT" render "$@"; }
 
 # check <name> <actual output>
 check() {
@@ -257,6 +259,22 @@ check fit-20 "$(render rich.json COLUMNS=20)"
 new_case new-blocks-off; make_git
 check new-blocks-off "$(render rich.json STATUSLINE_SHOW_PACE=0 STATUSLINE_SHOW_CACHE_EXPIRY=0 \
     STATUSLINE_SHOW_MISS_CAUSE=0 STATUSLINE_SHOW_SESSION_NAME=0 STATUSLINE_SHOW_PR=0 COLUMNS=70 STATUSLINE_FIT=0)"
+
+# 26. Subagent rows: one JSON line per agent, shell tasks left to Claude Code; a
+# subagent below effortLevel (settings: xhigh) is red; no effort = inherited; a token
+# budget as a number; growth sparkline from tokenSamples; the task text cut to width.
+new_case subagents; make_settings
+check subagents "$(render_sub subagents.json)"
+
+# 27. Narrow panel: the task text shrinks, then goes; effort check off
+new_case subagents-narrow
+jq '.columns = 58' "$FIX/subagents.json" > "$CASE_ROOT/payload.json"
+check subagents-narrow "$(render_sub "$CASE_ROOT/payload.json" STATUSLINE_SHOW_EFFORT_CHECK=0)"
+
+# 28. No jq: no output at all, so Claude Code keeps its own rows
+new_case subagents-no-jq
+out=$(TEST_PATH=/nonexistent render_sub subagents.json; echo "exit=$?")
+check subagents-no-jq "$out"
 
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
