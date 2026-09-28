@@ -2,9 +2,9 @@
 
 Updated 2026-09-28 (evening).
 
-**Where we are.** Branch `feat/payload-subagents-plugin` (local, not pushed) on top of `main`: payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 33/33 on macOS. See `docs/DEVLOG.md`, entry "payload blocks, subagent rows, plugin". `main` = `origin/main` + the prior-art commit, unchanged by the branch.
+**Where we are.** `main` (merged fast-forward from `feat/payload-subagents-plugin`, **not pushed**): payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 33/33 on macOS. See `docs/DEVLOG.md`, entry "payload blocks, subagent rows, plugin". The owner's live status line now runs this code.
 
-**Next step.** Owner reviews the branch, then merges it into `main` (the live line changes at once — it runs from this working copy) and pushes. Level: *code written*, *not merged*, *not pushed*, *not seen live*.
+**Next step.** Owner looks at the live line and pushes (`git push origin main`). Level: *merged*, *live on the owner's Mac*, *not pushed*, *not confirmed by eye*.
 
 After the push: `/plugin marketplace add tsalkin/claude-code-statusline` + install + `/claude-code-statusline:setup` from GitHub on one machine (verified only from a local git source so far).
 
@@ -16,5 +16,5 @@ After the push: `/plugin marketplace add tsalkin/claude-code-statusline` + insta
 - Optional, from before: the last bar cell only at 100% (today a full bar starts at 92%).
 
 **Working notes.**
-- The live status line on the author's Mac runs straight from this working copy, so checking out a branch changes it immediately. This branch was built in a worktree for that reason.
+- The live status line on the author's Mac runs straight from this working copy, so checking out a branch changes it immediately. The feature branch was built in a worktree for that reason.
 - `git push` and remote branch deletion are done by the owner (a hook blocks them for the agent — including pushes to scratch repositories).
