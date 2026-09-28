@@ -1,6 +1,8 @@
 # Prior art — other Claude Code status lines (2026-09-28)
 
-What other status lines do, what this one could take, what to avoid. A backlog of ideas, not a plan: nothing here is decided.
+What other status lines do, what this one could take, what to avoid.
+
+**Status 2026-09-28:** ideas 1–7 and 9 done on `feat/payload-subagents-plugin` (see DEVLOG). Open: 8 (opt-in service status, cost, git dirty/ahead-behind, MCP count) and the small payload fields not taken (`spend_limit`, `fast_mode`, `agent.name`, `vim.mode`, `output_style`, `worktree.*`, `workspace.repo`, `added_dirs`, `cost.*`).
 
 ## Official payload: fields this script does not read yet
 

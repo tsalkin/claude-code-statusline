@@ -17,6 +17,12 @@
 # STATUSLINE_SHOW_GIT=1
 # STATUSLINE_SHOW_WORKTREE=1
 # STATUSLINE_SHOW_RC=1
+# STATUSLINE_SHOW_PACE=1
+# STATUSLINE_SHOW_CACHE_EXPIRY=1
+# STATUSLINE_SHOW_MISS_CAUSE=1
+# STATUSLINE_SHOW_SESSION_NAME=1
+# STATUSLINE_SHOW_PR=1
+# STATUSLINE_LINKS=1            # 0 = PR as plain text, no OSC 8 link
 
 # --- Thresholds ---
 # STATUSLINE_BAR_LEN=6
@@ -25,6 +31,18 @@
 # STATUSLINE_LIMIT_OK=50
 # STATUSLINE_LIMIT_WARN=20
 # STATUSLINE_CACHE_GOOD=90
+# STATUSLINE_PACE_WARN=5        # "⇡" when used % runs this far ahead of elapsed % of the window
+# STATUSLINE_MISS_RECENT=900    # seconds a cache-miss cause stays on screen
+# STATUSLINE_NAME_MAX=32
+
+# --- Fit to the terminal width (Claude Code passes $COLUMNS) ---
+# STATUSLINE_FIT=1
+# STATUSLINE_WIDTH="$COLUMNS"
+# STATUSLINE_WIDTH_RESERVE=4
+
+# --- Subagent rows (subagent-statusline.sh) ---
+# STATUSLINE_SUBAGENT_BAR_LEN=4
+# STATUSLINE_SUBAGENT_SPARK_LEN=8   # 0 = no sparkline
 
 # --- Usage-limits fallback (reads Claude Code's stored login: Keychain or ~/.claude/.credentials.json) ---
 # STATUSLINE_USAGE_API=1        # 0 = never touch the stored login or the network
