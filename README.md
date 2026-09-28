@@ -86,6 +86,7 @@ Claude Code's agent panel shows a row per running subagent. `subagent-statusline
 - `⚡low(≠xhigh)` in red: the agent set its own effort **below** `effortLevel` in `settings.json` — the same check as on the main line.
 - `⚡inh`: the agent inherits the session's effort. `⚡8K`: a numeric token budget.
 - Rows that are not agents (shell tasks, workflows) keep Claude Code's own rendering.
+- An agent started by the Agent tool usually has no name in the row data; its description stands in, cut at 32 characters (`STATUSLINE_SUBAGENT_NAME_MAX`).
 
 ## Install
 

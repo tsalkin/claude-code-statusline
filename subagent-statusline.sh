@@ -30,6 +30,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_EFFORT_CHECK:=1}"
 : "${STATUSLINE_SUBAGENT_BAR_LEN:=4}"
 : "${STATUSLINE_SUBAGENT_SPARK_LEN:=8}"   # token-growth sparkline cells; 0 = none
+: "${STATUSLINE_SUBAGENT_NAME_MAX:=32}"   # a name (or the description standing in for it) is cut here
 : "${STATUSLINE_CTX_WARN:=50}"
 : "${STATUSLINE_CTX_CRIT:=80}"
 NOW="${STATUSLINE_NOW:-$(date +%s)}"
@@ -44,6 +45,7 @@ printf '%s' "$input" | jq -c \
     --arg want "$effort_want" \
     --argjson bar_len "$STATUSLINE_SUBAGENT_BAR_LEN" \
     --argjson spark_len "$STATUSLINE_SUBAGENT_SPARK_LEN" \
+    --argjson name_max "$STATUSLINE_SUBAGENT_NAME_MAX" \
     --argjson warn "$STATUSLINE_CTX_WARN" \
     --argjson crit "$STATUSLINE_CTX_CRIT" '
 def sgr(c): "\u001b[" + c + "m";
@@ -80,7 +82,12 @@ def effort_color:
 | . as $t
 
 # name, bold; a finished or failed agent gets a mark
-| (($t.name // $t.type // "agent") | clean) as $name
+# name: an agent started by the Agent tool usually comes without one (Claude Code
+# then shows the description in its own row), so the description stands in; the type
+# ("local_agent") says nothing.
+| ([$t.name, $t.description] | map(select(. != null) | clean | sub("^ +"; "") | select(. != ""))
+   | .[0] // "agent") as $name_full
+| (if ($name_full | length) > $name_max then $name_full[0:$name_max - 1] + "…" else $name_full end) as $name
 | (if $t.status == "completed" then sgr("32") + "✓ " + off
    elif $t.status == "failed" then sgr("31") + "✗ " + off
    elif ($t.status // "running") != "running" then sgr("2") + "■ " + off
@@ -125,7 +132,8 @@ def effort_color:
 | ($head | join(" · ")) as $row
 | ($row | gsub("\u001b\\[[0-9;]*m"; "")) as $plain
 | (($plain | length) + ($plain | [scan("⚡")] | length)) as $used
-| (($t.label // $t.description // "") | clean | sub("^ +"; "")) as $label
+| (($t.label // $t.description // "") | clean | sub("^ +"; "")
+   | if . == $name_full then "" else . end) as $label
 | (if $cols > 0 then $cols - $used - 3 else 1000 end) as $room
 | (if $label == "" or $room < 4 then ""
    elif ($label | length) > $room then " · " + $label[0:$room - 1] + "…"

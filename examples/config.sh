@@ -43,6 +43,7 @@
 # --- Subagent rows (subagent-statusline.sh) ---
 # STATUSLINE_SUBAGENT_BAR_LEN=4
 # STATUSLINE_SUBAGENT_SPARK_LEN=8   # 0 = no sparkline
+# STATUSLINE_SUBAGENT_NAME_MAX=32   # the description standing in for a missing name is cut here
 
 # --- Usage-limits fallback (reads Claude Code's stored login: Keychain or ~/.claude/.credentials.json) ---
 # STATUSLINE_USAGE_API=1        # 0 = never touch the stored login or the network
