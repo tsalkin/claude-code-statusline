@@ -11,7 +11,8 @@ After the push: `/plugin marketplace add tsalkin/claude-code-statusline` + insta
 **Loose ends.**
 - Linux (Ubuntu 24.04) and Windows 11 Git Bash: the suite has not run there since the new cases (GNU `date -d @`, `cygpath -m` in the installer).
 - Not seen by eye: subagent rows in a live session, the PR link (OSC 8) in Ghostty and Windows Terminal, the cache clock in the owner's time zone.
-- The owner's own settings still point at the clone (`bash …/statusline.sh`); `scripts/install.sh --subagents --dry-run` shows what switching on the subagent rows would change — run it only on the owner's word.
+- The owner's settings point both `statusLine` and `subagentStatusLine` at this clone (set by `scripts/install.sh --subagents` on the owner's word, 2026-09-28; backup `~/.claude/settings.json.bak-statusline-20260928-164753`). Subagent rows not yet seen by eye.
+- Fitting to width not yet seen live: the owner's window was wide enough that nothing had to drop.
 - Screenshots in `docs/screenshots/` predate the new blocks.
 - Optional, from before: the last bar cell only at 100% (today a full bar starts at 92%).
 
