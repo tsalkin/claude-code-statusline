@@ -71,6 +71,7 @@ render() {
             PATH="${TEST_PATH:-$SANDBOX_PATH}" \
             TMPDIR="$CASE_ROOT" \
             LANG=en_US.UTF-8 \
+            TZ=UTC \
             STATUSLINE_NOW="$NOW" \
             STATUSLINE_USAGE_API=0 \
             STATUSLINE_GSD_BRIDGE=0 \
@@ -223,6 +224,39 @@ work_dir="$WORK"; command -v cygpath >/dev/null 2>&1 && work_dir=$(cygpath -w "$
 jq --arg d "$work_dir" '.workspace.current_dir = $d | .workspace.project_dir = $d' \
     "$FIX/full.json" > "$CASE_ROOT/payload.json"
 check gsd-stop-at-home "$(render "$CASE_ROOT/payload.json")"
+
+# 20. Payload blocks: pace on H: (80% used, 40% of the window gone → ⇡40%), weekly
+# countdown once W: is yellow, cache expiry as a clock time, the cause of a miss two
+# minutes ago, a long Cyrillic session name cut by characters, an approved PR as a link.
+new_case rich; make_git
+check rich "$(render rich.json)"
+
+# 21. Merge request, draft, links off; the same miss 35 minutes old is no longer shown
+new_case pr-mr-draft; make_git
+jq '.pr = {"number": 77, "url": "https://gitlab.com/g/p/-/merge_requests/77", "review_state": "draft", "kind": "mr"}
+    | .prompt_cache.last_miss_at = 1789997900' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check pr-mr-draft "$(render "$CASE_ROOT/payload.json" STATUSLINE_LINKS=0)"
+
+# 22. Cold cache with its miss cause; changes requested; no pace below the threshold
+new_case cold-miss; make_git
+jq '.prompt_cache.warm = false | .prompt_cache.expires_at = null
+    | .prompt_cache.last_miss_cause = {"causes": ["ttl_expired_5m"]}
+    | .pr.review_state = "changes_requested" | .rate_limits.five_hour.used_percentage = 42' \
+    "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check cold-miss "$(render "$CASE_ROOT/payload.json")"
+
+# 23. Narrow terminal: blocks drop by rank until each line fits COLUMNS
+new_case fit-70; make_git; make_gsd
+check fit-70 "$(render rich.json COLUMNS=70)"
+
+# 24. Very narrow: the context bar (never dropped) and the branch (dropped last) remain
+new_case fit-20; make_git; make_gsd
+check fit-20 "$(render rich.json COLUMNS=20)"
+
+# 25. New blocks switched off: the line is the old one
+new_case new-blocks-off; make_git
+check new-blocks-off "$(render rich.json STATUSLINE_SHOW_PACE=0 STATUSLINE_SHOW_CACHE_EXPIRY=0 \
+    STATUSLINE_SHOW_MISS_CAUSE=0 STATUSLINE_SHOW_SESSION_NAME=0 STATUSLINE_SHOW_PR=0 COLUMNS=70 STATUSLINE_FIT=0)"
 
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq

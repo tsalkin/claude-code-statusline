@@ -2,7 +2,7 @@
 # claude-code-statusline — a two-line status line for Claude Code.
 #
 # Line 1: model · [remote control] · effort · context · prompt cache · usage limits · session time
-# Line 2: [GSD state] · [tasks] · project · git branch · worktree
+# Line 2: [GSD state] · [tasks] · [session name] · project · git branch · [PR] · worktree
 #
 # Claude Code pipes a JSON payload to this script on stdin after every assistant
 # message; whatever it prints becomes the status line.
@@ -45,6 +45,11 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_GIT:=1}"
 : "${STATUSLINE_SHOW_WORKTREE:=1}"
 : "${STATUSLINE_SHOW_RC:=1}"               # "📡 RC" while the session is under remote control
+: "${STATUSLINE_SHOW_PACE:=1}"             # "⇡12%" when a limit is being used faster than its window runs
+: "${STATUSLINE_SHOW_CACHE_EXPIRY:=1}"     # "→14:32" when the warm prompt cache goes cold
+: "${STATUSLINE_SHOW_MISS_CAUSE:=1}"       # "✗tools" after a recent cache miss
+: "${STATUSLINE_SHOW_SESSION_NAME:=1}"     # the session's name (--name, /rename, or its AI title)
+: "${STATUSLINE_SHOW_PR:=1}"               # open pull / merge request of the branch
 
 # Thresholds
 : "${STATUSLINE_BAR_LEN:=6}"
@@ -53,6 +58,20 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_LIMIT_OK:=50}"           # limit remaining % → green above
 : "${STATUSLINE_LIMIT_WARN:=20}"         # limit remaining % → yellow above, red otherwise
 : "${STATUSLINE_CACHE_GOOD:=90}"         # prompt-cache hit % → green at or above
+: "${STATUSLINE_PACE_WARN:=5}"           # used % minus elapsed % of the window → "⇡" at or above
+: "${STATUSLINE_MISS_RECENT:=900}"       # seconds a cache-miss cause stays on screen
+: "${STATUSLINE_NAME_MAX:=32}"           # session name longer than this is cut with "…"
+
+# Clickable PR number (OSC 8 hyperlink). 0 = plain text, for terminals or tmux setups
+# that print the escape sequence instead of hiding it.
+: "${STATUSLINE_LINKS:=1}"
+
+# Fit to the terminal width: drop the least important blocks until each line fits.
+# Claude Code passes the width in $COLUMNS; STATUSLINE_WIDTH overrides it. RESERVE is
+# what Claude Code's own indent and padding take from that width.
+: "${STATUSLINE_FIT:=1}"
+: "${STATUSLINE_WIDTH:=${COLUMNS:-}}"
+: "${STATUSLINE_WIDTH_RESERVE:=4}"
 
 # Usage-limits fallback: when the payload has no rate_limits, read the OAuth token
 # from Claude Code's stored login (Keychain or .credentials.json) and ask the
@@ -104,7 +123,16 @@ model_id=\(.model.id // "")
 git_worktree=\(.workspace.git_worktree // "")
 rl_five_used=\(.rate_limits.five_hour.used_percentage // "")
 rl_week_used=\(.rate_limits.seven_day.used_percentage // "")
-rl_five_reset=\(.rate_limits.five_hour.resets_at // "")"' 2>/dev/null)"
+rl_five_reset=\(.rate_limits.five_hour.resets_at // "")
+rl_week_reset=\(.rate_limits.seven_day.resets_at // "")
+cache_expires=\(.prompt_cache.expires_at // "")
+miss_at=\(.prompt_cache.last_miss_at // "")
+miss_causes=\((try (.prompt_cache.last_miss_cause.causes | map(tostring) | join(" ")) catch "") // "")
+session_name=\(.session_name // "")
+pr_number=\(.pr.number // "")
+pr_url=\(.pr.url // "")
+pr_state=\(.pr.review_state // "")
+pr_kind=\(.pr.kind // "")"' 2>/dev/null)"
 # Input that is not JSON at all leaves everything unset: same defaults as above.
 : "${used_pct:=0}" "${context_size:=200000}" "${remaining_pct:=100}"
 : "${effort:=auto}" "${thinking:=false}" "${cache_warm:=false}"
@@ -257,47 +285,71 @@ usage_color() {  # $1 = % remaining
     fi
 }
 
-fmt_reset() {  # $1 = reset time (UNIX epoch or ISO-8601) → "2h10m" / "45m" / ""
-    python3 -c "
+limit_times() {  # $1 five_used $2 five_reset $3 week_used $4 week_reset → "t5|p5|t7|p7"
+    # t = time to reset ("2h10m", "4d15h"); p = pace, used % minus the % of the window
+    # already gone, rounded. Reset times come as UNIX epoch (payload) or ISO-8601
+    # (usage endpoint). One interpreter start for both windows.
+    python3 - "$1" "$2" "$3" "$4" "$NOW" 2>/dev/null <<'PYEOF'
 import sys
-from datetime import datetime, timezone
-v = sys.argv[1].strip()
-now = datetime.fromtimestamp(float(sys.argv[2]), timezone.utc)
-try:
-    if v.replace('.', '', 1).isdigit():        # UNIX epoch (native payload)
-        reset = datetime.fromtimestamp(float(v), timezone.utc)
-    else:                                        # ISO-8601 (usage endpoint)
-        reset = datetime.fromisoformat(v.replace('Z', '+00:00'))
-    s = int((reset - now).total_seconds())
-    if s < 0: print('')
-    elif s >= 3600: print(f'{s // 3600}h{(s % 3600) // 60}m')
-    else: print(f'{(s % 3600) // 60}m')
-except Exception:
-    print('')
-" "$1" "$NOW" 2>/dev/null
+from datetime import datetime
+def epoch(v):
+    v = v.strip()
+    if not v or v == 'null':
+        return None
+    try:
+        if v.replace('.', '', 1).isdigit():
+            return float(v)
+        return datetime.fromisoformat(v.replace('Z', '+00:00')).timestamp()
+    except Exception:
+        return None
+def left(s):
+    if s >= 86400: return f'{s // 86400}d{(s % 86400) // 3600}h'
+    if s >= 3600: return f'{s // 3600}h{(s % 3600) // 60}m'
+    return f'{s // 60}m'
+now = float(sys.argv[5])
+out = []
+for used, reset, window in ((sys.argv[1], sys.argv[2], 18000), (sys.argv[3], sys.argv[4], 604800)):
+    t = p = ''
+    r = epoch(reset)
+    if r is not None and r >= now:
+        s = int(r - now)
+        t = left(s)
+        try:
+            p = str(round(float(used) - (window - min(s, window)) / window * 100))
+        except ValueError:
+            pass
+    out += [t, p]
+print('|'.join(out))
+PYEOF
 }
 
-build_limits() {  # $1=five_used% $2=week_used% $3=five_reset
-    local fl wl tl fc wc
+build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
+    local fl wl fc wc t5="" p5="" t7="" p7="" h w
     # remaining % = int(100 - used), truncated toward zero; "?" for a non-number
     read -r fl wl < <(awk -v f="$1" -v w="$2" 'function left(u) {
         return (u ~ /^-?[0-9]+(\.[0-9]*)?$/) ? int(100 - u) : "?" }
         BEGIN { print left(f), left(w) }')
-    tl=""
-    [ -n "$3" ] && [ "$3" != "null" ] && tl=$(fmt_reset "$3")
-    fc=$(usage_color "$fl"); wc=$(usage_color "$wl")
-    if [ -n "$tl" ]; then
-        echo "${fc}H:${fl}% ${tl}\033[0m ${wc}W:${wl}%\033[0m"
-    else
-        echo "${fc}H:${fl}%\033[0m ${wc}W:${wl}%\033[0m"
+    if [ -n "$3$4" ]; then
+        IFS='|' read -r t5 p5 t7 p7 <<< "$(limit_times "$1" "$3" "$2" "$4")"
     fi
+    fc=$(usage_color "$fl"); wc=$(usage_color "$wl")
+    h="${fc}H:${fl}%${t5:+ $t5}"
+    w="${wc}W:${wl}%"
+    # The weekly countdown only once the week is no longer green: days away rarely matter.
+    [ -n "$t7" ] && ! [ "$wl" -gt "$STATUSLINE_LIMIT_OK" ] 2>/dev/null && w="$w $t7"
+    # Pace: burning the window faster than time passes it. Red whatever the remaining %.
+    if [ "$STATUSLINE_SHOW_PACE" = "1" ]; then
+        [ "$p5" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && h="$h \033[31m⇡${p5}%"
+        [ "$p7" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && w="$w \033[31m⇡${p7}%"
+    fi
+    echo "${h}\033[0m ${w}\033[0m"
 }
 
 limits_part=""
 if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
     # Preferred: native rate_limits from the payload (no stored login, no network)
     if [ -n "$rl_five_used" ]; then
-        limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset")
+        limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset" "$rl_week_reset")
     fi
     # Fallback: stored login + usage endpoint, only if the payload lacks rate_limits
     if [ -z "$limits_part" ] && [ "$STATUSLINE_USAGE_API" = "1" ]; then
@@ -306,7 +358,8 @@ if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
             limits_part=$(build_limits \
                 "$(echo "$usage_data" | jq -r '.five_hour.utilization // 0')" \
                 "$(echo "$usage_data" | jq -r '.seven_day.utilization // 0')" \
-                "$(echo "$usage_data" | jq -r '.five_hour.resets_at // ""')")
+                "$(echo "$usage_data" | jq -r '.five_hour.resets_at // ""')" \
+                "$(echo "$usage_data" | jq -r '.seven_day.resets_at // ""')")
         fi
     fi
 fi
@@ -486,6 +539,14 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
         if [ "$cache_warm" = "true" ]; then
             [ "$hit_int" -ge "$STATUSLINE_CACHE_GOOD" ] 2>/dev/null && c_color="\033[32m" || c_color="\033[33m"
             cache_part="${c_color}◈${hit_int}%\033[0m"
+            # When the warm cache goes cold: step away past this and the next request
+            # pays for the whole context again. A clock time, not a countdown — the line
+            # is not redrawn while you are away, and a countdown would freeze.
+            cache_expires=${cache_expires%%.*}
+            if [ "$STATUSLINE_SHOW_CACHE_EXPIRY" = "1" ] && [ "$cache_expires" -gt "$NOW" ] 2>/dev/null; then
+                cold_at=$(date -d "@$cache_expires" +%H:%M 2>/dev/null || date -r "$cache_expires" +%H:%M 2>/dev/null)
+                [ -n "$cold_at" ] && cache_part="${cache_part} \033[2m→${cold_at}\033[0m"
+            fi
         else
             cold_display=""
             if [ -n "$cache_cold_tokens" ] && [ "$cache_cold_tokens" -ge 1000 ] 2>/dev/null; then
@@ -493,6 +554,51 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
             fi
             cache_part="\033[31m◈cold${cold_display}\033[0m"
         fi
+        # Why the last miss happened, while it is recent: a tool list that changed (an MCP
+        # server came or went), a system prompt that changed, an expired TTL.
+        miss_at=${miss_at%%.*}
+        if [ "$STATUSLINE_SHOW_MISS_CAUSE" = "1" ] && [ -n "$miss_causes" ] && [ -n "$miss_at" ] \
+            && [ $((NOW - miss_at)) -le "$STATUSLINE_MISS_RECENT" ] 2>/dev/null; then
+            read -r -a causes <<< "$miss_causes"
+            case "${causes[0]}" in
+                tools_changed)         miss="tools" ;;
+                system_prompt_changed) miss="system" ;;
+                ttl_expired_*)         miss="ttl" ;;
+                likely_server_side)    miss="server" ;;
+                *)                     miss="${causes[0]%_changed}" ;;
+            esac
+            [ ${#causes[@]} -gt 1 ] && miss="${miss}+$(( ${#causes[@]} - 1 ))"
+            cache_part="${cache_part} \033[33m✗${miss}\033[0m"
+        fi
+    fi
+fi
+
+# === Session name and pull request (from the payload) ======================
+# Text that reaches printf %b below: a backslash in it would start an escape.
+name_part=""
+if [ "$STATUSLINE_SHOW_SESSION_NAME" = "1" ] && [ -n "$session_name" ]; then
+    name="${session_name//\\/}"; name="${name//[[:cntrl:]]/}"
+    if [ ${#name} -gt "$STATUSLINE_NAME_MAX" ] 2>/dev/null; then
+        name="${name:0:$((STATUSLINE_NAME_MAX - 1))}…"
+    fi
+    name_part="\033[1m✎ ${name}\033[0m"
+fi
+
+pr_part=""
+if [ "$STATUSLINE_SHOW_PR" = "1" ] && [ -n "$pr_number" ]; then
+    if [ "$pr_kind" = "mr" ]; then pr_text="MR !${pr_number}"; else pr_text="PR #${pr_number}"; fi
+    case "$pr_state" in
+        approved)          pr_text="\033[32m${pr_text} ✓" ;;
+        changes_requested) pr_text="\033[31m${pr_text} ✗" ;;
+        pending)           pr_text="\033[33m${pr_text} …" ;;
+        draft)             pr_text="\033[2m${pr_text} draft" ;;
+        *)                 pr_text="\033[36m${pr_text}" ;;
+    esac
+    pr_url="${pr_url//\\/}"
+    if [ "$STATUSLINE_LINKS" = "1" ] && [ -n "$pr_url" ]; then
+        pr_part="\033]8;;${pr_url}\a${pr_text}\033[0m\033]8;;\a"
+    else
+        pr_part="${pr_text}\033[0m"
     fi
 fi
 
@@ -543,26 +649,79 @@ if [ "$STATUSLINE_SHOW_RC" = "1" ] && [ -n "$session_id" ] && [ -d "$CLAUDE_DIR/
 fi
 
 # === Build output (two lines) ===============================================
-line1_parts=()
-[ "$STATUSLINE_SHOW_MODEL" = "1" ] && [ -n "$model_name" ] && line1_parts+=("[${model_name}]")
-[ -n "$rc_part" ] && line1_parts+=("$rc_part")
-[ "$STATUSLINE_SHOW_EFFORT" = "1" ] && line1_parts+=("$effort_part")
-[ "$STATUSLINE_SHOW_CONTEXT" = "1" ] && line1_parts+=("${bar} ${used_int}% (${tokens_display}/${context_display})")
-[ -n "$cache_part" ] && line1_parts+=("$cache_part")
-[ -n "$limits_part" ] && line1_parts+=("$limits_part")
-[ "$STATUSLINE_SHOW_TIME" = "1" ] && line1_parts+=("⏱ ${session_time}")
+# Each block carries a drop rank: when a line is wider than the terminal, blocks go
+# from the highest rank down until it fits. 0 = never dropped.
+line1_parts=(); line1_ranks=()
+line2_parts=(); line2_ranks=()
+add1() { [ -n "$1" ] && line1_parts+=("$1") && line1_ranks+=("$2"); }
+add2() { [ -n "$1" ] && line2_parts+=("$1") && line2_ranks+=("$2"); }
 
-line2_parts=()
-[ -n "$gsd_update" ] && line2_parts+=("$gsd_update")
+[ "$STATUSLINE_SHOW_MODEL" = "1" ] && [ -n "$model_name" ] && add1 "[${model_name}]" 5
+add1 "$rc_part" 3
+[ "$STATUSLINE_SHOW_EFFORT" = "1" ] && add1 "$effort_part" 4
+[ "$STATUSLINE_SHOW_CONTEXT" = "1" ] && add1 "${bar} ${used_int}% (${tokens_display}/${context_display})" 0
+add1 "$cache_part" 6
+add1 "$limits_part" 1
+[ "$STATUSLINE_SHOW_TIME" = "1" ] && add1 "⏱ ${session_time}" 7
+
+add2 "$gsd_update" 8
 if [ -n "$gsd_task" ]; then
-    line2_parts+=("\033[1m${gsd_task}\033[0m")
-elif [ -n "$gsd_part" ]; then
-    line2_parts+=("$gsd_part")
+    add2 "\033[1m${gsd_task}\033[0m" 6
+else
+    add2 "$gsd_part" 6
 fi
-[ -n "$tasks_part" ] && line2_parts+=("$tasks_part")
-[ "$STATUSLINE_SHOW_PROJECT" = "1" ] && [ -n "$project" ] && line2_parts+=("${project}")
-[ -n "$branch" ] && line2_parts+=("git:(${branch})")
-[ "$STATUSLINE_SHOW_WORKTREE" = "1" ] && [ -n "$git_worktree" ] && line2_parts+=("\033[35m⑂ ${git_worktree}\033[0m")
+add2 "$tasks_part" 5
+add2 "$name_part" 3
+[ "$STATUSLINE_SHOW_PROJECT" = "1" ] && add2 "$project" 4
+[ -n "$branch" ] && add2 "git:(${branch})" 1
+add2 "$pr_part" 2
+[ "$STATUSLINE_SHOW_WORKTREE" = "1" ] && [ -n "$git_worktree" ] && add2 "\033[35m⑂ ${git_worktree}\033[0m" 7
+
+# Columns a block takes on screen: escape sequences removed, characters counted,
+# the two double-width emoji counted twice. Needs a UTF-8 locale for ${#}.
+cols_of() {
+    local s="$1" re_sgr='(.*)\\033\[[0-9;]*m(.*)' re_osc='(.*)\\033\]8;;[^\\]*\\a(.*)' narrow
+    while [[ "$s" =~ $re_osc ]]; do s="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"; done
+    while [[ "$s" =~ $re_sgr ]]; do s="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"; done
+    # Literal removal, not a [^…] class: bash 3.2 matches a negated class byte by byte.
+    narrow="${s//⚡/}"; narrow="${narrow//📡/}"
+    echo $(( ${#s} + ${#s} - ${#narrow} ))
+}
+
+# fit <line number>: drop blocks by rank until the line fits the width
+fit() {
+    local -a parts ranks
+    local i total top drop
+    if [ "$1" = "1" ]; then parts=("${line1_parts[@]}"); ranks=("${line1_ranks[@]}")
+    else parts=("${line2_parts[@]}"); ranks=("${line2_ranks[@]}"); fi
+    while [ ${#parts[@]} -gt 1 ]; do
+        total=$(( (${#parts[@]} - 1) * 3 ))   # " | " between blocks
+        for i in "${!parts[@]}"; do total=$(( total + $(cols_of "${parts[$i]}") )); done
+        [ "$total" -le "$fit_width" ] && break
+        top=0; drop=-1
+        for i in "${!ranks[@]}"; do
+            [ "${ranks[$i]}" -gt "$top" ] && top=${ranks[$i]} && drop=$i
+        done
+        [ "$drop" -lt 0 ] && break
+        unset "parts[$drop]" "ranks[$drop]"
+        parts=("${parts[@]}"); ranks=("${ranks[@]}")
+    done
+    if [ "$1" = "1" ]; then line1_parts=("${parts[@]}"); else line2_parts=("${parts[@]}"); fi
+}
+
+fit_width=""
+if [ "$STATUSLINE_FIT" = "1" ] && [ "$STATUSLINE_WIDTH" -gt 0 ] 2>/dev/null; then
+    fit_width=$(( STATUSLINE_WIDTH - STATUSLINE_WIDTH_RESERVE ))
+    # ${#} counts bytes, not characters, outside a UTF-8 locale: try one, else don't fit.
+    one="▰"
+    if [ ${#one} -ne 1 ]; then
+        for loc in C.UTF-8 en_US.UTF-8; do LC_ALL=$loc; one="▰"; [ ${#one} -eq 1 ] && break; done 2>/dev/null
+        [ ${#one} -eq 1 ] || fit_width=""
+    fi
+fi
+if [ -n "$fit_width" ]; then
+    fit 1; fit 2
+fi
 
 line1=$(join_parts "${line1_parts[@]}")
 line2=$(join_parts "${line2_parts[@]}")

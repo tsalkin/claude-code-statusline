@@ -1,0 +1,24 @@
+{
+  "session_id": "3c3c3c3c-2222-4333-8444-555555555555",
+  "session_name": "Починить вход через OAuth в сервисе авторизации",
+  "model": { "id": "claude-opus-5-5", "display_name": "Opus 5.5" },
+  "workspace": { "current_dir": "__ROOT__/work/myproject", "project_dir": "__ROOT__/work/myproject" },
+  "effort": { "level": "high" },
+  "thinking": { "enabled": false },
+  "context_window": { "used_percentage": 30, "remaining_percentage": 70, "context_window_size": 200000 },
+  "prompt_cache": {
+    "warm": true, "ttl": "1h", "expires_at": 1790001800, "hit_ratio": 0.91,
+    "misses": 2, "last_miss_at": 1789999880,
+    "last_miss_cause": { "causes": ["tools_changed", "system_prompt_changed"], "tools_added": 2 },
+    "recache_tokens_if_cold": 60000
+  },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 80, "resets_at": 1790010800 },
+    "seven_day": { "used_percentage": 75, "resets_at": 1790172800 }
+  },
+  "pr": {
+    "number": 1234,
+    "url": "https://github.com/tsalkin/claude-code-statusline/pull/1234",
+    "review_state": "approved"
+  }
+}
