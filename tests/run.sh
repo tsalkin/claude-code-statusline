@@ -33,6 +33,22 @@ for tool in jq git python3; do
     case ":$SANDBOX_PATH:" in *":${tool_path%/*}:"*) ;; *) SANDBOX_PATH="${tool_path%/*}:$SANDBOX_PATH" ;; esac
 done
 
+# Fakes in tests/fixtures/*bin/ must be committed executable (git mode 100755). Git Bash
+# treats any "#!" file as executable and never records the bit, so a 644 fake passes on
+# Windows and silently falls through to the REAL program on macOS and Linux. Checking the
+# git mode catches it on the machine that made the commit.
+if git -C "$HERE/.." rev-parse --git-dir >/dev/null 2>&1; then
+    bad_modes=$(git -C "$HERE/.." ls-files -s -- 'tests/fixtures/*bin/*' | awk '$1 != "100755" {print $4}')
+    if [ -z "$bad_modes" ]; then
+        [ "$UPDATE" = "1" ] || echo "ok       fixture-modes"; pass=$((pass + 1))
+    else
+        for f in $bad_modes; do
+            echo "FAIL     fixture-modes: $f is not committed executable — git update-index --chmod=+x $f"
+        done
+        fail=$((fail + 1))
+    fi
+fi
+
 # new_case <name>: fresh sandbox; sets CASE_ROOT and WORK (the project directory)
 new_case() {
     CASE_ROOT="$TMP/$1"
