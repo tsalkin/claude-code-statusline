@@ -2,7 +2,7 @@
 
 Updated 2026-09-28.
 
-**Where we are.** `main` = `origin/main`, tests 19/19 on macOS, Ubuntu 24.04 and Windows 11 (Git Bash). No other branches on GitHub. See `docs/DEVLOG.md` for today's changes.
+**Where we are.** `main` = `origin/main`, tests 19/19 on macOS, Ubuntu 24.04 and Windows 11 (Git Bash); 20/20 on macOS after the `fixture-modes` gate was added (not yet run elsewhere). No other branches on GitHub. See `docs/DEVLOG.md` for today's changes.
 
 **Next step.** None required. Optional, if the owner wants it: the last bar cell only at 100% (today a full bar starts at 92%).
 
