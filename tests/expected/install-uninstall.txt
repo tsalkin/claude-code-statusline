@@ -1,0 +1,13 @@
+claude-code-statusline: clone <REPO>
+settings: <ROOT>/home/.claude/settings.json
+statusLine: remove (bash "/x/claude-code-statusline/statusline.sh")
+subagentStatusLine: not ours, left alone (other-rows)
+backup: <ROOT>/home/.claude/settings.json.bak-statusline-<time>
+Done. The status line changes with the next assistant message.
+exit=0
+{
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "other-rows"
+  }
+}

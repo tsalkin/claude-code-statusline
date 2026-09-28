@@ -1,0 +1,6 @@
+claude-code-statusline: clone <REPO>
+settings: <ROOT>/home/.claude/settings.json
+statusLine is already set to something else: npx -y ccstatusline@latest
+Nothing changed. Run again with --force to replace it (a backup is kept).
+exit=1
+{"statusLine":{"type":"command","command":"npx -y ccstatusline@latest"}}

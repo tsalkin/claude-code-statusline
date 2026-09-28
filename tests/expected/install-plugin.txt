@@ -1,0 +1,13 @@
+claude-code-statusline: plugin claude-code-statusline@mkt
+settings: <ROOT>/home/.claude/settings.json
+statusLine: (none) → bash "<ROOT>/home/.claude/plugins/data/claude-code-statusline-mkt/launch.sh"
+launcher: <ROOT>/home/.claude/plugins/data/claude-code-statusline-mkt/launch.sh
+Done. The status line changes with the next assistant message.
+exit=0
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"<ROOT>/home/.claude/plugins/data/claude-code-statusline-mkt/launch.sh\""
+  }
+}
+launcher renders the same line

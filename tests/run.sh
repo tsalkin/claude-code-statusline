@@ -276,6 +276,56 @@ new_case subagents-no-jq
 out=$(TEST_PATH=/nonexistent render_sub subagents.json; echo "exit=$?")
 check subagents-no-jq "$out"
 
+# 29-32. scripts/install.sh writes statusLine / subagentStatusLine into a sandbox
+# settings.json. Paths and the backup time are normalised in the output.
+# run_install <install.sh> [args...] → its output, "exit=N", then settings.json
+run_install() {
+    local installer="$1"; shift
+    local out code
+    out=$(cd "$WORK" && env -i HOME="$CASE_ROOT/home" PATH="$SANDBOX_PATH" LANG=en_US.UTF-8 \
+        /bin/bash "$installer" "$@" 2>&1); code=$?
+    { printf '%s\nexit=%s\n' "$out" "$code"; cat "$CASE_ROOT/home/.claude/settings.json" 2>/dev/null; } \
+        | sed -e "s#$CASE_ROOT#<ROOT>#g" -e "s#$REPO#<REPO>#g" -e 's/bak-statusline-[0-9-]*/bak-statusline-<time>/'
+}
+REPO=$(cd "$HERE/.." && pwd)
+
+# 29. Clone: an older command of ours is replaced; padding and other keys are kept
+new_case install-clone
+printf '{"effortLevel":"high","statusLine":{"type":"command","command":"bash ~/claude-code-statusline/statusline.sh","padding":2}}\n' \
+    > "$CASE_ROOT/home/.claude/settings.json"
+check install-clone "$(run_install "$REPO/scripts/install.sh" --subagents)"
+
+# 30. Someone else's status line: refused, file untouched; --force would replace it
+new_case install-foreign
+printf '{"statusLine":{"type":"command","command":"npx -y ccstatusline@latest"}}\n' \
+    > "$CASE_ROOT/home/.claude/settings.json"
+check install-foreign "$(run_install "$REPO/scripts/install.sh")"
+
+# 31. Uninstall removes ours only
+new_case install-uninstall
+printf '{"statusLine":{"type":"command","command":"bash \\"/x/claude-code-statusline/statusline.sh\\""},"subagentStatusLine":{"type":"command","command":"other-rows"}}\n' \
+    > "$CASE_ROOT/home/.claude/settings.json"
+check install-uninstall "$(run_install "$REPO/scripts/install.sh" --uninstall)"
+
+# 32. Plugin layout: the commands go through a launcher in the data directory, which
+# renders from the installed version
+new_case install-plugin
+proot="$CASE_ROOT/home/.claude/plugins"
+pdir="$proot/cache/mkt/claude-code-statusline/0123456789ab"
+mkdir -p "$pdir/scripts"
+cp "$REPO/statusline.sh" "$REPO/subagent-statusline.sh" "$pdir/"
+cp "$REPO/scripts/install.sh" "$REPO/scripts/launch.sh" "$pdir/scripts/"
+printf '{"version":2,"plugins":{"claude-code-statusline@mkt":[{"scope":"user","installPath":"%s"}]}}\n' "$pdir" \
+    > "$proot/installed_plugins.json"
+out=$(run_install "$pdir/scripts/install.sh")
+cmd=$(jq -r .statusLine.command "$CASE_ROOT/home/.claude/settings.json")
+via_launcher=$(sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/minimal.json" | (cd "$WORK" && env -i HOME="$CASE_ROOT/home" \
+    PATH="$SANDBOX_PATH" LANG=en_US.UTF-8 TZ=UTC STATUSLINE_NOW="$NOW" STATUSLINE_USAGE_API=0 STATUSLINE_GSD_BRIDGE=0 \
+    /bin/bash -c "$cmd"))
+if [ "$via_launcher" = "$(render minimal.json)" ]; then same="launcher renders the same line"; else same="launcher: $via_launcher"; fi
+check install-plugin "$out
+$same"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

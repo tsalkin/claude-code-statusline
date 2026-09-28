@@ -1,0 +1,12 @@
+{
+  "name": "claude-code-statusline",
+  "description": "The claude-code-statusline plugin",
+  "owner": { "name": "Maxim Tsalkin", "url": "https://github.com/tsalkin" },
+  "plugins": [
+    {
+      "name": "claude-code-statusline",
+      "source": "./",
+      "description": "Two-line status line for long Claude Code sessions, plus subagent rows. Run /claude-code-statusline:setup after installing."
+    }
+  ]
+}

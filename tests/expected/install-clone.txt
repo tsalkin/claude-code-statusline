@@ -1,0 +1,19 @@
+claude-code-statusline: clone <REPO>
+settings: <ROOT>/home/.claude/settings.json
+statusLine: bash ~/claude-code-statusline/statusline.sh → bash "<REPO>/statusline.sh"
+subagentStatusLine: (none) → bash "<REPO>/subagent-statusline.sh"
+backup: <ROOT>/home/.claude/settings.json.bak-statusline-<time>
+Done. The status line changes with the next assistant message.
+exit=0
+{
+  "effortLevel": "high",
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"<REPO>/statusline.sh\"",
+    "padding": 2
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "bash \"<REPO>/subagent-statusline.sh\""
+  }
+}
