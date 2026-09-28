@@ -576,7 +576,10 @@ fi
 # === Session name and pull request (from the payload) ======================
 # Text that reaches printf %b below: a backslash in it would start an escape.
 name_part=""
-if [ "$STATUSLINE_SHOW_SESSION_NAME" = "1" ] && [ -n "$session_name" ]; then
+# A session named after its project (as `claude --name <project>` does) would say the
+# same thing twice next to the project block: then the name is left out.
+if [ "$STATUSLINE_SHOW_SESSION_NAME" = "1" ] && [ -n "$session_name" ] \
+    && ! { [ "$STATUSLINE_SHOW_PROJECT" = "1" ] && [ "$session_name" = "$project" ]; }; then
     name="${session_name//\\/}"; name="${name//[[:cntrl:]]/}"
     if [ ${#name} -gt "$STATUSLINE_NAME_MAX" ] 2>/dev/null; then
         name="${name:0:$((STATUSLINE_NAME_MAX - 1))}…"

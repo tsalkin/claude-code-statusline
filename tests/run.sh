@@ -326,6 +326,13 @@ if [ "$via_launcher" = "$(render minimal.json)" ]; then same="launcher renders t
 check install-plugin "$out
 $same"
 
+# 33. A session named after its project: the name is not repeated; with the project
+# block off it is shown
+new_case name-is-project; make_git
+jq '.session_name = "myproject"' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check name-is-project "$(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_PR=0)
+$(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_PR=0 STATUSLINE_SHOW_PROJECT=0 | tail -1)"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")
