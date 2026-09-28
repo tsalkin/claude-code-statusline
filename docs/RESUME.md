@@ -1,6 +1,6 @@
 # RESUME — where to pick up
 
-Updated 2026-09-28 (evening).
+Updated 2026-09-28 (evening, after the live fixes).
 
 **Where we are.** `main` = `origin/main` (merged from `feat/payload-subagents-plugin`, pushed by the owner 2026-09-28): payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 33/33 on macOS. See `docs/DEVLOG.md`, entry "payload blocks, subagent rows, plugin". The owner's live status line now runs this code.
 

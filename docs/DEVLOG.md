@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-09-28 — after the merge: two fixes from the live line
+
+**Context.** Merged, pushed by the owner, subagent rows switched on in the owner's settings (`scripts/install.sh --subagents`, backup `settings.json.bak-statusline-20260928-164753`). The owner sent screenshots from the Mac.
+
+**What happened.**
+- *Session name twice.* Sessions are started as `claude --name <project>`, so `session_name` equals the project block: `✎ zoom-pipeline | zoom-pipeline`. The name is now left out when it equals the project (shown if the project block is off). Test `name-is-project`, reverse-checked.
+- *Subagent rows named "local_agent".* Agents started by the Agent tool come **without `name`** in the row data — the docs list the field, live data leaves it out — and the fallback was the task type. The description stands in now, cut at `STATUSLINE_SUBAGENT_NAME_MAX` (32); the label is dropped when it repeats it. Two fixture tasks shaped like the live ones.
+- Plugin install checked from GitHub itself (sandbox `CLAUDE_CONFIG_DIR`): marketplace add `tsalkin/claude-code-statusline`, install, `setup` listed, render through the launcher.
+
+**Pitfalls.**
+- *An apostrophe in a jq comment.* The jq program sits in single quotes; "Claude Code's" in a comment closed them, and for a couple of minutes the live subagent script printed nothing (Claude Code then draws its own rows, so no harm). Every subagent test went red at once.
+- *Restoring after a reverse check.* `git checkout -- file` after breaking the fix on purpose restored HEAD — without the fix. Reapplied. Keep a copy of the fixed file, not of HEAD, when reverse-checking before a commit.
+
+**Verified live (owner's Mac, Ghostty).** Cache clock, limits, no duplicate name; subagent rows with names from descriptions, ✓ on a finished agent, sparkline on a growing one. **Not yet:** a narrowed window dropping blocks; Linux and Windows runs of the new tests.
+
 ## 2026-09-28 — payload blocks, subagent rows, plugin
 
 **Context.** The owner took all three options from the prior-art survey (below): the payload batch, `subagentStatusLine`, plugin packaging. Branch `feat/payload-subagents-plugin`, built in a worktree so the owner's live status line (run from the main working copy) stayed on `main`.
