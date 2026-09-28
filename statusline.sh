@@ -157,7 +157,7 @@ else
 fi
 
 bar_len=$STATUSLINE_BAR_LEN
-filled=$((used_int * bar_len / 100))
+filled=$(( (used_int * bar_len + 50) / 100 ))   # nearest cell: 15% of 6 → 1, not 0
 empty=$((bar_len - filled))
 # ANSI hue: 2 green, 3 yellow, 1 red. Filled part bright (9x), empty part dim (2;3x).
 if [ "$used_int" -lt "$STATUSLINE_CTX_WARN" ]; then

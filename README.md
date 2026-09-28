@@ -21,7 +21,7 @@ Live, on the author's machines — macOS (Ghostty) and Windows 11 (Git Bash). Th
 Every block, with all optional modules on:
 
 ```
-[Opus 5 (1M context)] | ⚡high✦(≠xhigh) | ▰▰▱▱▱▱ 42% (420K/1000K) | ◈95% | H:70% 2h10m W:88% | ⏱ 1h 20m
+[Opus 5 (1M context)] | ⚡high✦(≠xhigh) | ▰▰▰▱▱▱ 42% (420K/1000K) | ◈95% | H:70% 2h10m W:88% | ⏱ 1h 20m
 ⬆ /gsd-update | v1.2 Auth rewrite · executing · session tokens (3/7) | ⚑ #12 fix login +1 /5 | myproject | git:(main) | ⑂ feature-x
 ```
 
@@ -42,7 +42,7 @@ In the terminal every block is colored (green → yellow → red as things get e
 | `⚡high` | `effort.level` | Current reasoning effort. Green `low`/`auto`, cyan `medium`, yellow `high`, magenta `xhigh`/`max`. |
 | `✦` | `thinking.enabled` | Extended thinking is on. |
 | `(≠xhigh)` | `effort.level` vs `effortLevel` in `settings.json` | You are running **below** the effort configured globally (for example a per-model override lowered it). Shown in red. |
-| `▰▰▱▱▱▱ 42% (420K/1000K)` | `context_window.*` | Context used: bar — filled ▰ bright, empty ▱ dim (green <50%, yellow <80%, red ≥80%), percent, tokens used / window size. |
+| `▰▰▰▱▱▱ 42% (420K/1000K)` | `context_window.*` | Context used: bar — filled ▰ bright, empty ▱ dim (green <50%, yellow <80%, red ≥80%), percent, tokens used / window size. |
 | `◈95%` / `◈cold 175K` | `prompt_cache.*` | Warm cache and its hit ratio — or a cold cache and how many tokens the next request will re-cache. That number is the price of "continue this session vs start fresh". |
 | `H:70% 2h10m` | `rate_limits.five_hour.*` | 5-hour budget **remaining** and time to reset. |
 | `W:88%` | `rate_limits.seven_day.*` | 7-day budget remaining. |
