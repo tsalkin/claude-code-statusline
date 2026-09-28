@@ -677,34 +677,37 @@ add2 "$name_part" 3
 add2 "$pr_part" 2
 [ "$STATUSLINE_SHOW_WORKTREE" = "1" ] && [ -n "$git_worktree" ] && add2 "\033[35m⑂ ${git_worktree}\033[0m" 7
 
-# Columns a block takes on screen: escape sequences removed, characters counted,
-# the two double-width emoji counted twice. Needs a UTF-8 locale for ${#}.
+# Columns a block takes on screen, into $cols: escape sequences removed, characters
+# counted, the two double-width emoji counted twice. Needs a UTF-8 locale for ${#}.
+# No command substitution: a subshell per block costs more than the whole count.
 cols_of() {
     local s="$1" re_sgr='(.*)\\033\[[0-9;]*m(.*)' re_osc='(.*)\\033\]8;;[^\\]*\\a(.*)' narrow
     while [[ "$s" =~ $re_osc ]]; do s="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"; done
     while [[ "$s" =~ $re_sgr ]]; do s="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"; done
     # Literal removal, not a [^…] class: bash 3.2 matches a negated class byte by byte.
     narrow="${s//⚡/}"; narrow="${narrow//📡/}"
-    echo $(( ${#s} + ${#s} - ${#narrow} ))
+    cols=$(( ${#s} + ${#s} - ${#narrow} ))
 }
 
 # fit <line number>: drop blocks by rank until the line fits the width
 fit() {
-    local -a parts ranks
+    local -a parts ranks widths
     local i total top drop
     if [ "$1" = "1" ]; then parts=("${line1_parts[@]}"); ranks=("${line1_ranks[@]}")
     else parts=("${line2_parts[@]}"); ranks=("${line2_ranks[@]}"); fi
+    [ ${#parts[@]} -eq 0 ] && return
+    for i in "${!parts[@]}"; do cols_of "${parts[$i]}"; widths[$i]=$cols; done
     while [ ${#parts[@]} -gt 1 ]; do
         total=$(( (${#parts[@]} - 1) * 3 ))   # " | " between blocks
-        for i in "${!parts[@]}"; do total=$(( total + $(cols_of "${parts[$i]}") )); done
+        for i in "${!widths[@]}"; do total=$(( total + widths[i] )); done
         [ "$total" -le "$fit_width" ] && break
         top=0; drop=-1
         for i in "${!ranks[@]}"; do
             [ "${ranks[$i]}" -gt "$top" ] && top=${ranks[$i]} && drop=$i
         done
         [ "$drop" -lt 0 ] && break
-        unset "parts[$drop]" "ranks[$drop]"
-        parts=("${parts[@]}"); ranks=("${ranks[@]}")
+        unset "parts[$drop]" "ranks[$drop]" "widths[$drop]"
+        parts=("${parts[@]}"); ranks=("${ranks[@]}"); widths=("${widths[@]}")
     done
     if [ "$1" = "1" ]; then line1_parts=("${parts[@]}"); else line2_parts=("${parts[@]}"); fi
 }
