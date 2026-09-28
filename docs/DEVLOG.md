@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-09-28 — prior-art survey
+
+**Context.** The owner asked what other Claude Code status lines do — ideas and code worth taking.
+
+**What happened.** Read the official status-line docs and ~12 projects (ccstatusline, claude-hud, CCometixLine, claude-powerline, claude-pace, kcchien, claudeline, claude-watch, rz1989s, daniel3303, cship, ccusage). Result in `docs/PRIOR-ART.md`: payload fields this script does not read yet, a project table, ideas ranked by fit, things to avoid. No code changed.
+
+**Insight.** Little *code* is worth copying; the useful ideas are fields already in the payload that the script ignores — `prompt_cache.expires_at` / `last_miss_cause`, `rate_limits.seven_day.resets_at` (pace for `W:`), `session_name`, `pr.*`, env `COLUMNS` — plus the new `subagentStatusLine` setting, which none of the surveyed projects uses. The one formula worth taking (claude-pace: `used% − elapsed% of window`) is ~10 lines of bash, easier rewritten than copied.
+
+**Open.** Owner's choice pending: (1) payload batch — pace, cache expiry + miss cause, session name, PR badge (recommended first); (2) `subagentStatusLine` script (strategic); (3) plugin packaging.
+
 ## 2026-09-28 — three platforms, one tested main
 
 **Context.** Until today the script had only ever run on macOS, while the README promised Linux and was silent about Windows. A second session on a Windows 11 machine (Git Bash) had prepared two branches; a proofreading pass for a blog post had found three defects in the published commit.
