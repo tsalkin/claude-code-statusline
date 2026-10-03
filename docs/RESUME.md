@@ -5,6 +5,7 @@ Updated 2026-10-03 (after the directory submission).
 **Where we are.** The plugin is now `pace-statusline@tsalkin` (renamed for Anthropic's plugin directory: names starting with `claude-` are reserved; the repository keeps its name). Submitted to the directory on 2026-10-03 from the owner's claude.ai account, at `main @ 4bc254b`: listed on Claude Code only, auto-publish **off** (each version waits for the owner's Publish), updates by GitHub push webhook (not yet set up; the directory also polls about every 6 hours). Validation passed with a policy hold, "Uses a credential from the user's machine" (5 findings): the usage-limits fallback's token-reading code is still there, behind `STATUSLINE_USAGE_API`, which is now **off by default**. A reviewer reads the listing before it can go live. Tests 36/36 on macOS. See `docs/DEVLOG.md`, entries of 2026-10-03.
 
 **Next step.**
+- First: `claude plugin test` in a folder with no mod. "no hooks module to load" means mods are on: then open a new session and try `/pace` live. "turned off in this process" means Anthropic still has mods off: wait, nothing to fix here.
 - Owner: watch the submission at claude.ai/directory/manage. On approval, select Publish. If the reviewer objects to the credential code, the next move is to remove the fallback outright (not just switch it off).
 - Owner, optional: set up the push webhook from the plugin's page (needs admin on the GitHub repository).
 - Every push to `main` is now a new directory version: it is scanned, and with auto-publish off it waits for Publish.
@@ -33,4 +34,4 @@ Updated 2026-10-03 (after the directory submission).
 **Working notes.**
 - The live status line on the owner's Mac runs straight from this working copy (`~/.claude/settings.json` points at `statusline.sh` here), so checking out a branch changes it immediately.
 - `git push` and remote branch deletion are done by the owner (a hook blocks them for the agent).
-- Mods can be switched off remotely by Anthropic (`tengu_plugin_hooks_modules` in `~/.claude.json`; seen off for a few minutes on 2026-10-03). Check with `claude plugin test` in a folder with no mod: "no hooks module to load" means mods can load.
+- Mods can be switched off remotely by Anthropic (`tengu_plugin_hooks_modules` in `~/.claude.json`). Seen off on 2026-10-03 at 11:03 (back on by 11:08) and **off again at 22:39**, at the last restart. While it is off, no session loads the band or `/pace`, and `claude plugin test` refuses ("hooks modules are turned off in this process") — that is not a code failure. Check with `claude plugin test` in a folder with no mod: "no hooks module to load" means mods can load.
