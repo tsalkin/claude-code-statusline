@@ -180,6 +180,14 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_FIT` | dropping blocks to fit the width |
 | `STATUSLINE_LINKS` | the PR as a clickable link (`0` if your terminal or tmux prints the escape code instead) |
 
+### Language
+
+The line's own words — `H:`/`W:`, the units of time, `cold` and the cause of a cache miss, `inh` in subagent rows — come in English or Russian. `STATUSLINE_LANG=auto` (the default) follows Claude Code's `language` setting (`/config` → Language, read from `~/.claude/settings.json`): Russian when it names Russian (`Russian`, `ru`, `ru-RU`), English otherwise. `en` or `ru` pins one. Models, branches, session names and task text are shown as they come.
+
+```
+[Opus 5.5] | ⚡high | ▰▰▱▱▱▱ 30% (60K/200K) | ◈91% →14:43 ✗инстр+1 | Ч:20% 3ч0м ⇡40% Н:25% 2д0ч | ⏱ 0м
+```
+
 ### Thresholds
 
 | Variable | Default | Meaning |
@@ -221,7 +229,7 @@ A second plugin in the same marketplace, a [Claude Code mod](https://code.claude
 /plugin install pace-band@tsalkin
 ```
 
-Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+In English or Russian, by the same rule as the line: Claude Code's `language` setting, or the plugin's own `language` option in `/config`. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
 ## Optional modules
 

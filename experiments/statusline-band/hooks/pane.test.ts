@@ -3,6 +3,7 @@ import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { PACE_COLORS, fmtClock, forecastOf, paletteOf } from './pace'
+import { WORDS } from './words'
 
 const MIN = 60_000
 const HOUR = 60 * MIN
@@ -121,6 +122,41 @@ describe('pace pane', () => {
       engine(on)
       await $.session.measure(reading(40, 50))
       expect(await texts(await band($))).toBe(ENGINE)
+    })
+
+    test(`${surface}: language ru pinned: the pane and the band in Russian`, { options: { language: 'ru' } }, async ($, on) => {
+      engine(on)
+      await $.session.measure(reading(52, 30))
+      const shown = await texts(await pane($))
+      expect(shown).toContain('5ч ')
+      expect(shown).toContain('52% лимита · 40% времени · ')
+      expect(shown).toContain('опережение 12%')
+      expect(shown).toContain(`кончится ${fmtClock(OUT, NOW, WORDS.ru)} (через 2ч 11м), за 49м до сброса · темп за час`)
+      expect(shown).toContain('запас 20%')
+      expect(shown).toContain(`хватит до сброса ${fmtClock(NOW + 84 * HOUR, NOW, WORDS.ru)} (~60% лимита) · средний темп`)
+      for (const english of ['used', 'of time', 'runs out', 'lasts', 'rate', 'ahead', 'to spare']) expect(shown).not.toContain(english)
+      expect(await texts(await band($))).toContain(`5ч ⇡+12 → кончится ${fmtClock(OUT, NOW, WORDS.ru)}`)
+    })
+
+    test(`${surface}: auto follows Claude Code's language setting`, async ($, on) => {
+      engine(on)
+      on('settings.read', () => ({ value: { language: 'Russian' } }))
+      await $.session.measure(reading(52, 30))
+      expect(await texts(await pane($))).toContain('опережение 12%')
+    })
+
+    test(`${surface}: auto with no language set is English`, async ($, on) => {
+      engine(on)
+      on('settings.read', () => ({ value: {} }))
+      await $.session.measure(reading(52, 30))
+      expect(await texts(await pane($))).toContain('12% ahead')
+    })
+
+    test(`${surface}: en pinned wins over a Russian Claude Code`, { options: { language: 'en' } }, async ($, on) => {
+      engine(on)
+      on('settings.read', () => ({ value: { language: 'ru' } }))
+      await $.session.measure(reading(52, 30))
+      expect(await texts(await pane($))).toContain('12% ahead')
     })
 
     test(`${surface}: a pane of another mod is left alone`, async ($, on) => {

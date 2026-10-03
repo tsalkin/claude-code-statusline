@@ -1,6 +1,8 @@
 // Pure arithmetic of the /pace pane: no $, so the tests check it directly.
 
 import type { ContextSlice, LimitWindow, Point } from '../types'
+import { WORDS } from './words'
+import type { Words } from './words'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -98,23 +100,21 @@ export function fmtPct(n: number) {
   return Number.isInteger(r) || Math.abs(r) >= 10 ? `${Math.round(r)}` : r.toFixed(1)
 }
 
-export function fmtSpan(ms: number) {
+export function fmtSpan(ms: number, w: Pick<Words, 'd' | 'h' | 'm'> = WORDS.en) {
   const m = Math.max(0, Math.round(ms / MINUTE))
   const d = Math.floor(m / 1440)
   const h = Math.floor((m % 1440) / 60)
   const mm = m % 60
-  if (d > 0) return `${d}d ${h}h`
-  if (h > 0) return `${h}h ${String(mm).padStart(2, '0')}m`
-  return `${mm}m`
+  if (d > 0) return `${d}${w.d} ${h}${w.h}`
+  if (h > 0) return `${h}${w.h} ${String(mm).padStart(2, '0')}${w.m}`
+  return `${mm}${w.m}`
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
 // Local clock time; with the weekday once it is not today.
-export function fmtClock(at: number, now: number) {
+export function fmtClock(at: number, now: number, w: Pick<Words, 'days'> = WORDS.en) {
   const a = new Date(at)
   const hm = `${String(a.getHours()).padStart(2, '0')}:${String(a.getMinutes()).padStart(2, '0')}`
-  return new Date(now).toDateString() === a.toDateString() ? hm : `${DAYS[a.getDay()]} ${hm}`
+  return new Date(now).toDateString() === a.toDateString() ? hm : `${w.days[a.getDay()]} ${hm}`
 }
 
 // --- The limit bar ----------------------------------------------------------

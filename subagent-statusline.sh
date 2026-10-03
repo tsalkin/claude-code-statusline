@@ -33,16 +33,42 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SUBAGENT_NAME_MAX:=32}"   # a name (or the description standing in for it) is cut here
 : "${STATUSLINE_CTX_WARN:=50}"
 : "${STATUSLINE_CTX_CRIT:=80}"
+: "${STATUSLINE_LANG:=auto}"             # auto = Claude Code's `language` setting; en or ru pins one
 NOW="${STATUSLINE_NOW:-$(date +%s)}"
 
-effort_want=""
-if [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] && [ -f "$CLAUDE_DIR/settings.json" ]; then
-    effort_want=$(jq -r '.effortLevel // empty | strings' "$CLAUDE_DIR/settings.json" 2>/dev/null)
+# One jq for both settings this script reads: the configured effort and the language.
+effort_want="" cc_language=""
+if [ -f "$CLAUDE_DIR/settings.json" ]; then
+    IFS='|' read -r effort_want cc_language < <(jq -r \
+        '[.effortLevel, .language] | map(if type == "string" then . else "" end) | join("|")' \
+        "$CLAUDE_DIR/settings.json" 2>/dev/null)
 fi
+[ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || effort_want=""
+
+# The rows' own words, as in statusline.sh: Russian when STATUSLINE_LANG is ru, or
+# auto and Claude Code's language is Russian; English otherwise.
+case "$STATUSLINE_LANG" in
+    en|ru) ui_lang=$STATUSLINE_LANG ;;
+    *)  case "$cc_language" in
+            [Rr][Uu]|[Rr][Uu][Ss]|[Rr][Uu][-_]*|[Rr][Uu][Ss][Ss][Ii][Aa][Nn]|Русский|русский|РУССКИЙ) ui_lang=ru ;;
+            *) ui_lang=en ;;
+        esac ;;
+esac
+
+# key|English|Russian: every row needs all three (tests/run.sh checks it).
+while IFS='|' read -r key en ru; do
+    if [ "$ui_lang" = ru ]; then printf -v "W_$key" '%s' "$ru"; else printf -v "W_$key" '%s' "$en"; fi
+done <<'WORDS'
+H|h|ч
+M|m|м
+S|s|с
+INH|inh|насл
+WORDS
 
 printf '%s' "$input" | jq -c \
     --argjson now "$NOW" \
     --arg want "$effort_want" \
+    --arg uh "$W_H" --arg um "$W_M" --arg us "$W_S" --arg inh "$W_INH" \
     --argjson bar_len "$STATUSLINE_SUBAGENT_BAR_LEN" \
     --argjson spark_len "$STATUSLINE_SUBAGENT_SPARK_LEN" \
     --argjson name_max "$STATUSLINE_SUBAGENT_NAME_MAX" \
@@ -60,9 +86,9 @@ def short_model: clean | sub("^claude-"; "") | sub("-[0-9]{8}$"; "") | sub("\\[1
 def kilo: if . >= 1000000 then "\((. / 100000 | floor) / 10)M"
           elif . >= 1000 then "\(. / 1000 | floor)K" else tostring end;
 def pad2: tostring | if length < 2 then "0" + . else . end;
-def elapsed: if . >= 3600 then "\(. / 3600 | floor)h\(. % 3600 / 60 | floor | pad2)m"
-             elif . >= 60 then "\(. / 60 | floor)m\(. % 60 | pad2)s"
-             else "\(.)s" end;
+def elapsed: if . >= 3600 then "\(. / 3600 | floor)\($uh)\(. % 3600 / 60 | floor | pad2)\($um)"
+             elif . >= 60 then "\(. / 60 | floor)\($um)\(. % 60 | pad2)\($us)"
+             else "\(.)\($us)" end;
 
 # Last samples of the token count as ▁▂▃▄▅▆▇█, scaled between their min and max
 def spark:
@@ -96,7 +122,7 @@ def effort_color:
 
 # effort: a level, a numeric token budget, or absent (inherited)
 | ($t.effort) as $e
-| (if $e == null then sgr("2") + "⚡inh" + off
+| (if $e == null then sgr("2") + "⚡" + $inh + off
    elif ($e | type) == "number" then sgr("36") + "⚡" + ($e | kilo) + off
    else sgr($e | clean | effort_color) + "⚡" + ($e | clean) + off end) as $eff
 | (if ($e | type) == "string" and rank($e) != null and rank($want) != null

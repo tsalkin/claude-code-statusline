@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { ContextSlice, LimitWindow } from '../types'
+import { WORDS, langFrom } from './words'
 import { PACE_COLORS, fmtClock, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, paletteOf, withReading } from './pace'
 
 const MIN = 60_000
@@ -81,12 +82,42 @@ describe('formatting', () => {
   })
 
   test('spans', () => {
-    expect([45 * MIN, 131 * MIN, 50 * HOUR].map(fmtSpan)).toEqual(['45m', '2h 11m', '2d 2h'])
+    const spans = [45 * MIN, 131 * MIN, 50 * HOUR]
+    expect(spans.map(ms => fmtSpan(ms))).toEqual(['45m', '2h 11m', '2d 2h'])
+    expect(spans.map(ms => fmtSpan(ms, WORDS.ru))).toEqual(['45м', '2ч 11м', '2д 2ч'])
   })
 
   test('a clock time carries the weekday once it is not today', () => {
     expect(fmtClock(NOW + HOUR, NOW)).not.toContain(' ')
     expect(fmtClock(NOW + 3 * 24 * HOUR, NOW)).toMatch(/^[A-Z][a-z]{2} \d\d:\d\d$/)
+    expect(fmtClock(NOW + 3 * 24 * HOUR, NOW, WORDS.ru)).toMatch(/^[А-Я][а-я] \d\d:\d\d$/)
+  })
+})
+
+describe('words', () => {
+  test('both languages have every word, none of them empty', () => {
+    const shape = (w: object) =>
+      Object.entries(w)
+        .map(([k, v]) => `${k}:${typeof v}${Array.isArray(v) ? v.length : ''}`)
+        .sort()
+    expect(shape(WORDS.ru)).toEqual(shape(WORDS.en))
+    expect(Object.keys(WORDS.ru.windows).sort()).toEqual(Object.keys(WORDS.en.windows).sort())
+    for (const w of [WORDS.en, WORDS.ru]) {
+      for (const [key, value] of Object.entries(w)) {
+        if (typeof value === 'string') expect(`${key}=${value}`).not.toBe(`${key}=`)
+        if (typeof value === 'function') expect(`${key}=${(value as (...a: string[]) => string)('1', '2', '3', '4')}`).not.toBe(`${key}=`)
+      }
+      expect(w.days).toHaveLength(7)
+    }
+  })
+
+  test('Claude Code\u2019s language: any name or code of Russian, English otherwise', () => {
+    for (const name of ['Russian', 'russian', 'ru', 'RU', 'ru-RU', 'ru_RU', 'rus', 'Русский', ' russian ']) {
+      expect(`${name}:${langFrom(name)}`).toBe(`${name}:ru`)
+    }
+    for (const name of ['default', 'English', 'japanese', 'rust', 'Russia', '', undefined, 3]) {
+      expect(`${String(name)}:${langFrom(name)}`).toBe(`${String(name)}:en`)
+    }
   })
 })
 

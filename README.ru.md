@@ -180,6 +180,14 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 | `STATUSLINE_FIT` | подгонка под ширину |
 | `STATUSLINE_LINKS` | PR ссылкой (`0`, если ваш терминал или tmux печатает управляющую последовательность вместо ссылки) |
 
+### Язык
+
+Собственные слова строки — `H:`/`W:`, единицы времени, `cold` и причина промаха кеша, `inh` в строках суб-агентов — бывают на английском и на русском. `STATUSLINE_LANG=auto` (по умолчанию) следует настройке `language` самого Claude Code (`/config` → Language, читается из `~/.claude/settings.json`): русский, если там назван русский (`Russian`, `ru`, `ru-RU`), иначе английский. `en` или `ru` закрепляет язык. Модели, ветки, имена сессий и тексты задач показываются как есть.
+
+```
+[Opus 5.5] | ⚡high | ▰▰▱▱▱▱ 30% (60K/200K) | ◈91% →14:43 ✗инстр+1 | Ч:20% 3ч0м ⇡40% Н:25% 2д0ч | ⏱ 0м
+```
+
 ### Пороги
 
 | Переменная | По умолчанию | Что значит |
@@ -221,7 +229,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 /plugin install pace-band@tsalkin
 ```
 
-Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+По-русски или по-английски — по тому же правилу, что и строка: по настройке `language` самого Claude Code или по собственной настройке плагина `language` в `/config`. Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
 ## Необязательные модули
 

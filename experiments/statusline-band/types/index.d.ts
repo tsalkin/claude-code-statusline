@@ -43,6 +43,7 @@ declare module 'claude-code' {
       limits: LimitWindow[]
       context: ContextView | null
       paneOpen: boolean
+      claudeLang: 'en' | 'ru' | null
     }
   }
 }

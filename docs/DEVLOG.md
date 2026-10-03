@@ -2,6 +2,25 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-04 — Russian for the line and for /pace
+
+The owner: a setting to switch the line and the plugin to Russian. Chosen of three options: one switch for the whole kit, Claude Code's own `language` setting (`/config` → Language), with an override in each part.
+
+**What Claude Code offers (checked).** `language` is a setting of its own since its changelog entry "Added `language` setting to configure Claude's response language"; the owner's is `"Russian"`. In the 2.1.288 binary the `/config` row is `{id:"language", label:"Language", type:"managedEnum", optionsHint:"Any language name or ISO code (e.g. 'ja'); use 'default' for English."}`. The status line payload carries no language (not in the fixtures). A mod reads the merged settings with `$.settings.read()` (every source, in Claude Code's precedence), hears `/config` changes as `config.set`, and declares options of its own with `userConfig` in the manifest (`code-modernization`, Anthropic's own plugin, has the same `auto` + `options` shape).
+
+**The line.** `STATUSLINE_LANG=auto|en|ru`. Auto reads the top-level `language` of `settings.json` with bash builtins only (Claude Code writes top-level keys two spaces in): no process per render, which costs ~40 ms on Windows. A file laid out otherwise, or with a nested `"language"` only (a plugin's options), falls back to one `jq`. Any name or code of Russian counts (`Russian`, `ru`, `ru-RU`, `rus`, `Русский`); anything else is English. The words are a `key|English|Russian` table read by a builtin loop into `W_*`: `H:`/`W:` → `Ч:`/`Н:`, `d h m` → `д ч м`, `cold` → `остыл`, `tools system ttl server` → `инстр сист срок сервер`, GSD `ph` → `ф`. Subagent rows: one `jq` now reads both `effortLevel` and `language`; `h m s` → `ч м с`, `inh` → `насл`.
+
+**/pace (pace-band 0.5.0).** Option `language` (`auto` | `en` | `ru`), shown in `/config` as `pace-band.language`. Auto: `$.settings.read()` at session start, kept in state, replaced on `config.set` for `language`. Every word of the pane and the band is in `hooks/words.ts`, one `Words` type for both tables; spans and weekdays take the table (`fmtSpan(ms, w)`, `fmtClock(at, now, w)`). `/context` category names have Russian for the known ones; others are shown as they come.
+
+**Pitfalls.**
+- *Drawing is pure.* The first version cached the language in state from inside `ui.render`; the host refused the write ("drawing is pure … write from a handler") and skipped the band's hook. Reading `$.settings.read()` while drawing is allowed.
+- *An op event answers `{ value }`.* A test hook on `settings.read` returning the settings object was skipped ("returned neither { value } nor { deny }"); `{ value: { language: 'Russian' } }` works. The test engine's own `$` has no `settings`.
+- *`[...].map(fmtSpan)`* passed the index as the words table once `fmtSpan` took a second parameter; `tsc` caught it in a test.
+
+**Checks.** Line: 43/43, of which six new language cases (auto from settings, pinned ru, pinned en over a Russian Claude Code, a one-line settings file, a nested `language` only, subagent rows) and a gate on both word tables (three fields per row, unique keys); English output byte for byte as before. Reverse: a Russian word removed → the table gate and `lang-ru-auto` red; auto not reading the settings → two cases red. Mod: 58 tests, `tsc` clean, `validate --strict` passed. Reverse: a Russian word removed → `tsc` error and the words test red; auto ignored → the two auto tests red.
+
+**Not checked:** `config.set` switching the language in a running session (the test engine has no `/config`), and Russian on the owner's screen.
+
 ## 2026-10-03 — pace-band: the mod as a plugin in the tsalkin marketplace
 
 The owner kept the line for both bars and asked to build the plugin for the `tsalkin` marketplace (the RESUME's option 2).

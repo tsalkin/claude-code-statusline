@@ -4,6 +4,8 @@ import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 import type { ContextView, Figures, LimitWindow } from '../types'
 import { AHEAD_WARN, PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
+import { WORDS, langFrom } from './words'
+import type { Lang, Words } from './words'
 
 // The status line's companion. The bash line shows totals; this mod shows
 // what only a mod can:
@@ -21,6 +23,9 @@ const isHidden = atom({ plugin: 'pace-band', key: 'isHidden' } as const, false)
 const limits = atom({ plugin: 'pace-band', key: 'limits' } as const, [])
 const context = atom({ plugin: 'pace-band', key: 'context' } as const, null)
 const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
+// Claude Code's own `language` setting as en or ru: read at session start, kept
+// until /config changes it; null before the first read.
+const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
 
 const PANE = 'pace'
 
@@ -64,12 +69,30 @@ function signed(n: number, digits: number) {
   return n >= 0 ? `+${s}` : s
 }
 
-function describe(t: TurnCost) {
-  const parts = [`last turn ${t.seconds}s`]
+function describe(t: TurnCost, w: Words) {
+  const parts = [w.lastTurn(`${t.seconds}`)]
   if (t.usd !== undefined) parts.push(`$${signed(t.usd, 2)}`)
-  if (t.ctx !== undefined && t.ctx !== 0) parts.push(`ctx ${signed(t.ctx, 0)}%`)
-  if (t.five !== undefined && t.five !== 0) parts.push(`5h ${signed(t.five, Number.isInteger(t.five) ? 0 : 1)}`)
+  if (t.ctx !== undefined && t.ctx !== 0) parts.push(`${w.ctx} ${signed(t.ctx, 0)}%`)
+  if (t.five !== undefined && t.five !== 0) parts.push(`${w.windows.five_hour} ${signed(t.five, Number.isInteger(t.five) ? 0 : 1)}`)
   return parts.join(' · ')
+}
+
+// --- Language: the `language` option, or with auto Claude Code's own setting.
+
+async function readClaudeLang($: EngineInterface): Promise<Lang> {
+  try {
+    const settings = (await $.settings.read()) as { language?: unknown }
+    return langFrom(settings.language)
+  } catch {
+    return 'en'
+  }
+}
+
+// Called while drawing, which may not write state: what session.start and
+// config.set stored, else a fresh read of the settings.
+async function wordsFor($: EngineInterface, option: unknown): Promise<Words> {
+  if (option === 'en' || option === 'ru') return WORDS[option]
+  return WORDS[(await read($, claudeLang)) ?? (await readClaudeLang($))]
 }
 
 // --- Limit history: one key per window kind in $.store, shared by every
@@ -117,20 +140,24 @@ async function loadContext($: EngineInterface, columns: number) {
 
 // --- Words for a forecast ---------------------------------------------------
 
-function paceWords(f: Forecast) {
-  if (f.ahead >= 1) return `${fmtPct(f.ahead)}% ahead`
-  if (f.ahead <= -1) return `${fmtPct(-f.ahead)}% to spare`
-  return 'on pace'
+function paceWords(f: Forecast, w: Words) {
+  if (f.ahead >= 1) return w.ahead(fmtPct(f.ahead))
+  if (f.ahead <= -1) return w.toSpare(fmtPct(-f.ahead))
+  return w.onPace
 }
 
-function forecastWords(f: Forecast, t: number) {
-  if (f.runsOutAt !== undefined && f.runsOutAt <= t) return 'limit reached'
-  if (f.ratePerHour === undefined) return 'no forecast yet: too few readings'
-  const from = f.rateFrom === 'recent' ? '1h rate' : 'avg rate'
+function forecastWords(f: Forecast, t: number, w: Words) {
+  if (f.runsOutAt !== undefined && f.runsOutAt <= t) return w.limitReached
+  if (f.ratePerHour === undefined) return w.noForecast
+  const from = f.rateFrom === 'recent' ? w.rateRecent : w.rateWindow
   if (f.runsOutAt !== undefined) {
-    return `runs out ${fmtClock(f.runsOutAt, t)} (in ${fmtSpan(f.runsOutAt - t)}), ${fmtSpan(f.resetsAt - f.runsOutAt)} before reset · ${from}`
+    return w.runsOut(fmtClock(f.runsOutAt, t, w), fmtSpan(f.runsOutAt - t, w), fmtSpan(f.resetsAt - f.runsOutAt, w), from)
   }
-  return `lasts to reset ${fmtClock(f.resetsAt, t)} (~${fmtPct(f.atReset ?? f.used)}% used) · ${from}`
+  return w.lasts(fmtClock(f.resetsAt, t, w), fmtPct(f.atReset ?? f.used), from)
+}
+
+function labelOf(f: Forecast, w: Words) {
+  return w.windows[f.kind] ?? f.label
 }
 
 // The forecast line: quiet when the limit lasts, amber when it runs out while
@@ -155,10 +182,13 @@ function forecasts(windows: readonly LimitWindow[], t: number) {
     .filter((f): f is Forecast => f !== undefined)
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    await $.command.register({ name: 'pace', description: 'Limits forecast and context by category (toggles a pane)' })
+    const fresh = await readClaudeLang($)
+    await update($, claudeLang, () => fresh)
+    const w = await wordsFor($, options.language)
+    await $.command.register({ name: 'pace', description: w.command })
     await loadLimits($)
     const u = await $.session.usage()
     const current = figuresOf(u)
@@ -205,6 +235,13 @@ export const register: Register = on => {
     return {}
   })
 
+  // Claude Code's language changed in /config: the words follow at the next draw.
+  on('config.set', { key: 'language' }, async ($, e, next) => {
+    const result = await next(e)
+    if ('value' in result) await update($, claudeLang, () => langFrom(result.value))
+    return result
+  })
+
   // Closed by the person (Esc, ctrl+x x): the next /pace opens it again.
   on('ui.close', async ($, e, next) => {
     if (e.id === PANE) await update($, paneOpen, () => false)
@@ -219,25 +256,26 @@ export const register: Register = on => {
     const fs = forecasts(await read($, limits), t)
     const ctx = await read($, context)
     const barWidth = Math.min(40, Math.max(10, width - 48))
+    const w = await wordsFor($, options.language)
 
     const limitRows = fs.map(f => {
       const forecastTone = forecastColor(f)
       return (
         <Box key={f.kind} flexDirection="column">
           <Box>
-            <Text bold>{`${f.label} `}</Text>
+            <Text bold>{`${labelOf(f, w)} `}</Text>
             {limitBar(f, barWidth).map((c, i) => (
               <Text key={`cell-${i}`} color={c.color}>
                 {c.char}
               </Text>
             ))}
-            <Text>{`  ${fmtPct(f.used)}% used · ${fmtPct(f.elapsed)}% of time · `}</Text>
+            <Text>{`  ${w.usedOfTime(fmtPct(f.used), fmtPct(f.elapsed))}`}</Text>
             <Text color={paletteOf(f).word} bold>
-              {paceWords(f)}
+              {paceWords(f, w)}
             </Text>
           </Box>
           <Text color={forecastTone} dimColor={forecastTone === undefined} wrap="truncate-end">
-            {`   → ${forecastWords(f, t)}`}
+            {`   → ${forecastWords(f, t, w)}`}
           </Text>
         </Box>
       )
@@ -245,11 +283,11 @@ export const register: Register = on => {
 
     const contextRows =
       ctx === null
-        ? [<Text key="ctx-none" dimColor>context: no data yet — reopen /pace after a reply</Text>]
+        ? [<Text key="ctx-none" dimColor>{w.noContext}</Text>]
         : [
             <Box key="ctx-head">
-              <Text bold>{'context  '}</Text>
-              <Text>{`${fmtTokens(ctx.total)} of ${fmtTokens(ctx.max)} · ${ctx.percent}%`}</Text>
+              <Text bold>{`${w.context}  `}</Text>
+              <Text>{w.contextOf(fmtTokens(ctx.total), fmtTokens(ctx.max), `${ctx.percent}`)}</Text>
             </Box>,
             <Box key="ctx-bar">
               {layoutBar(ctx.slices, ctx.max, width - 2).map((s, i) =>
@@ -264,7 +302,7 @@ export const register: Register = on => {
                 ),
               )}
             </Box>,
-            ...legendLines(ctx, width).map((line, i) => (
+            ...legendLines(ctx, width, w).map((line, i) => (
               <Box key={`legend-${i}`}>
                 {line.map(item => (
                   <Box key={item.name}>
@@ -280,7 +318,7 @@ export const register: Register = on => {
 
     return (
       <Box flexDirection="column">
-        {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>limits: no data yet (subscription plans only)</Text>]}
+        {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>{w.noLimits}</Text>]}
         <Text key="gap"> </Text>
         {contextRows}
       </Box>
@@ -299,6 +337,7 @@ export const register: Register = on => {
       return next(e)
     }
     const { Box, Button, Text } = $.ui.resolve(e)
+    const w = await wordsFor($, options.language)
     // The band is shared: what the mods after this one draw goes under ours.
     const theirs = await next(e)
 
@@ -307,18 +346,18 @@ export const register: Register = on => {
         <Box>
           {turn !== null ? (
             <Text dimColor wrap="truncate-end">
-              {describe(turn)}{' '}
+              {describe(turn, w)}{' '}
             </Text>
           ) : null}
           {warnings.map(f => (
             <Text key={`warn-${f.kind}`} color={toneOf(f, t)}>
-              {`${f.label} ⇡+${fmtPct(f.ahead)}${f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt ? ` → out ${fmtClock(f.runsOutAt, t)}` : ''}  `}
+              {`${labelOf(f, w)} ⇡+${fmtPct(f.ahead)}${f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt ? ` → ${w.out} ${fmtClock(f.runsOutAt, t, w)}` : ''}  `}
             </Text>
           ))}
           {needsCompact ? (
             <Button
               key="compact"
-              label={`compact (ctx ${current?.ctx}%)`}
+              label={`${w.compact} (${w.ctx} ${current?.ctx}%)`}
               hotkey="c"
               variant="primary"
               onPress={async () => {
@@ -337,10 +376,16 @@ export const register: Register = on => {
 type LegendItem = { name: string; tokens: number; color?: string }
 
 // The breakdown's rows as /context lists them, packed into lines that fit.
-function legendLines(ctx: ContextView, width: number): LegendItem[][] {
+function legendLines(ctx: ContextView, width: number, w: Words): LegendItem[][] {
+  const nameOf = (s: ContextView['slices'][number]) => {
+    if (s.kind === 'free') return w.free
+    if (s.kind === 'buffer') return w.compactBuffer
+    const name = s.name.toLowerCase()
+    return w.categories[name] ?? name
+  }
   const items: LegendItem[] = ctx.slices
     .filter(s => s.kind !== 'deferred' && s.tokens > 0)
-    .map(s => ({ name: s.kind === 'free' ? 'free' : s.kind === 'buffer' ? 'compact buffer' : s.name.toLowerCase(), tokens: s.tokens, color: s.kind === 'used' ? s.color : undefined }))
+    .map(s => ({ name: nameOf(s), tokens: s.tokens, color: s.kind === 'used' ? s.color : undefined }))
   const lines: LegendItem[][] = [[]]
   let used = 0
   for (const item of items) {

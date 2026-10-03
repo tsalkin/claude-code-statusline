@@ -28,6 +28,10 @@ Readings are kept in the mod's store, shared by every session on the machine: th
 
 Above the prompt, after each turn: what the last turn cost (`last turn 12s · $+0.42 · ctx +3% · 5h +1`), a warning when a limit is spent ahead of its time or runs out before its reset, and a `compact` button past 80 % context. `×` hides it.
 
+## Language
+
+English or Russian. The plugin's `language` option (`/config` → `pace-band.language`): `auto` (the default) follows Claude Code's own `language` setting; `en` or `ru` pins one. In Russian the forecast reads `кончится Вт 21:06 (через 2д 21ч), за 14ч 54м до сброса · темп за час`.
+
 ## Install
 
 ```

@@ -24,6 +24,9 @@
 # STATUSLINE_SHOW_PR=1
 # STATUSLINE_LINKS=1            # 0 = PR as plain text, no OSC 8 link
 
+# --- Language of the line's own words (H:/W:, units, cache words) ---
+# STATUSLINE_LANG=auto          # auto = Claude Code's `language` setting; en | ru pins one
+
 # --- Thresholds ---
 # STATUSLINE_BAR_LEN=6
 # STATUSLINE_CTX_WARN=50

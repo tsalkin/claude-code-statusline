@@ -353,6 +353,62 @@ jq '.session_name = "myproject"' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
 check name-is-project "$(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_PR=0)
 $(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_PR=0 STATUSLINE_SHOW_PROJECT=0 | tail -1)"
 
+# 35-40. Language. auto (the default) follows Claude Code's `language` setting, read
+# from settings.json as Claude Code lays it out (top-level keys two spaces in);
+# STATUSLINE_LANG pins one. Names, branches and task text stay as they come.
+lang_settings() { printf '%s\n' "$1" | jq '.' > "$CASE_ROOT/home/.claude/settings.json"; }
+cold_miss_payload() {
+    jq '.prompt_cache.warm = false | .prompt_cache.expires_at = null
+        | .prompt_cache.last_miss_cause = {"causes": ["ttl_expired_5m"]}' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+}
+
+# 35. auto, language "Russian": units, H:/W:, the cold cache and its cause in Russian
+new_case lang-ru-auto; make_git; make_gsd; cold_miss_payload
+lang_settings '{"effortLevel": "xhigh", "language": "Russian"}'
+check lang-ru-auto "$(render rich.json)
+$(render "$CASE_ROOT/payload.json")"
+
+# 36. Pinned to ru with no settings at all
+new_case lang-ru-pinned; make_git; make_gsd
+check lang-ru-pinned "$(render full.json STATUSLINE_LANG=ru)"
+
+# 37. Pinned to en over a Russian Claude Code
+new_case lang-en-pinned; make_git
+lang_settings '{"language": "ru"}'
+check lang-en-pinned "$(render rich.json STATUSLINE_LANG=en)"
+
+# 38. settings.json written by hand on one line: read through jq instead
+new_case lang-one-line; make_git
+printf '{"language":"ru-RU","effortLevel":"high"}\n' > "$CASE_ROOT/home/.claude/settings.json"
+check lang-one-line "$(render rich.json)"
+
+# 39. "language" only inside a plugin's options: not Claude Code's, so English
+new_case lang-nested-only; make_git
+lang_settings '{"pluginConfigs": {"pace-band@tsalkin": {"options": {"language": "ru"}}}}'
+check lang-nested-only "$(render rich.json)"
+
+# 40. Subagent rows follow the same setting: units and the inherited effort in Russian
+new_case lang-ru-subagents
+lang_settings '{"effortLevel": "xhigh", "language": "Russian"}'
+check lang-ru-subagents "$(render_sub subagents.json)"
+
+# 41. Both word tables: every row has a key, an English and a Russian word, and the
+# keys are unique. A word added in one language only goes red here.
+words_bad=""
+for script in "$SCRIPT" "$SUB_SCRIPT"; do
+    table=$(awk "/<<'WORDS'\$/ {on = 1; next} /^WORDS\$/ {on = 0} on" "$script")
+    [ -n "$table" ] || { words_bad="$words_bad ${script##*/}: no word table;"; continue; }
+    rows=$(printf '%s\n' "$table" | awk -F'|' 'NF != 3 || $1 == "" || $2 == "" || $3 == ""')
+    [ -n "$rows" ] && words_bad="$words_bad ${script##*/}: $rows;"
+    dups=$(printf '%s\n' "$table" | cut -d'|' -f1 | sort | uniq -d)
+    [ -n "$dups" ] && words_bad="$words_bad ${script##*/}: key twice: $dups;"
+done
+if [ -z "$words_bad" ]; then
+    [ "$UPDATE" = "1" ] || echo "ok       word-tables"; pass=$((pass + 1))
+else
+    echo "FAIL     word-tables:$words_bad"; fail=$((fail + 1))
+fi
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

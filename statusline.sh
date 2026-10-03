@@ -62,6 +62,10 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_MISS_RECENT:=900}"       # seconds a cache-miss cause stays on screen
 : "${STATUSLINE_NAME_MAX:=32}"           # session name longer than this is cut with "…"
 
+# Language of the line's own words: auto = Claude Code's `language` setting
+# (/config → Language), en or ru pins one.
+: "${STATUSLINE_LANG:=auto}"
+
 # Clickable PR number (OSC 8 hyperlink). 0 = plain text, for terminals or tmux setups
 # that print the escape sequence instead of hiding it.
 : "${STATUSLINE_LINKS:=1}"
@@ -92,6 +96,57 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 
 # Fixed clock for tests.
 NOW="${STATUSLINE_NOW:-$(date +%s)}"
+
+# === Language ===============================================================
+# The line's own words, in English or Russian. Models, branches, session names and
+# task text are shown as they come.
+
+# Claude Code's `language` setting into CC_LANGUAGE without starting a process:
+# Claude Code writes settings.json with its top-level keys two spaces in. A file laid
+# out otherwise by hand, or one with a nested "language" only, falls back to jq.
+claude_language() {
+    local f="$CLAUDE_DIR/settings.json" line seen="" re='^  "language"[[:space:]]*:[[:space:]]*"([^"]*)"'
+    CC_LANGUAGE=""
+    [ -f "$f" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in *'"language"'*) ;; *) continue ;; esac
+        if [[ "$line" =~ $re ]]; then
+            CC_LANGUAGE="${BASH_REMATCH[1]}"
+            return 0
+        fi
+        seen=1
+    done < "$f"
+    [ -n "$seen" ] && CC_LANGUAGE=$(jq -r '.language // empty | strings' "$f" 2>/dev/null)
+    return 0
+}
+
+# Claude Code takes any language name or code ("Russian", "ru", "ru-RU"); anything
+# but Russian gets the English words.
+case "$STATUSLINE_LANG" in
+    en|ru) ui_lang=$STATUSLINE_LANG ;;
+    *)  claude_language
+        case "$CC_LANGUAGE" in
+            [Rr][Uu]|[Rr][Uu][Ss]|[Rr][Uu][-_]*|[Rr][Uu][Ss][Ss][Ii][Aa][Nn]|Русский|русский|РУССКИЙ) ui_lang=ru ;;
+            *) ui_lang=en ;;
+        esac ;;
+esac
+
+# key|English|Russian: every row needs all three (tests/run.sh checks it).
+while IFS='|' read -r key en ru; do
+    if [ "$ui_lang" = ru ]; then printf -v "W_$key" '%s' "$ru"; else printf -v "W_$key" '%s' "$en"; fi
+done <<'WORDS'
+D|d|д
+H|h|ч
+M|m|м
+HOUR|H:|Ч:
+WEEK|W:|Н:
+COLD|cold|остыл
+TOOLS|tools|инстр
+SYSTEM|system|сист
+TTL|ttl|срок
+SERVER|server|сервер
+PHASE|ph|ф
+WORDS
 
 mtime() {  # file modification time, epoch seconds
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -147,7 +202,7 @@ fi
 project=$(basename "$current_dir")
 
 # === Session time (from transcript file birth) ==============================
-session_time="0m"
+session_time="0${W_M}"
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
     # Birth time, not modification time: the transcript is appended after every
     # message, so its mtime is always "just now". GNU stat prints 0 or "-" when the
@@ -163,9 +218,9 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
         [ "$elapsed" -lt 0 ] && elapsed=0
         mins=$(( elapsed / 60 ))
         if [ $mins -ge 60 ]; then
-            session_time="$((mins / 60))h $((mins % 60))m"
+            session_time="$((mins / 60))${W_H} $((mins % 60))${W_M}"
         else
-            session_time="${mins}m"
+            session_time="${mins}${W_M}"
         fi
     fi
 fi
@@ -289,7 +344,7 @@ limit_times() {  # $1 five_used $2 five_reset $3 week_used $4 week_reset → "t5
     # t = time to reset ("2h10m", "4d15h"); p = pace, used % minus the % of the window
     # already gone, rounded. Reset times come as UNIX epoch (payload) or ISO-8601
     # (usage endpoint). One interpreter start for both windows.
-    python3 - "$1" "$2" "$3" "$4" "$NOW" 2>/dev/null <<'PYEOF'
+    python3 - "$1" "$2" "$3" "$4" "$NOW" "$W_D" "$W_H" "$W_M" 2>/dev/null <<'PYEOF'
 import sys
 from datetime import datetime
 def epoch(v):
@@ -302,10 +357,11 @@ def epoch(v):
         return datetime.fromisoformat(v.replace('Z', '+00:00')).timestamp()
     except Exception:
         return None
+d, h, m = sys.argv[6:9]
 def left(s):
-    if s >= 86400: return f'{s // 86400}d{(s % 86400) // 3600}h'
-    if s >= 3600: return f'{s // 3600}h{(s % 3600) // 60}m'
-    return f'{s // 60}m'
+    if s >= 86400: return f'{s // 86400}{d}{(s % 86400) // 3600}{h}'
+    if s >= 3600: return f'{s // 3600}{h}{(s % 3600) // 60}{m}'
+    return f'{s // 60}{m}'
 now = float(sys.argv[5])
 out = []
 for used, reset, window in ((sys.argv[1], sys.argv[2], 18000), (sys.argv[3], sys.argv[4], 604800)):
@@ -333,8 +389,8 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
         IFS='|' read -r t5 p5 t7 p7 <<< "$(limit_times "$1" "$3" "$2" "$4")"
     fi
     fc=$(usage_color "$fl"); wc=$(usage_color "$wl")
-    h="${fc}H:${fl}%${t5:+ $t5}"
-    w="${wc}W:${wl}%"
+    h="${fc}${W_HOUR}${fl}%${t5:+ $t5}"
+    w="${wc}${W_WEEK}${wl}%"
     # The weekly countdown only once the week is no longer green: days away rarely matter.
     [ -n "$t7" ] && ! [ "$wl" -gt "$STATUSLINE_LIMIT_OK" ] 2>/dev/null && w="$w $t7"
     # Pace: burning the window faster than time passes it. Red whatever the remaining %.
@@ -410,7 +466,7 @@ if [ "$STATUSLINE_SHOW_GSD" = "1" ]; then
                 gsd_phase="${BASH_REMATCH[4]} (${BASH_REMATCH[1]}/${BASH_REMATCH[2]})"
             elif [[ "$phase_line" =~ ^Phase:[[:space:]]*[0-9]+ ]]; then
                 gsd_phase="$phase_line"
-                [[ "$phase_line" =~ $re_num ]] && gsd_phase="${BASH_REMATCH[2]} (ph${BASH_REMATCH[1]})"
+                [[ "$phase_line" =~ $re_num ]] && gsd_phase="${BASH_REMATCH[2]} (${W_PHASE}${BASH_REMATCH[1]})"
             fi
 
             gsd_parts=()
@@ -552,7 +608,7 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
             if [ -n "$cache_cold_tokens" ] && [ "$cache_cold_tokens" -ge 1000 ] 2>/dev/null; then
                 cold_display=" $((cache_cold_tokens / 1000))K"
             fi
-            cache_part="\033[31m◈cold${cold_display}\033[0m"
+            cache_part="\033[31m◈${W_COLD}${cold_display}\033[0m"
         fi
         # Why the last miss happened, while it is recent: a tool list that changed (an MCP
         # server came or went), a system prompt that changed, an expired TTL.
@@ -561,10 +617,10 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
             && [ $((NOW - miss_at)) -le "$STATUSLINE_MISS_RECENT" ] 2>/dev/null; then
             read -r -a causes <<< "$miss_causes"
             case "${causes[0]}" in
-                tools_changed)         miss="tools" ;;
-                system_prompt_changed) miss="system" ;;
-                ttl_expired_*)         miss="ttl" ;;
-                likely_server_side)    miss="server" ;;
+                tools_changed)         miss="$W_TOOLS" ;;
+                system_prompt_changed) miss="$W_SYSTEM" ;;
+                ttl_expired_*)         miss="$W_TTL" ;;
+                likely_server_side)    miss="$W_SERVER" ;;
                 *)                     miss="${causes[0]%_changed}" ;;
             esac
             [ ${#causes[@]} -gt 1 ] && miss="${miss}+$(( ${#causes[@]} - 1 ))"
