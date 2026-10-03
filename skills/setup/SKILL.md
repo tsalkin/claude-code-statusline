@@ -1,11 +1,11 @@
 ---
 name: setup
-description: Turn the claude-code-statusline status line (and optionally its subagent rows) on or off in the user's ~/.claude/settings.json. Run only when the user asks for it.
+description: Turn the pace-statusline status line (and optionally its subagent rows) on or off in the user's ~/.claude/settings.json. Run only when the user asks for it.
 disable-model-invocation: true
 argument-hint: "[remove]"
 ---
 
-# Set up claude-code-statusline
+# Set up pace-statusline
 
 A plugin cannot set the main status line by itself: Claude Code takes `statusLine` only from the user's own settings. This skill writes it there, with the user's consent, through the plugin's own installer:
 

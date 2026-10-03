@@ -2,6 +2,48 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-03 — renamed for the plugin directory: pace-statusline@tsalkin
+
+**Context.** The owner asked to submit the line to Anthropic's plugin directory. `claude plugin validate .` refused: *Plugin name "claude-code-statusline" is reserved: it passes as one of Anthropic's own… cannot start with "claude-"… Name it for what it does.* A plain install still worked (checked on 2.1.288 in a sandbox `CLAUDE_CONFIG_DIR`), so only the directory needed the rename.
+
+**Decision (owner, option 3 of three).** Plugin `pace-statusline`, after what sets the line apart: the pace of spending the limits and what a session costs. Marketplace `tsalkin`, so the owner's other public plugins can join it later under one install point. `displayName` "Claude Code Status Line" became "Pace Status Line": it read as Anthropic's own product. The repository, the config path `~/.config/claude-code-statusline/` and the environment variables keep their names, so no user's settings move.
+
+**What changed.**
+- `.claude-plugin/plugin.json`, `marketplace.json`: the names. Install is now `/plugin install pace-statusline@tsalkin`, setup `/pace-statusline:setup`.
+- `scripts/install.sh`: `ours()` recognised its own command by the substring `claude-code-statusline`. The launcher now lives in `…/plugins/data/pace-statusline-tsalkin/`, so a second run of the installer would have called its own line "set to something else" and asked for `--force`. It matches both names now: the old one still covers clones and launchers from before the rename, so `setup` replaces an old install without `--force`.
+- Test 34 `install-plugin-again`: a second run in the plugin layout is "Already up to date". Reverse check: with `*pace-statusline*` dropped from `ours()`, exactly this test goes red. Test 32 moved to the real new layout (`cache/tsalkin/pace-statusline/…`). 35 of 35.
+- READMEs: the new commands, a line on why the plugin and the repository differ in name, and how to move from the old install.
+- End to end in a sandbox config: marketplace add, install, the installer, a line rendered through the launcher, a second run with nothing to write.
+
+**Not done here.** `version` is still unset (a warning, not an error). Without it Claude Code tracks the plugin by commit, so every push reaches users with no version bump to remember.
+
+## 2026-10-03 — Claude Code 2.1.284–2.1.288: ultracode, Claude Mods
+
+**Context.** The owner asked whether recent Claude Code releases open anything new for the line. Checked the changelog against what `statusline.sh` reads, then the payload builder in the 2.1.288 binary itself.
+
+**Findings.**
+- *Ultracode cannot be shown.* Since 2.1.284 ultracode is a toggle of its own, separate from the effort level. The payload carries only `effort.level` (builder in 2.1.288: `...rw(Pe)&&{effort:{level:cT(Pe,ke)}}`), nothing in `settings.json`, `~/.claude.json` or the session registry names it, and the mod API has no `ultracode` either. Nothing to build until a release adds the field.
+- *`remote: { session_id }` in the payload* is set from the session's `remote` context (`caps.controlChannel`), which looks like a session hosted remotely rather than a terminal session under Remote Control. Not checked live; the `📡 RC` badge stays on `bridgeSessionId`.
+- *`rate_limits.spend_limit`* (2.1.251, dollars since 2.1.284) exists only behind a Claude apps gateway. Not for subscription users.
+- *Claude Mods (2.1.287)* do not replace `statusLine`. A mod can pin its own one-line text under the prompt (`$.ui.status`), draw a band above the prompt (`AbovePrompt`: boxes, colours, Buttons with hotkeys) and a pane. It gets the status line's own figures, pushed: `$.session.usage()` / the `session.measure` event (context %, rate-limit windows, cost), plus `$.agent.list()`, and `session.attach`/`detach` for clients joining from the phone or desktop. It is distributed the same way as this plugin (`hooks/hooks.json` in a plugin folder).
+
+**Probe.** `experiments/statusline-band/`: a band with pushed figures, attached surfaces, running subagents, a `compact` button from 80 % context (the line's red threshold) and a dismiss button. Its own row goes on top, and what the mods after it draw stays underneath: the band is shared, and a tree without `await next(e)` hides theirs (the built-in `You should know` notes included). `claude plugin validate` passes, `tsc` (strict, the engine's tsconfig) is clean, `claude plugin test` gives 12 of 12 on terminal and desktop. Reverse checks: threshold set to 101 → the two compact tests go red; `{theirs}` dropped → the two shared-band tests go red. Not loaded into a live session yet.
+
+**Rebuilt as a companion (owner saw the first band live, then asked for it).** The figures the line already shows are gone (context, limits, cost), and so are the subagent list (the subagent rows show it) and the attached surfaces (the `📡 RC` badge says it). What is left is what only a mod can do. *What the last turn cost*: `last turn 12s · $+0.42 · ctx +3% · 5h +1`. The line shows totals, and only a mod sees where a main-loop turn starts and ends. *A compact button* from 80 % context while Claude is idle. The band stays out of the way when neither applies. How the turn cost is taken: `turn.start` keeps the latest `session.measure` reading, `turn.complete` (main loop only, `agentId` absent) keeps the length, and the difference is worked out while drawing, so it holds whichever of `turn.complete` and the after-turn measurement arrives first. A subagent stop button is not possible: `$.agent` has `spawn`, `list` and `register` only. `$.session.usage()` cannot be stubbed in `claude plugin test` (it is a method, not an event), so the band reads `session.measure` alone and calls `usage()` only once, at `session.start`. Checks: 16 of 16 on terminal and desktop, `tsc` clean. Reverse checks, each turning exactly its pair red: `agentId` filter off, threshold 101, `{theirs}` dropped.
+
+**A remote switch, seen flipping.** Around 11:03 on 03.10 `~/.claude.json` was refreshed with `tengu_plugin_hooks_modules: false`, and `claude plugin test` refused with "hooks modules are turned off in this process". Per the docs (troubleshoot page) that means Anthropic has turned installed mods off remotely, and no setting on the machine turns them back on. By 11:10 the same morning the flag was `true` again, and the docs' check (`claude plugin test` in a folder with no mod) answered "no hooks module to load", meaning mods can load. Before trusting a mod result, run that check.
+
+**From the announcement and docs (01.10, `code.claude.com/docs/en/plugins/mods/`).**
+- Mods are on by default from 2.1.287. They stop with `disableAllHooks`, `--safe-mode` or `--bare`. `disableAllHooks` also stops the custom status line.
+- Render sites: `Pane`, `AbovePrompt`, a one-line `$.ui.status` under the prompt, plus Claude Code's own `Spinner`, `ToolProgress`, `TurnDuration`, `InfoNotice`, `SessionMode` (the footer's mode labels), `PromptHint`, messages, tool rows and `AskUserQuestion`. The custom `statusLine` output is **not** a render site. A mod sits beside it and cannot restyle it.
+- Drawing shows only in the terminal and the Desktop app's Code tab. Under Remote Control from the phone, a mod's hooks run on the Mac, and what it draws appears **in the Mac's terminal only**, not on the phone. VS Code, `claude -p` and cloud sessions draw nothing.
+- Anthropic's sample `token-weather` (`anthropics/claude-code-playground`, `claude-code/mods/`) already draws a context forecast above the prompt: icon by fill, a 12-turn sparkline, the delta per turn. Prior art for a context band. A band from this project should not repeat it.
+- Mods are not sandboxed and run with the user's permissions. `claude plugin validate` lists their hooks and calls before install.
+
+**Pitfalls.**
+- *`$` may only be passed to top-level functions* (`claude plugin validate`): a helper `const` inside `register` that takes `$` is refused.
+- *zsh `PIPESTATUS`* is empty: `tsc | tail; echo ${PIPESTATUS[0]}` printed nothing. Run the check as its own command.
+
 ## 2026-09-28 — after the merge: two fixes from the live line
 
 **Context.** Merged, pushed by the owner, subagent rows switched on in the owner's settings (`scripts/install.sh --subagents`, backup `settings.json.bak-statusline-20260928-164753`). The owner sent screenshots from the Mac.

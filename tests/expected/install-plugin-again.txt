@@ -1,0 +1,12 @@
+claude-code-statusline: plugin pace-statusline@tsalkin
+settings: <ROOT>/home/.claude/settings.json
+statusLine: bash "<ROOT>/home/.claude/plugins/data/pace-statusline-tsalkin/launch.sh" → bash "<ROOT>/home/.claude/plugins/data/pace-statusline-tsalkin/launch.sh"
+Already up to date — nothing to write.
+Dry run: nothing written.
+exit=0
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"<ROOT>/home/.claude/plugins/data/pace-statusline-tsalkin/launch.sh\""
+  }
+}

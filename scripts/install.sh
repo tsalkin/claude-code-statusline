@@ -70,7 +70,10 @@ if [ -f "$settings" ]; then
 else
     current='{}'
 fi
-ours() { case "$1" in ''|*claude-code-statusline*) return 0 ;; *) return 1 ;; esac; }
+# Ours: a clone of the repository (claude-code-statusline), or the plugin's launcher —
+# pace-statusline since the plugin was renamed for the plugin directory (2026-10-03),
+# claude-code-statusline before that.
+ours() { case "$1" in ''|*claude-code-statusline*|*pace-statusline*) return 0 ;; *) return 1 ;; esac; }
 old_main=$(printf '%s' "$current" | jq -r '.statusLine.command // ""')
 old_sub=$(printf '%s' "$current" | jq -r '.subagentStatusLine.command // ""')
 

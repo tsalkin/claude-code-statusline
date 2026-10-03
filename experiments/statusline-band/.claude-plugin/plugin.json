@@ -1,0 +1,6 @@
+{
+  "name": "statusline-band",
+  "version": "0.2.0",
+  "description": "Companion band for claude-code-statusline: what the last turn cost, and a compact button past 80% context",
+  "types": "./types/index.d.ts"
+}

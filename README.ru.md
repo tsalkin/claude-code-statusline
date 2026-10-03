@@ -1,10 +1,12 @@
-# claude-code-statusline
+# pace-statusline
 
 **Двухстрочная строка статуса для Claude Code: во что обходится длинная сессия — модель, уровень усилий, контекст, кеш промпта, лимиты и темп, с которым они тратятся, — и где вы находитесь в репозитории. Плюс строки для суб-агентов.**
 
 Скрипты на bash, `bash` + `jq`, лицензия MIT. Ставится плагином Claude Code или из клона репозитория. Любой блок можно выключить, любой порог — поменять.
 
 *English: [README.md](README.md)*
+
+Плагин называется **pace-statusline**, репозиторий сохранил первое имя — `claude-code-statusline`. Имена плагинов на `claude-` Claude Code оставляет за плагинами самого Anthropic.
 
 > Соседние репозитории: **[claude-code-playbook](https://github.com/tsalkin/claude-code-playbook)** — рабочие соглашения для агента · **[claude-memory-hygiene](https://github.com/tsalkin/claude-memory-hygiene)** — держит индекс памяти в бюджете.
 
@@ -94,11 +96,13 @@ Claude Code сообщает скрипту ширину терминала (`$C
 
 ```
 /plugin marketplace add tsalkin/claude-code-statusline
-/plugin install claude-code-statusline@claude-code-statusline
-/claude-code-statusline:setup
+/plugin install pace-statusline@tsalkin
+/pace-statusline:setup
 ```
 
-Плагин не может сам включить основную строку статуса: `statusLine` Claude Code берёт только из ваших собственных настроек. Это делает команда `setup`: показывает, что изменит, спрашивает, делает резервную копию `settings.json` и записывает `statusLine` (и, если хотите, строки суб-агентов). Команды указывают на маленький запускатель в каталоге данных плагина — он при каждом запуске находит установленную версию, поэтому после обновлений плагина настраивать заново не нужно. `/claude-code-statusline:setup remove` убирает всё обратно.
+Плагин не может сам включить основную строку статуса: `statusLine` Claude Code берёт только из ваших собственных настроек. Это делает команда `setup`: показывает, что изменит, спрашивает, делает резервную копию `settings.json` и записывает `statusLine` (и, если хотите, строки суб-агентов). Команды указывают на маленький запускатель в каталоге данных плагина — он при каждом запуске находит установленную версию, поэтому после обновлений плагина настраивать заново не нужно. `/pace-statusline:setup remove` убирает всё обратно.
+
+**Ставили до 03.10.2026 как `claude-code-statusline@claude-code-statusline`?** Плагин и его маркетплейс переименованы для каталога плагинов. Удалите старый (`/plugin uninstall claude-code-statusline@claude-code-statusline`, затем `/plugin marketplace remove claude-code-statusline`), добавьте и поставьте заново командами выше и запустите `/pace-statusline:setup`: старый запускатель он узнает как свой и заменит без `--force`.
 
 ### Из клона репозитория
 
@@ -213,7 +217,7 @@ STATUSLINE_USAGE_API=0
 
 С этой настройкой скрипт не трогает сохранённый вход и сеть; если во входе нет `rate_limits`, блок `H:`/`W:` просто не показывается.
 
-Установщик (`scripts/install.sh`, он же за `/claude-code-statusline:setup`) пишет `settings.json` после резервной копии и, при установке плагином, `launch.sh` в каталог данных плагина. Что ещё пишет скрипт: `~/.claude/.effort-check.json` (кеш сверки усилий на 10 минут) и — только при установленном хуке GSD context-monitor — `claude-ctx-<сессия>.json` в `$TMPDIR` (если переменной нет — в `/tmp`): в том каталоге, который хук читает через `os.tmpdir()` Node.
+Установщик (`scripts/install.sh`, он же за `/pace-statusline:setup`) пишет `settings.json` после резервной копии и, при установке плагином, `launch.sh` в каталог данных плагина. Что ещё пишет скрипт: `~/.claude/.effort-check.json` (кеш сверки усилий на 10 минут) и — только при установленном хуке GSD context-monitor — `claude-ctx-<сессия>.json` в `$TMPDIR` (если переменной нет — в `/tmp`): в том каталоге, который хук читает через `os.tmpdir()` Node.
 
 ## Необязательные модули
 

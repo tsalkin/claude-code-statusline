@@ -1,6 +1,6 @@
 {
-  "name": "claude-code-statusline",
-  "displayName": "Claude Code Status Line",
+  "name": "pace-statusline",
+  "displayName": "Pace Status Line",
   "description": "Two-line status line: model, effort, context, prompt cache with its expiry and miss cause, usage limits with pace, session name, PR — plus rows for subagents. bash + jq.",
   "author": { "name": "Maxim Tsalkin", "url": "https://github.com/tsalkin" },
   "homepage": "https://github.com/tsalkin/claude-code-statusline",

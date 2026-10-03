@@ -311,11 +311,11 @@ check install-uninstall "$(run_install "$REPO/scripts/install.sh" --uninstall)"
 # renders from the installed version
 new_case install-plugin
 proot="$CASE_ROOT/home/.claude/plugins"
-pdir="$proot/cache/mkt/claude-code-statusline/0123456789ab"
+pdir="$proot/cache/tsalkin/pace-statusline/0123456789ab"
 mkdir -p "$pdir/scripts"
 cp "$REPO/statusline.sh" "$REPO/subagent-statusline.sh" "$pdir/"
 cp "$REPO/scripts/install.sh" "$REPO/scripts/launch.sh" "$pdir/scripts/"
-printf '{"version":2,"plugins":{"claude-code-statusline@mkt":[{"scope":"user","installPath":"%s"}]}}\n' "$pdir" \
+printf '{"version":2,"plugins":{"pace-statusline@tsalkin":[{"scope":"user","installPath":"%s"}]}}\n' "$pdir" \
     > "$proot/installed_plugins.json"
 out=$(run_install "$pdir/scripts/install.sh")
 cmd=$(jq -r .statusLine.command "$CASE_ROOT/home/.claude/settings.json")
@@ -325,6 +325,10 @@ via_launcher=$(sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/minimal.json" | (cd "$WORK" &
 if [ "$via_launcher" = "$(render minimal.json)" ]; then same="launcher renders the same line"; else same="launcher: $via_launcher"; fi
 check install-plugin "$out
 $same"
+
+# 34. Plugin layout, run again: the launcher it wrote is recognised as ours, so the
+# second run needs no --force (the launcher path names the plugin, not the repository)
+check install-plugin-again "$(run_install "$pdir/scripts/install.sh" --dry-run)"
 
 # 33. A session named after its project: the name is not repeated; with the project
 # block off it is shown

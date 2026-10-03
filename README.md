@@ -1,10 +1,12 @@
-# claude-code-statusline
+# pace-statusline
 
 **A two-line status line for Claude Code that shows what a long session is costing you: model, reasoning effort, context, prompt cache, usage limits and the pace you spend them at — and where you are in the repo. Plus rows for subagents.**
 
 Bash scripts, `bash` + `jq`, MIT-licensed. Installs as a Claude Code plugin or from a clone. Every block can be switched off, every threshold changed.
 
 *Russian: [README.ru.md](README.ru.md)*
+
+The plugin is called **pace-statusline**; the repository keeps its first name, `claude-code-statusline`. Claude Code reserves plugin names that start with `claude-` for Anthropic's own.
 
 > Sibling repos: **[claude-code-playbook](https://github.com/tsalkin/claude-code-playbook)** — operating conventions for the agent · **[claude-memory-hygiene](https://github.com/tsalkin/claude-memory-hygiene)** — keeps the memory index under budget.
 
@@ -94,11 +96,13 @@ Claude Code's agent panel shows a row per running subagent. `subagent-statusline
 
 ```
 /plugin marketplace add tsalkin/claude-code-statusline
-/plugin install claude-code-statusline@claude-code-statusline
-/claude-code-statusline:setup
+/plugin install pace-statusline@tsalkin
+/pace-statusline:setup
 ```
 
-A plugin cannot switch the main status line on by itself — Claude Code takes `statusLine` only from your own settings. The `setup` command does it for you: it shows what it will change, asks, backs up `settings.json`, and writes `statusLine` (and, if you want them, the subagent rows). The commands point at a small launcher in the plugin's data directory, which finds the installed version on every run, so plugin updates need no second setup. `/claude-code-statusline:setup remove` takes it out again.
+A plugin cannot switch the main status line on by itself — Claude Code takes `statusLine` only from your own settings. The `setup` command does it for you: it shows what it will change, asks, backs up `settings.json`, and writes `statusLine` (and, if you want them, the subagent rows). The commands point at a small launcher in the plugin's data directory, which finds the installed version on every run, so plugin updates need no second setup. `/pace-statusline:setup remove` takes it out again.
+
+**Installed it before 2026-10-03, as `claude-code-statusline@claude-code-statusline`?** The plugin and its marketplace were renamed for the plugin directory. Remove the old one (`/plugin uninstall claude-code-statusline@claude-code-statusline`, then `/plugin marketplace remove claude-code-statusline`), add and install it again with the commands above, and run `/pace-statusline:setup`: it recognises the old launcher as its own and replaces it without `--force`.
 
 ### From a clone
 
@@ -213,7 +217,7 @@ STATUSLINE_USAGE_API=0
 
 With that set, the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
 
-The installer (`scripts/install.sh`, also behind `/claude-code-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
+The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
 
 ## Optional modules
 
