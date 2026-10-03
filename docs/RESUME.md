@@ -5,7 +5,7 @@ Updated 2026-10-03 (pace-band added to the marketplace).
 **Where we are.** The plugin is now `pace-statusline@tsalkin` (renamed for Anthropic's plugin directory: names starting with `claude-` are reserved; the repository keeps its name). Submitted to the directory on 2026-10-03 from the owner's claude.ai account, at `main @ 4bc254b`: listed on Claude Code only, auto-publish **off** (each version waits for the owner's Publish), updates by GitHub push webhook (not yet set up; the directory also polls about every 6 hours). Validation passed with a policy hold, "Uses a credential from the user's machine" (5 findings): the usage-limits fallback's token-reading code is still there, behind `STATUSLINE_USAGE_API`, which is now **off by default**. A reviewer reads the listing before it can go live. Tests 36/36 on macOS. See `docs/DEVLOG.md`, entries of 2026-10-03.
 
 **Next step.**
-- First: check the push of the pace-band commit with `git ls-remote origin main`. Then install `pace-band@tsalkin` from GitHub in a sandbox `CLAUDE_CONFIG_DIR` (it was checked only from the local marketplace).
+- Owner: the directory got a new pace-statusline version with the push of `9c632d9` (docs, marketplace file, `experiments/` only; `statusline.sh` unchanged). It waits for Publish; how it bears on the review of `4bc254b` is not known.
 - Owner: watch the submission at claude.ai/directory/manage. On approval, select Publish. If the reviewer objects to the credential code, the next move is to remove the fallback outright (not just switch it off).
 - Owner, optional: set up the push webhook from the plugin's page (needs admin on the GitHub repository).
 - Every push to `main` is now a new directory version: it is scanned, and with auto-publish off it waits for Publish.
@@ -19,7 +19,7 @@ Updated 2026-10-03 (pace-band added to the marketplace).
 | Directory listing | submitted (owner's ticks) | — | **waiting for the scan and a reviewer** | not published |
 | Push webhook | chosen | — | **not set up** (owner, needs GitHub admin) | — |
 | `/pace` forecast and context bar | built at the owner's request | yes, 48 tests | loaded into **every new session of the owner** from this working copy (`CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`, 03.10) | both sections seen live 03.10; texts, two palettes per window and the line bar after that look |
-| pace-band plugin in the `tsalkin` marketplace | yes (owner, 03.10: "собери плагин для tsalkin") | yes, 0.4.0, `validate --strict` passed, sandbox install from the local marketplace | committed; **push is the owner's** | install from GitHub not checked |
+| pace-band plugin in the `tsalkin` marketplace | yes (owner, 03.10: "собери плагин для tsalkin") | yes, 0.4.0, `validate --strict` passed, sandbox install from the local marketplace | pushed 03.10 (`9c632d9`, checked by `git ls-remote`) | install from GitHub checked in a sandbox `CLAUDE_CONFIG_DIR`: 0.4.0, enabled, `register.tsx` with 8 hooks; not yet drawn in a live session from the installed copy |
 | Move the folder out of `experiments/` | **open** | — | — | moving it means changing `CLAUDE_CODE_PLUGIN_DIRS` in the owner's settings |
 | Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
 
