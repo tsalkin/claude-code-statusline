@@ -20,7 +20,7 @@ Updated 2026-10-04 (Russian for the line and for /pace).
 | Push webhook | chosen | — | **not set up** (owner, needs GitHub admin) | — |
 | `/pace` forecast and context bar | built at the owner's request | yes, 58 tests | loaded into **every new session of the owner** from this working copy (`CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`, 03.10) | both sections seen live 03.10; texts, two palettes per window and the line bar after that look |
 | pace-band plugin in the `tsalkin` marketplace | yes (owner, 03.10: "собери плагин для tsalkin") | yes, 0.4.0, `validate --strict` passed, sandbox install from the local marketplace | pushed 03.10 (`9c632d9`, checked by `git ls-remote`) | install from GitHub checked in a sandbox `CLAUDE_CONFIG_DIR`: 0.4.0, enabled, `register.tsx` with 8 hooks; not yet drawn in a live session from the installed copy |
-| Russian for the line and `/pace` (one switch: Claude Code's `language`) | yes (owner, 04.10, option 1) | yes: `STATUSLINE_LANG`, `pace-band.language`, pace-band 0.5.0; 43 + 58 tests | committed on `main`; **push is the owner's** | not yet (`config.set` live switch not checked) |
+| Russian for the line and `/pace` (one switch: Claude Code's `language`) | yes (owner, 04.10, option 1) | yes: `STATUSLINE_LANG`, `pace-band.language`, pace-band 0.5.0; 43 + 58 tests | pushed 04.10 (`e8be7aa`, checked by `git ls-remote`); from GitHub in a sandbox: pace-band 0.5.0 with the `language` option | not yet (`config.set` live switch not checked) |
 | Move the folder out of `experiments/` | **open** | — | — | moving it means changing `CLAUDE_CODE_PLUGIN_DIRS` in the owner's settings |
 | Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
 
