@@ -1,6 +1,6 @@
 {
   "name": "statusline-band",
-  "version": "0.2.0",
-  "description": "Companion band for claude-code-statusline: what the last turn cost, and a compact button past 80% context",
+  "version": "0.3.0",
+  "description": "Companion to pace-statusline: /pace forecasts the 5-hour and weekly limits and breaks the context down by category; a band shows the last turn's cost, a pace warning and a compact button",
   "types": "./types/index.d.ts"
 }

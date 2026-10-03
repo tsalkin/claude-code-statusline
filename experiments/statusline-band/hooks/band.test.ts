@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
@@ -20,6 +20,8 @@ type Reading = { ctx: number; five: number; usd: number }
 
 // The engine beneath the plugin: its band, and the events the plugin passes on.
 function engine(on: On) {
+  mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
+  mock.store(on)
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [ENGINE] }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
