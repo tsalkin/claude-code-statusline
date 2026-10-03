@@ -117,6 +117,75 @@ export function fmtClock(at: number, now: number) {
   return new Date(now).toDateString() === a.toDateString() ? hm : `${DAYS[a.getDay()]} ${hm}`
 }
 
+// --- The limit bar ----------------------------------------------------------
+
+// Two palettes per window, chosen by the fact, not the forecast: a window
+// spent slower than its time is in reserve, one spent faster is short. A
+// forecast that runs out while the window is still in reserve is a caution
+// (amber), not a shortage: red stays for limits already spent beyond their time.
+export type Mood = 'spare' | 'short'
+
+type Rgb = readonly [number, number, number]
+
+// `reserve`: between the fill and the time mark, the reserve itself.
+export type Palette = { ramp: readonly Rgb[]; word: string; reserve: string }
+
+// Each window has its own hues, so the two bars tell apart without reading
+// their labels: the 5-hour one green to cyan in reserve and amber to orange
+// when short, the weekly one blue to violet and pink.
+const PALETTES: Readonly<Record<string, Readonly<Record<Mood, Palette>>>> = {
+  five_hour: {
+    spare: { ramp: [[16, 185, 129], [20, 184, 166], [34, 211, 238]], word: 'rgb(52,211,153)', reserve: 'rgb(31,82,72)' },
+    short: { ramp: [[245, 158, 11], [249, 115, 22]], word: 'rgb(251,146,60)', reserve: 'rgb(31,82,72)' },
+  },
+  seven_day: {
+    spare: { ramp: [[56, 189, 248], [129, 140, 248], [167, 139, 250]], word: 'rgb(129,140,248)', reserve: 'rgb(42,46,92)' },
+    short: { ramp: [[244, 114, 182], [236, 72, 153]], word: 'rgb(244,114,182)', reserve: 'rgb(42,46,92)' },
+  },
+}
+
+export const PACE_COLORS = {
+  caution: 'rgb(227,179,65)',
+  out: 'rgb(248,113,113)',
+  // Used beyond the share of time gone, in either window.
+  over: 'rgb(239,68,68)',
+  track: 'rgb(58,63,75)',
+  mark: 'rgb(201,209,217)',
+} as const
+
+export function moodOf(f: Forecast): Mood {
+  return f.ahead >= 1 ? 'short' : 'spare'
+}
+
+export function paletteOf(f: Forecast): Palette {
+  return (PALETTES[f.kind] ?? PALETTES.five_hour!)[moodOf(f)]
+}
+
+function ramp(stops: readonly Rgb[], t: number) {
+  const x = Math.min(Math.max(t, 0), 1) * (stops.length - 1)
+  const i = Math.min(Math.floor(x), stops.length - 2)
+  const a = stops[i]!
+  const b = stops[i + 1]!
+  const c = a.map((v, k) => Math.round(v + (b[k]! - v) * (x - i)))
+  return `rgb(${c.join(',')})`
+}
+
+export type Cell = { char: string; color: string }
+
+// A thin rule with a ┃ at the share of time gone: the fill in the window's
+// ramp, then (in reserve) the reserve up to the mark, then the bare track.
+export function limitBar(f: Forecast, width: number): Cell[] {
+  const mood = moodOf(f)
+  const palette = paletteOf(f)
+  const filled = Math.round((Math.min(Math.max(f.used, 0), 100) / 100) * width)
+  const mark = Math.min(width - 1, Math.round((f.elapsed / 100) * width))
+  return Array.from({ length: width }, (_, i) => {
+    if (i === mark) return { char: '┃', color: PACE_COLORS.mark }
+    if (i < filled) return { char: '━', color: mood === 'short' && i > mark ? PACE_COLORS.over : ramp(palette.ramp, i / Math.max(1, width - 1)) }
+    return { char: '━', color: mood === 'spare' && i < mark ? palette.reserve : PACE_COLORS.track }
+  })
+}
+
 // --- The context bar --------------------------------------------------------
 
 export type Segment = { color?: string; dim: boolean; cells: number; char: string }

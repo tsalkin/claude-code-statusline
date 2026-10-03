@@ -2,6 +2,42 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-03 — pace-band: the mod as a plugin in the tsalkin marketplace
+
+The owner kept the line for both bars and asked to build the plugin for the `tsalkin` marketplace (the RESUME's option 2).
+
+- *Both bars are lines.* The track style and its eighth-cell edge are gone from the code (`limitBar(f, width)`); each window keeps its own hues.
+- *Renamed `statusline-band` → `pace-band`*, to pair with `pace-statusline` and the `/pace` command: manifest, the state keys (`plugin: 'pace-band'` in every atom and in `types/index.d.ts`), the tests. Version 0.4.0, with author, homepage, repository, licence and keywords. The folder stays `experiments/statusline-band/`: `CLAUDE_CODE_PLUGIN_DIRS` in the owner's `~/.claude/settings.json` points there, and moving it would take `/pace` out of every session of the owner.
+- *Marketplace.* A second entry in `.claude-plugin/marketplace.json`, `source: ./experiments/statusline-band`. A `README.md` in the plugin folder; a short section in both READMEs.
+- *Checks.* `claude plugin validate --strict` on the plugin: passed. On the marketplace: passed with one warning that predates this (pace-statusline's manifest has no version). 48 tests, `tsc` clean (6 files of the mod checked). Install in a sandbox `CLAUDE_CONFIG_DIR` from the local marketplace: `pace-band@tsalkin` 0.4.0 installed and enabled, and `validate` on the installed copy lists `register.tsx` with its 8 hooks. `claude plugin details` shows `Hooks (0)`: it counts classic hooks, not mod modules.
+- *Not checked:* install from GitHub (needs the push), and the installed copy drawing in a live session. Every push to `main` is also a new directory version of pace-statusline (only docs and the marketplace file changed for it).
+
+## 2026-10-03 — `/pace`: two palettes, and the line for the bars
+
+The owner: red on the weekly bar reads as a shortage, yet the window had 31 % to spare; the bar itself looked dull. Asked for two palettes, one for a reserve and one for a shortage, and a better-looking fill.
+
+- *Palette by the fact, not the forecast.* `moodOf`: spent faster than time (`ahead ≥ 1`) is short, otherwise in reserve. Reserve: an emerald → teal → cyan ramp, and the stretch between the fill and the time mark tinted dark teal: the reserve is visible on the bar. Short: amber → orange up to the time mark, red beyond it: the overshoot is the red piece.
+- *The forecast line.* Lasts to the reset: quiet. Runs out while still in reserve (the weekly case: 31 % to spare, but the last hour's rate empties it 15 h early): amber, a caution. Runs out while short: red. Red now means one thing, a shortage already there.
+- *Fill.* Five styles were printed in the owner's terminal (`█░`, `━` line, `▰▱` pills, braille dots, a solid track with eighth-cell edges). Tried live: the 5-hour bar as the line, the weekly one as the track; the owner kept the line for both (entry above).
+- Colours are raw `rgb(r,g,b)` (the mod API takes "a theme key or a raw color"); a ramp needs one per cell, so each cell is its own `Text`. Fixed colours tuned for a dark theme; a light theme is not checked.
+- `limitBar` and `PACE_COLORS` live in `pace.ts` with the arithmetic, so tests check the cells and their colours directly; pane tests check the word and forecast colours on the drawn pane. Checked backwards: with the amber rule or the reserve tint broken, 4 tests go red. 48 tests.
+- The band's own warning (`toneOf`) is unchanged.
+- *Each window its own hues* (owner: the two bars must differ without reading). `PALETTES` by window kind: the 5-hour one green → cyan in reserve, amber → orange when short; the weekly one sky → indigo → violet in reserve, pink when short. The red overshoot, the amber caution and the red forecast stay shared: they carry meaning, not the window. Checked backwards: with the weekly window on the 5-hour palette, the test goes red. 49 tests.
+
+## 2026-10-03 — `/pace`: shorter forecast lines
+
+The owner looked at `/pace` live (limits section, screenshot) and asked for clearer, shorter texts, without "at this pace". The weekly line `→ at this pace runs out Mon 07:04 (in 1d 8h), 2d 4h before reset · last hour` did not fit the pane and was cut off.
+
+| Was | Now |
+|---|---|
+| `ahead +12 pts` / `behind -52 pts` | `12% ahead` / `52% to spare`: the owner did not read "pts"; `%` matches the status line's `⇡40%`, and one word says the fact |
+| `at this pace runs out 22:10 (in 2h 11m), 49m before reset · last hour` | `runs out 22:10 (in 2h 11m), 49m before reset · 1h rate` |
+| `lasts to reset Sun 00:40 · ~25% by then · last hour` | `lasts to reset Sun 00:40 (~25% used) · 1h rate` |
+| `window average` | `avg rate` |
+| `not enough readings for a forecast yet` | `no forecast yet: too few readings` |
+
+The rate source moved from a bare `last hour` to `1h rate`: the old tail did not say what it referred to. Tests check the new wording and that "at this pace" is gone.
+
 ## 2026-10-03 — submitted to the plugin directory
 
 Submitted from the owner's claude.ai account (Max plan) at `main @ 4bc254b`. Each step was taken on the owner's word: the four Compliance acknowledgements ticked by the owner, auto-publish switched off at their request.

@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
 import type { ContextView, Figures, LimitWindow } from '../types'
-import { AHEAD_WARN, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, withReading } from './pace'
+import { AHEAD_WARN, PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
 
 // The status line's companion. The bash line shows totals; this mod shows
@@ -14,13 +14,13 @@ import type { Forecast } from './pace'
 //   it is spent, when it runs out at this rate; and the context by category,
 //   as /context counts it.
 
-const now = atom({ plugin: 'statusline-band', key: 'now' } as const, null)
-const base = atom({ plugin: 'statusline-band', key: 'base' } as const, null)
-const turnSeconds = atom({ plugin: 'statusline-band', key: 'turnSeconds' } as const, null)
-const isHidden = atom({ plugin: 'statusline-band', key: 'isHidden' } as const, false)
-const limits = atom({ plugin: 'statusline-band', key: 'limits' } as const, [])
-const context = atom({ plugin: 'statusline-band', key: 'context' } as const, null)
-const paneOpen = atom({ plugin: 'statusline-band', key: 'paneOpen' } as const, false)
+const now = atom({ plugin: 'pace-band', key: 'now' } as const, null)
+const base = atom({ plugin: 'pace-band', key: 'base' } as const, null)
+const turnSeconds = atom({ plugin: 'pace-band', key: 'turnSeconds' } as const, null)
+const isHidden = atom({ plugin: 'pace-band', key: 'isHidden' } as const, false)
+const limits = atom({ plugin: 'pace-band', key: 'limits' } as const, [])
+const context = atom({ plugin: 'pace-band', key: 'context' } as const, null)
+const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 
 const PANE = 'pace'
 
@@ -118,21 +118,29 @@ async function loadContext($: EngineInterface, columns: number) {
 // --- Words for a forecast ---------------------------------------------------
 
 function paceWords(f: Forecast) {
-  if (f.ahead >= 1) return `ahead +${fmtPct(f.ahead)} pts`
-  if (f.ahead <= -1) return `behind ${fmtPct(f.ahead)} pts`
+  if (f.ahead >= 1) return `${fmtPct(f.ahead)}% ahead`
+  if (f.ahead <= -1) return `${fmtPct(-f.ahead)}% to spare`
   return 'on pace'
 }
 
 function forecastWords(f: Forecast, t: number) {
   if (f.runsOutAt !== undefined && f.runsOutAt <= t) return 'limit reached'
-  if (f.ratePerHour === undefined) return 'not enough readings for a forecast yet'
-  const from = f.rateFrom === 'recent' ? 'last hour' : 'window average'
+  if (f.ratePerHour === undefined) return 'no forecast yet: too few readings'
+  const from = f.rateFrom === 'recent' ? '1h rate' : 'avg rate'
   if (f.runsOutAt !== undefined) {
-    return `at this pace runs out ${fmtClock(f.runsOutAt, t)} (in ${fmtSpan(f.runsOutAt - t)}), ${fmtSpan(f.resetsAt - f.runsOutAt)} before reset · ${from}`
+    return `runs out ${fmtClock(f.runsOutAt, t)} (in ${fmtSpan(f.runsOutAt - t)}), ${fmtSpan(f.resetsAt - f.runsOutAt)} before reset · ${from}`
   }
-  return `lasts to reset ${fmtClock(f.resetsAt, t)} · ~${fmtPct(f.atReset ?? f.used)}% by then · ${from}`
+  return `lasts to reset ${fmtClock(f.resetsAt, t)} (~${fmtPct(f.atReset ?? f.used)}% used) · ${from}`
 }
 
+// The forecast line: quiet when the limit lasts, amber when it runs out while
+// the window is still in reserve, red when it is already short.
+function forecastColor(f: Forecast) {
+  if (f.runsOutAt === undefined) return undefined
+  return moodOf(f) === 'spare' ? PACE_COLORS.caution : PACE_COLORS.out
+}
+
+// The band's warning colour.
 function toneOf(f: Forecast, t: number) {
   if (f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt) return 'red'
   if (f.ahead >= AHEAD_WARN) return 'yellow'
@@ -213,22 +221,22 @@ export const register: Register = on => {
     const barWidth = Math.min(40, Math.max(10, width - 48))
 
     const limitRows = fs.map(f => {
-      const filled = Math.min(barWidth, Math.round((f.used / 100) * barWidth))
-      const marker = Math.min(barWidth - 1, Math.round((f.elapsed / 100) * barWidth))
-      const cells = Array.from({ length: barWidth }, (_, i) => (i === marker ? '│' : i < filled ? '█' : '░'))
-      const tone = toneOf(f, t)
+      const forecastTone = forecastColor(f)
       return (
         <Box key={f.kind} flexDirection="column">
           <Box>
             <Text bold>{`${f.label} `}</Text>
-            <Text color={tone}>{cells.slice(0, filled).join('')}</Text>
-            <Text dimColor>{cells.slice(filled).join('')}</Text>
+            {limitBar(f, barWidth).map((c, i) => (
+              <Text key={`cell-${i}`} color={c.color}>
+                {c.char}
+              </Text>
+            ))}
             <Text>{`  ${fmtPct(f.used)}% used · ${fmtPct(f.elapsed)}% of time · `}</Text>
-            <Text color={tone} bold={tone !== 'green'}>
+            <Text color={paletteOf(f).word} bold>
               {paceWords(f)}
             </Text>
           </Box>
-          <Text color={tone === 'green' ? undefined : tone} dimColor={tone === 'green'} wrap="truncate-end">
+          <Text color={forecastTone} dimColor={forecastTone === undefined} wrap="truncate-end">
             {`   → ${forecastWords(f, t)}`}
           </Text>
         </Box>
@@ -237,7 +245,7 @@ export const register: Register = on => {
 
     const contextRows =
       ctx === null
-        ? [<Text key="ctx-none" dimColor>context: no breakdown yet — run /pace again after a reply</Text>]
+        ? [<Text key="ctx-none" dimColor>context: no data yet — reopen /pace after a reply</Text>]
         : [
             <Box key="ctx-head">
               <Text bold>{'context  '}</Text>
@@ -272,7 +280,7 @@ export const register: Register = on => {
 
     return (
       <Box flexDirection="column">
-        {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>limits: no reading yet (subscription windows only)</Text>]}
+        {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>limits: no data yet (subscription plans only)</Text>]}
         <Text key="gap"> </Text>
         {contextRows}
       </Box>

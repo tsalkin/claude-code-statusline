@@ -213,6 +213,16 @@ Without `STATUSLINE_USAGE_API=1` the script never touches the stored login or th
 
 The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
 
+## Companion: `/pace` (pace-band)
+
+A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. A band above the prompt shows what the last turn cost. Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
+
+```
+/plugin install pace-band@tsalkin
+```
+
+Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+
 ## Optional modules
 
 ### GSD

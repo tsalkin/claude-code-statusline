@@ -7,6 +7,11 @@
       "name": "pace-statusline",
       "source": "./",
       "description": "Two-line status line for long Claude Code sessions, plus subagent rows. Run /pace-statusline:setup after installing."
+    },
+    {
+      "name": "pace-band",
+      "source": "./experiments/statusline-band",
+      "description": "/pace: each usage limit against its time and when it runs out at this rate, plus the context by category; a band with the last turn's cost. A Claude Code mod (2.1.287+), companion to pace-statusline."
     }
   ]
 }

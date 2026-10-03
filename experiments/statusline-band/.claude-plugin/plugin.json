@@ -1,6 +1,12 @@
 {
-  "name": "statusline-band",
-  "version": "0.3.0",
-  "description": "Companion to pace-statusline: /pace forecasts the 5-hour and weekly limits and breaks the context down by category; a band shows the last turn's cost, a pace warning and a compact button",
+  "name": "pace-band",
+  "displayName": "Pace Band",
+  "version": "0.4.0",
+  "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, and the context by category. A band above the prompt: the last turn's cost, a pace warning, a compact button. A Claude Code mod; companion to pace-statusline.",
+  "author": { "name": "Maxim Tsalkin", "url": "https://github.com/tsalkin" },
+  "homepage": "https://github.com/tsalkin/claude-code-statusline/tree/main/experiments/statusline-band",
+  "repository": "https://github.com/tsalkin/claude-code-statusline",
+  "license": "MIT",
+  "keywords": ["rate-limits", "pace", "context", "mod"],
   "types": "./types/index.d.ts"
 }

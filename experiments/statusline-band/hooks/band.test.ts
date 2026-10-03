@@ -47,10 +47,10 @@ const done = (seconds: number, agentId?: string) => ({
 const texts = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) =>
   (await ui.findAll({ type: 'Text' })).map(t => t.text)
 
-describe('statusline-band', () => {
+describe('pace-band', () => {
   for (const surface of SURFACES) {
     const mount = ($: Engine, props = PROPS) =>
-      $.ui.mount({ plugin: 'statusline-band', surface, component: 'AbovePrompt', props })
+      $.ui.mount({ plugin: 'pace-band', surface, component: 'AbovePrompt', props })
 
     test(`${surface}: steps aside before the first turn`, async ($, on) => {
       engine(on)

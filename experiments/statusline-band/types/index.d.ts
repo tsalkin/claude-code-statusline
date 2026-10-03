@@ -35,7 +35,7 @@ export type ContextView = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'statusline-band': {
+    'pace-band': {
       now: Figures | null
       base: Figures | null
       turnSeconds: number | null

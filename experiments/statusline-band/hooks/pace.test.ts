@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { ContextSlice, LimitWindow } from '../types'
-import { fmtClock, fmtSpan, fmtTokens, forecastOf, layoutBar, withReading } from './pace'
+import { PACE_COLORS, fmtClock, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, paletteOf, withReading } from './pace'
 
 const MIN = 60_000
 const HOUR = 60 * MIN
@@ -87,6 +87,50 @@ describe('formatting', () => {
   test('a clock time carries the weekday once it is not today', () => {
     expect(fmtClock(NOW + HOUR, NOW)).not.toContain(' ')
     expect(fmtClock(NOW + 3 * 24 * HOUR, NOW)).toMatch(/^[A-Z][a-z]{2} \d\d:\d\d$/)
+  })
+})
+
+describe('limit bar', () => {
+  // 40 % of the 5-hour window gone: on a 10-cell bar the time mark is cell 4.
+  const W = 10
+  const chars = (cells: { char: string }[]) => cells.map(c => c.char).join('')
+
+  test('in reserve: fill, then the reserve up to the time mark, then the track', () => {
+    const f = forecastOf(five(20), NOW)!
+    const cells = limitBar(f, W)
+    expect(chars(cells)).toBe('━━━━┃━━━━━')
+    expect(cells[0]!.color).toBe('rgb(16,185,129)')
+    expect(cells[2]!.color).toBe(paletteOf(f).reserve)
+    expect(cells[3]!.color).toBe(paletteOf(f).reserve)
+    expect(cells[4]!.color).toBe(PACE_COLORS.mark)
+    expect(cells[5]!.color).toBe(PACE_COLORS.track)
+  })
+
+  test('short: what is used beyond the time mark is red, no reserve shown', () => {
+    const cells = limitBar(forecastOf(five(70), NOW)!, W)
+    expect(cells[0]!.color).toBe('rgb(245,158,11)')
+    expect(cells[5]!.color).toBe(PACE_COLORS.over)
+    expect(cells[6]!.color).toBe(PACE_COLORS.over)
+    expect(cells[7]!.color).toBe(PACE_COLORS.track)
+    expect(cells.slice(5).every(c => c.color === PACE_COLORS.over || c.color === PACE_COLORS.track)).toBe(true)
+  })
+
+  test('the weekly window has hues of its own, in reserve and when short', () => {
+    // Half of the week gone.
+    const week = (used: number) => forecastOf({ kind: 'seven_day', used, resetsAt: NOW + 84 * HOUR, points: [] }, NOW)!
+    for (const [w, h] of [[week(20), five(20)], [week(70), five(70)]] as const) {
+      const hour = forecastOf(h, NOW)!
+      expect(limitBar(w, W)[0]!.color).not.toBe(limitBar(hour, W)[0]!.color)
+      expect(paletteOf(w).word).not.toBe(paletteOf(hour).word)
+    }
+    expect(paletteOf(week(20)).reserve).not.toBe(paletteOf(forecastOf(five(20), NOW)!).reserve)
+  })
+
+  test('always exactly the width, from nothing used to the limit reached', () => {
+    for (const used of [0, 0.4, 50, 99.9, 100, 130]) {
+      expect(limitBar(forecastOf(five(used), NOW)!, W)).toHaveLength(W)
+    }
+    expect(chars(limitBar(forecastOf(five(100), NOW)!, W))).toBe('━━━━┃━━━━━')
   })
 })
 

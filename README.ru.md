@@ -213,6 +213,16 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 
 Установщик (`scripts/install.sh`, он же за `/pace-statusline:setup`) пишет `settings.json` после резервной копии и, при установке плагином, `launch.sh` в каталог данных плагина. Что ещё пишет скрипт: `~/.claude/.effort-check.json` (кеш сверки усилий на 10 минут) и — только при установленном хуке GSD context-monitor — `claude-ctx-<сессия>.json` в `$TMPDIR` (если переменной нет — в `/tmp`): в том каталоге, который хук читает через `os.tmpdir()` Node.
 
+## Спутник: `/pace` (pace-band)
+
+Второй плагин в том же магазине — не скрипт, а [мод Claude Code](https://code.claude.com/docs/en/plugins/mods/). `/pace` открывает панель: каждый лимит против прошедшего времени (тратится с запасом или с опережением), когда он кончится при нынешнем темпе, и контекст по категориям. Полоса над полем ввода показывает, во что обошёлся последний ход. Нужен Claude Code 2.1.287 или новее, в терминале или во вкладке Code приложения.
+
+```
+/plugin install pace-band@tsalkin
+```
+
+Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+
 ## Необязательные модули
 
 ### GSD
