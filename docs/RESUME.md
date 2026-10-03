@@ -9,6 +9,18 @@ Updated 2026-10-03 (after the directory submission).
 - Owner, optional: set up the push webhook from the plugin's page (needs admin on the GitHub repository).
 - Every push to `main` is now a new directory version: it is scanned, and with auto-publish off it waits for Publish.
 
+**Open decisions, and how far each is closed.**
+
+| What | Decided | Code | Released | Seen by the owner |
+|---|---|---|---|---|
+| Rename to `pace-statusline@tsalkin` | yes (owner, 03.10) | yes | pushed, in the submission | install checked only in a sandbox `CLAUDE_CONFIG_DIR` |
+| Usage-limits fallback off by default | yes (owner) | yes, test 17b | pushed | the owner's own line is unaffected (2.1.288 sends `rate_limits`) |
+| Directory listing | submitted (owner's ticks) | — | **waiting for the scan and a reviewer** | not published |
+| Push webhook | chosen | — | **not set up** (owner, needs GitHub admin) | — |
+| `/pace` forecast and context bar | built at the owner's request | yes, 40 tests | experiments only, not in the plugin | **not seen live** |
+| Move the band and `/pace` into the plugin | **open** (owner, after the live look) | — | — | — |
+| Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
+
 **Mods (experimental, not in the plugin).** `experiments/statusline-band/`: a companion band (the last turn's cost, a pace warning, a compact button past 80 % context) and `/pace`, a pane with each limit window's forecast (ahead of pace by how many points, when it runs out at this rate) and the context by category. 40 tests. The owner saw the first band live. **Not yet seen live:** `/pace`, above all its context section, which no test covers (stubbing `$.session.usage()` in `claude plugin test` did not work). Load with `claude --plugin-dir /Users/maxipro/tsgs-projects/claude-code-statusline/experiments/statusline-band`. Whether to move it into the plugin is the owner's call after the live look.
 
 **Loose ends.**
