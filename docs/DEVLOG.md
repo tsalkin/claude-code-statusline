@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-03 — submitted to the plugin directory
+
+Submitted from the owner's claude.ai account (Max plan) at `main @ 4bc254b`. Each step was taken on the owner's word: the four Compliance acknowledgements ticked by the owner, auto-publish switched off at their request.
+
+**What the portal asked, and what bit us.**
+- *Reserved name* (`claude-…`): renamed to `pace-statusline@tsalkin` (entry below).
+- *Icon only once*: the portal takes `.claude-plugin/icon.png` on the first save or submission and never again. Added before the first save (`docs/icon/icon.py` redraws it).
+- *Listed on*: the portal ticked Claude Code, Cowork and the Claude apps. A status line works only in Claude Code, so the owner unticked the other two. The agent's clicks on those checkboxes collapsed the row instead, and setting them through the form did not reach the page's state.
+- *Documentation link*: with no `documentationUrl` the portal took the first link in the README, Claude Code's credential docs. `documentationUrl`, `supportUrl` and `privacyPolicyUrl` are now set; the directory reads them, though `claude plugin validate` calls them unrecognised.
+- *"No local code execution"*: the portal derives this label itself (no hooks or MCP servers), although the status line runs bash. No manifest field changes it. The README's Privacy section says what runs.
+- *Compliance item 3* ("does not exfiltrate credentials or execute code outside its declared MCP servers") read badly next to the credential fallback, so the fallback went off by default first (entry below). The policy hold stays: the scan looks at the code, not the default.
+- *A pushed fix needs a re-validation*: a validation result belongs to one commit. One push typed inside a chat message never ran; `git ls-remote` showed it.
+
+**State.** Waiting for the scan and a reviewer. Auto-publish off. The webhook is chosen but not set up.
+
 ## 2026-10-03 — the usage-limits fallback is off by default
 
 **Context.** Submitting to the plugin directory, the Compliance step asks to confirm that "the plugin does not exfiltrate credentials or execute code outside its declared MCP servers". The validator had put the listing on policy hold: "Uses a credential from the user's machine" (5 findings), meaning the fallback that reads Claude Code's OAuth token and sends it to `api.anthropic.com/api/oauth/usage`. The owner chose to switch the fallback off by default rather than submit as it was.

@@ -1,21 +1,24 @@
 # RESUME — where to pick up
 
-Updated 2026-09-28 (evening, after the live fixes).
+Updated 2026-10-03 (after the directory submission).
 
-**Where we are.** `main` (merged from `feat/payload-subagents-plugin`, pushed by the owner 2026-09-28 up to `7d27c4e`; the docs-only commits after it are not pushed): payload blocks (pace, cache expiry and miss cause, session name, PR, fit to width), `subagent-statusline.sh`, plugin packaging with `scripts/install.sh` and a launcher. Tests 34/34 on macOS. See `docs/DEVLOG.md`, entries "payload blocks, subagent rows, plugin" and "after the merge". The owner's live status line now runs this code.
+**Where we are.** The plugin is now `pace-statusline@tsalkin` (renamed for Anthropic's plugin directory: names starting with `claude-` are reserved; the repository keeps its name). Submitted to the directory on 2026-10-03 from the owner's claude.ai account, at `main @ 4bc254b`: listed on Claude Code only, auto-publish **off** (each version waits for the owner's Publish), updates by GitHub push webhook (not yet set up; the directory also polls about every 6 hours). Validation passed with a policy hold, "Uses a credential from the user's machine" (5 findings): the usage-limits fallback's token-reading code is still there, behind `STATUSLINE_USAGE_API`, which is now **off by default**. A reviewer reads the listing before it can go live. Tests 36/36 on macOS. See `docs/DEVLOG.md`, entries of 2026-10-03.
 
-**Next step.** None required. Owner: push the docs commits when convenient; narrow a window to ~70 columns to see blocks drop. Level of the fit-to-width feature: *pushed*, *live*, *not seen dropping yet* — if nothing drops in a narrow window, check that Claude Code passes `$COLUMNS` to the script.
+**Next step.**
+- Owner: watch the submission at claude.ai/directory/manage. On approval, select Publish. If the reviewer objects to the credential code, the next move is to remove the fallback outright (not just switch it off).
+- Owner, optional: set up the push webhook from the plugin's page (needs admin on the GitHub repository).
+- Every push to `main` is now a new directory version: it is scanned, and with auto-publish off it waits for Publish.
 
-Plugin install from GitHub verified 2026-09-28 in a sandbox `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add tsalkin/claude-code-statusline`, install (version `904204865fbf`), `setup` skill listed, installer through the launcher, render.
+**Mods (experimental, not in the plugin).** `experiments/statusline-band/`: a companion band (the last turn's cost, a pace warning, a compact button past 80 % context) and `/pace`, a pane with each limit window's forecast (ahead of pace by how many points, when it runs out at this rate) and the context by category. 40 tests. The owner saw the first band live. **Not yet seen live:** `/pace`, above all its context section, which no test covers (stubbing `$.session.usage()` in `claude plugin test` did not work). Load with `claude --plugin-dir /Users/maxipro/tsgs-projects/claude-code-statusline/experiments/statusline-band`. Whether to move it into the plugin is the owner's call after the live look.
 
 **Loose ends.**
-- Linux (Ubuntu 24.04) and Windows 11 Git Bash: the suite has not run there since the new cases (GNU `date -d @`, `cygpath -m` in the installer).
-- Not seen by eye: the PR link (OSC 8) in Ghostty and Windows Terminal. Seen: cache clock in the owner's time zone, limits, no duplicate session name.
-- The owner's settings point both `statusLine` and `subagentStatusLine` at this clone (set by `scripts/install.sh --subagents` on the owner's word, 2026-09-28; backup `~/.claude/settings.json.bak-statusline-20260928-164753`). Subagent rows seen live on the owner's Mac (Ghostty), 2026-09-28: names from descriptions, ✓ on a finished agent, sparkline on a growing one.
-- Fitting to width not yet seen live: the owner's window was wide enough that nothing had to drop.
-- Screenshots in `docs/screenshots/` predate the new blocks.
-- Optional, from before: the last bar cell only at 100% (today a full bar starts at 92%).
+- Linux (Ubuntu 24.04) and Windows 11 Git Bash: the suite has not run there since 2026-09-28.
+- Not seen by eye: the PR link (OSC 8) in Ghostty and Windows Terminal; fitting to width in a narrow window.
+- Screenshots in `docs/screenshots/` predate the newer blocks.
+- `version` unset in `plugin.json` (a directory warning): Claude Code tracks the plugin by commit, so there is no version to bump.
+- Weekly runs of the hub's novelty watch (now covering github.com/anthropics) are manual. A schedule is the owner's call; the hub's letter is closed.
 
 **Working notes.**
-- The live status line on the author's Mac runs straight from this working copy, so checking out a branch changes it immediately. The feature branch was built in a worktree for that reason.
-- `git push` and remote branch deletion are done by the owner (a hook blocks them for the agent — including pushes to scratch repositories).
+- The live status line on the owner's Mac runs straight from this working copy (`~/.claude/settings.json` points at `statusline.sh` here), so checking out a branch changes it immediately.
+- `git push` and remote branch deletion are done by the owner (a hook blocks them for the agent).
+- Mods can be switched off remotely by Anthropic (`tengu_plugin_hooks_modules` in `~/.claude.json`; seen off for a few minutes on 2026-10-03). Check with `claude plugin test` in a folder with no mod: "no hooks module to load" means mods can load.
