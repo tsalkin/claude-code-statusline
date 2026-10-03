@@ -73,10 +73,10 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_WIDTH:=${COLUMNS:-}}"
 : "${STATUSLINE_WIDTH_RESERVE:=4}"
 
-# Usage-limits fallback: when the payload has no rate_limits, read the OAuth token
-# from Claude Code's stored login (Keychain or .credentials.json) and ask the
-# usage endpoint. 0 = never.
-: "${STATUSLINE_USAGE_API:=1}"
+# Usage-limits fallback, for Claude Code before 2.1.80 (no rate_limits in the
+# payload): read the OAuth token from Claude Code's stored login (Keychain or
+# .credentials.json) and ask the usage endpoint. Off by default: 1 = on.
+: "${STATUSLINE_USAGE_API:=0}"
 : "${STATUSLINE_USAGE_TTL:=120}"
 : "${STATUSLINE_USAGE_CACHE:=$CLAUDE_DIR/.usage-cache.json}"
 

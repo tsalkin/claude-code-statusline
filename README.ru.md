@@ -139,7 +139,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 | `jq` | всё — без него строка печатает `jq not found` и больше ничего |
 | `git` | блок ветки (без git молча пропускается) |
 | `python3` | отсчёт до сброса и темп, сверка усилий, мост GSD |
-| `curl` | только запасной путь лимитов (ниже) |
+| `curl` | только запасной путь лимитов, по умолчанию выключен (см. «Приватность») |
 
 Работает на macOS, Linux и Windows через Git Bash. Тесты проходят на macOS (bash 3.2), Ubuntu 24.04 (bash 5.2, ext4) и Windows 11 в Git Bash (bash 5.3).
 
@@ -198,24 +198,18 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 | `STATUSLINE_SUBAGENT_BAR_LEN` | `4` | Длина полосы контекста в строках суб-агентов |
 | `STATUSLINE_SUBAGENT_SPARK_LEN` | `8` | Клеток мини-графика в строках суб-агентов (`0` — без него) |
 
-## Приватность: запасной путь лимитов читает ваши учётные данные
+## Приватность
 
-Свежие версии Claude Code кладут `rate_limits` прямо во вход строки статуса, и тогда скрипт берёт только их — без учётных данных и без сети.
+Плагин запускает только свои bash-скрипты — `statusline.sh`, `subagent-statusline.sh` и установщик за `setup` — и ничего не скачивает и не запускает сверх них. По умолчанию он читает вход, который Claude Code передаёт ему на stdin, и локальные файлы, названные ниже, и ничего не отправляет в сеть. Лимиты берутся из `rate_limits` во входе (Claude Code 2.1.80 и новее).
 
-**Если во входе нет `rate_limits`**, скрипт идёт старым путём: читает сохранённый вход самого Claude Code там, где [Claude Code его хранит](https://code.claude.com/docs/en/iam#credential-management), —
+**По умолчанию выключен: запасной путь лимитов.** Для Claude Code старше 2.1.80, у которого во входе нет `rate_limits`, скрипт умеет идти старым путём. Включается он `STATUSLINE_USAGE_API=1`. Тогда, если во входе нет `rate_limits`, скрипт читает сохранённый вход самого Claude Code там, где [Claude Code его хранит](https://code.claude.com/docs/en/iam#credential-management), —
 
 - macOS: запись `Claude Code-credentials` в связке ключей Keychain (`security find-generic-password`) или `~/.claude/.credentials.json`, если Claude Code пришлось записать вход в этот файл,
 - Linux и Windows (Git Bash): `~/.claude/.credentials.json` (в `$CLAUDE_CONFIG_DIR`, если переменная задана),
 
 — берёт оттуда OAuth-токен и спрашивает `https://api.anthropic.com/api/oauth/usage` о расходе. Ответ кешируется в `~/.claude/.usage-cache.json` (права 600) на 2 минуты. Токен не пишется на диск, не печатается и не попадает в командную строку: `curl` получает его на stdin (`-H @-`), поэтому в списке процессов его не видно. Этот адрес не входит в документированный публичный API и может измениться.
 
-Выключить запасной путь полностью:
-
-```bash
-STATUSLINE_USAGE_API=0
-```
-
-С этой настройкой скрипт не трогает сохранённый вход и сеть; если во входе нет `rate_limits`, блок `H:`/`W:` просто не показывается.
+Без `STATUSLINE_USAGE_API=1` скрипт не трогает сохранённый вход и сеть; если во входе нет `rate_limits`, блок `H:`/`W:` просто не показывается.
 
 Установщик (`scripts/install.sh`, он же за `/pace-statusline:setup`) пишет `settings.json` после резервной копии и, при установке плагином, `launch.sh` в каталог данных плагина. Что ещё пишет скрипт: `~/.claude/.effort-check.json` (кеш сверки усилий на 10 минут) и — только при установленном хуке GSD context-monitor — `claude-ctx-<сессия>.json` в `$TMPDIR` (если переменной нет — в `/tmp`): в том каталоге, который хук читает через `os.tmpdir()` Node.
 

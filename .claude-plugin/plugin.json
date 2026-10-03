@@ -8,6 +8,6 @@
   "license": "MIT",
   "documentationUrl": "https://github.com/tsalkin/claude-code-statusline#readme",
   "supportUrl": "https://github.com/tsalkin/claude-code-statusline/issues",
-  "privacyPolicyUrl": "https://github.com/tsalkin/claude-code-statusline#privacy-the-usage-limits-fallback-reads-your-credentials",
+  "privacyPolicyUrl": "https://github.com/tsalkin/claude-code-statusline#privacy",
   "keywords": ["statusline", "status-line", "context", "prompt-cache", "rate-limits", "subagents"]
 }

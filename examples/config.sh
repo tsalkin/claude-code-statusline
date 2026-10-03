@@ -46,7 +46,7 @@
 # STATUSLINE_SUBAGENT_NAME_MAX=32   # the description standing in for a missing name is cut here
 
 # --- Usage-limits fallback (reads Claude Code's stored login: Keychain or ~/.claude/.credentials.json) ---
-# STATUSLINE_USAGE_API=1        # 0 = never touch the stored login or the network
+# STATUSLINE_USAGE_API=0        # 1 = on, for Claude Code before 2.1.80 (no rate_limits in the payload)
 # STATUSLINE_USAGE_TTL=120
 # STATUSLINE_USAGE_CACHE="$HOME/.claude/.usage-cache.json"   # default: $CLAUDE_DIR/.usage-cache.json
 

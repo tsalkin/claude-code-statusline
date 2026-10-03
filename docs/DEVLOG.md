@@ -2,6 +2,14 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-03 — the usage-limits fallback is off by default
+
+**Context.** Submitting to the plugin directory, the Compliance step asks to confirm that "the plugin does not exfiltrate credentials or execute code outside its declared MCP servers". The validator had put the listing on policy hold: "Uses a credential from the user's machine" (5 findings), meaning the fallback that reads Claude Code's OAuth token and sends it to `api.anthropic.com/api/oauth/usage`. The owner chose to switch the fallback off by default rather than submit as it was.
+
+**What changed.** `STATUSLINE_USAGE_API` defaults to `0` (`statusline.sh:79`). The payload has carried `rate_limits` since Claude Code 2.1.80, so only older versions lose the `H:`/`W:` block, and `STATUSLINE_USAGE_API=1` brings it back. The Privacy section now opens with what the plugin runs (its own bash scripts, nothing downloaded) and that by default nothing goes over the network. `curl` in the script is the fallback's alone, checked by grep. The section is called "Privacy" now, and `privacyPolicyUrl` points at `#privacy`. Test 17b `usage-default-off`: a stored login is present, the switch is unset, and fake `curl` and `security` leave a mark if they run. Neither does. Reverse check: with the default back at 1, exactly this test goes red and shows both marks. 36 of 36.
+
+**Open.** The code that reads the token is still there, behind the switch. Whether the directory's scan still flags it can only be seen on re-validation.
+
 ## 2026-10-03 — renamed for the plugin directory: pace-statusline@tsalkin
 
 **Context.** The owner asked to submit the line to Anthropic's plugin directory. `claude plugin validate .` refused: *Plugin name "claude-code-statusline" is reserved: it passes as one of Anthropic's own… cannot start with "claude-"… Name it for what it does.* A plain install still worked (checked on 2.1.288 in a sandbox `CLAUDE_CONFIG_DIR`), so only the directory needed the rename.

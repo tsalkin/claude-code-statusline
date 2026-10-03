@@ -211,6 +211,22 @@ usage_bin_ok usage-fallback && check usage-fallback "$(render minimal.json STATU
 new_case usage-no-login
 usage_bin_ok usage-no-login && check usage-no-login "$(render minimal.json STATUSLINE_USAGE_API=1 PATH="$FIX/usage-bin:$SANDBOX_PATH")"
 
+# 17b. Fallback off by default: with the switch unset, a stored login is there but
+# nothing reads it and nothing goes out. The fakes leave a mark when they run.
+new_case usage-default-off
+cp "$FIX/credentials.json" "$CASE_ROOT/home/.claude/.credentials.json"
+mkdir -p "$CASE_ROOT/bin"
+for t in curl security; do
+    printf '#!/bin/bash\ntouch "%s/%s-ran"\nexit 1\n' "$CASE_ROOT" "$t" > "$CASE_ROOT/bin/$t"
+    chmod +x "$CASE_ROOT/bin/$t"
+done
+out=$(sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/minimal.json" | (cd "$WORK" && env -i HOME="$CASE_ROOT/home" \
+    PATH="$CASE_ROOT/bin:$SANDBOX_PATH" TMPDIR="$CASE_ROOT" LANG=en_US.UTF-8 TZ=UTC STATUSLINE_NOW="$NOW" \
+    STATUSLINE_GSD_BRIDGE=0 /bin/bash "$SCRIPT"))
+ran=$(cd "$CASE_ROOT" && ls -- *-ran 2>/dev/null | tr '\n' ' ')
+check usage-default-off "$out
+fallback ran: ${ran:-nothing}"
+
 # 18. GSD context bridge lands in $TMPDIR, where the hook's os.tmpdir() looks
 new_case gsd-bridge
 render full.json STATUSLINE_GSD_BRIDGE=1 >/dev/null

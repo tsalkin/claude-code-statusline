@@ -139,7 +139,7 @@ For an idle session (waiting on background agents, remote control) add `"refresh
 | `jq` | everything — without it the line prints `jq not found` and nothing else |
 | `git` | branch block (skipped silently if missing) |
 | `python3` | reset countdowns and pace, effort check, GSD bridge |
-| `curl` | only the usage-limits fallback (below) |
+| `curl` | only the usage-limits fallback, off by default (see Privacy) |
 
 Works on macOS, Linux and Windows via Git Bash. The test suite passes on macOS (bash 3.2), Ubuntu 24.04 (bash 5.2, ext4) and Windows 11 in Git Bash (bash 5.3).
 
@@ -198,24 +198,18 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SUBAGENT_BAR_LEN` | `4` | Context bar length in subagent rows |
 | `STATUSLINE_SUBAGENT_SPARK_LEN` | `8` | Sparkline cells in subagent rows (`0` = none) |
 
-## Privacy: the usage-limits fallback reads your credentials
+## Privacy
 
-Recent Claude Code versions put `rate_limits` straight into the status-line payload, and then this script uses only that — no credentials, no network.
+The plugin runs only its own bash scripts — `statusline.sh`, `subagent-statusline.sh` and the installer behind `setup` — and downloads or runs nothing else. By default it reads the payload Claude Code hands it on stdin and the local files named below, and sends nothing over the network. Usage limits come from `rate_limits` in that payload (Claude Code 2.1.80 and later).
 
-**If the payload has no `rate_limits`**, the script falls back to the old way: it reads Claude Code's own stored login from where [Claude Code keeps it](https://code.claude.com/docs/en/iam#credential-management) —
+**Off by default: the usage-limits fallback.** For Claude Code before 2.1.80, whose payload has no `rate_limits`, the script can fall back to the old way. Switch it on with `STATUSLINE_USAGE_API=1`. Then, when the payload has no `rate_limits`, it reads Claude Code's own stored login from where [Claude Code keeps it](https://code.claude.com/docs/en/iam#credential-management) —
 
 - macOS: the Keychain entry `Claude Code-credentials` (`security find-generic-password`), or `~/.claude/.credentials.json` if Claude Code had to fall back to that file,
 - Linux and Windows (Git Bash): `~/.claude/.credentials.json` (under `$CLAUDE_CONFIG_DIR` if set),
 
 — takes the OAuth access token from it and asks `https://api.anthropic.com/api/oauth/usage` for your usage. The answer is cached in `~/.claude/.usage-cache.json` (mode 600) for 2 minutes. The token is never written to disk, printed or put on a command line: it reaches `curl` on stdin (`-H @-`), so it does not show up in the process list. This endpoint is not part of the documented public API and may change.
 
-To switch the fallback off completely:
-
-```bash
-STATUSLINE_USAGE_API=0
-```
-
-With that set, the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
+Without `STATUSLINE_USAGE_API=1` the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
 
 The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
 
