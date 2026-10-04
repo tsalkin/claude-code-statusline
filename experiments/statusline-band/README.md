@@ -6,6 +6,10 @@ A [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/): companion to
 
 A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language instead, see [Language](#language)):
 
+![The /pace pane: two limit windows against their time, and the context by category](../../docs/screenshots/pace-pane.png)
+
+The same as text:
+
 ```
 5h ━━━━━━━━┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━  12% used · 72% of time · 60% to spare
    → lasts to reset Sun 00:40 (~19% used) · 1h rate
@@ -27,6 +31,10 @@ Readings are kept in the mod's store, shared by every session on the machine: th
 ## The last turn, and the band
 
 **What the last turn cost** is the mod's own status line under the prompt, one quiet line replaced after each turn: `last turn 12s · $+0.42 · ctx +3% · 5h +1`. The limit figure is the account's: other sessions spending at the same time count in it.
+
+![The mod's status line under the prompt, above the pace-statusline line](../../docs/screenshots/pace-last-turn.png)
+
+Claude Code itself puts the mod's name, with a `⚠`, in front of a mod's status line.
 
 **The band** above the prompt shows only when there is something to act on, and stays away otherwise:
 - a `compact` button past 80 % context;

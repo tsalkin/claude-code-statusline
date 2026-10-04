@@ -225,6 +225,10 @@ The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) write
 
 A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. The last turn's cost goes to the mod's own status line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
 
+![The /pace pane: limit windows against their time, and the context by category](docs/screenshots/pace-pane.png)
+
+![The last turn's cost on the mod's status line, above the pace-statusline line](docs/screenshots/pace-last-turn.png)
+
 ```
 /plugin install pace-band@tsalkin
 ```
