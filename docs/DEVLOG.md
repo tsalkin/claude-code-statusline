@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-04 — the band only to act on; the last turn on the mod's status line
+
+The owner saw the band in Russian (`ход 47с · $+0.84 · контекст +1% · 5ч +16  5ч ⇡+1.6 → кончится Пн 02:15  7д ⇡+-32 → кончится Пн 22:52`) and asked where it belongs: above the prompt, in the status line, or in the mod's own line. Of four options the owner chose the split: each fact in one place.
+
+**What moved.** *The last turn's cost* is now `$.ui.status(text)`, the mod's pinned line under the prompt beside Claude Code's own notices: plain text, no colour, no buttons, one per plugin. It is set when a main-loop turn ends, again when a measurement arrives after that (it still counts toward the turn), and at `session.start` (a reload for a new language keeps the state, so the line comes back in the new words). During the next turn it keeps the last one until that turn's figures are in. *The band* shows only to act on: the `compact` button past 80 % context, or a window that runs out before its reset at this rate. A window spent ahead of its time that still lasts to its reset no longer warns there (`AHEAD_WARN` removed): the bash line's `⇡` says it.
+
+**The `+-32` fix.** The warning wrote `⇡+` before any number, so a window in reserve read `7d ⇡+-32`, in red. Now: ahead by a point or more `5h ⇡+12 → out …` in red; in reserve `7d 30% to spare → out …` (`7д запас 30% → кончится …`) in yellow; within a point, `on pace`, yellow. The tone follows `moodOf`, the same split the pane's palettes use.
+
+**Note on `5ч +16`.** The turn's limit figure is the account's: in a 47-second turn the other six sessions' spending counts too. Said in the mod's README now; the figure itself is unchanged.
+
+**Checks.** Mod: 78 tests (the four band tests of the turn cost rewritten against the status line, one new for the next turn; four new for the band's warning: ahead but lasting → no band, ahead and running out → red, in reserve and running out → the reserve in yellow, the same in Russian), `tsc` clean, `validate --strict` passed. Reverse: the old filter (ahead ≥ 5 also warns) → the "lasting" pair red; the sign hard-coded → the four reserve tests red; always red → the yellow pair red; no status at turn end → four status tests red.
+
+**Not checked:** how the mod's status line sits beside the owner's bash status line on screen.
+
 ## 2026-10-04 — one language switch for the kit, apart from Claude Code's
 
 The owner: the line and `/pace` need a language of their own, independent of Claude Code's global one, switched for both at once. Of five ways offered (Claude Code's language; two separate pins; one `/config` row for both; `/pace en|ru|auto`; a button in the pane) the owner chose the `/config` row plus the command.

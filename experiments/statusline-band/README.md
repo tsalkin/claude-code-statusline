@@ -24,9 +24,15 @@ context  95.7k of 1M · 10%
 
 Readings are kept in the mod's store, shared by every session on the machine: they all spend one account's limits, so the forecast counts all of them.
 
-## The band
+## The last turn, and the band
 
-Above the prompt, after each turn: what the last turn cost (`last turn 12s · $+0.42 · ctx +3% · 5h +1`), a warning when a limit is spent ahead of its time or runs out before its reset, and a `compact` button past 80 % context. `×` hides it.
+**What the last turn cost** is the mod's own status line under the prompt, one quiet line replaced after each turn: `last turn 12s · $+0.42 · ctx +3% · 5h +1`. The limit figure is the account's: other sessions spending at the same time count in it.
+
+**The band** above the prompt shows only when there is something to act on, and stays away otherwise:
+- a `compact` button past 80 % context;
+- a limit window that runs out before its reset at this rate: `5h ⇡+12 → out Mon 02:15` in red when it is already spent ahead of its time, `7d 30% to spare → out Mon 22:52` in yellow when it is still in reserve and only the rate is too fast. A window spent ahead of its time that still lasts to its reset gets no band: the status line's `⇡` already says it.
+
+`×` hides the band for the session.
 
 ## Language
 

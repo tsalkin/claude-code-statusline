@@ -133,6 +133,40 @@ describe('pace pane', () => {
       expect(await texts(await band($))).toBe(ENGINE)
     })
 
+    test(`${surface}: ahead of pace but lasting to the reset: no band (the line's ⇡ says it)`, async ($, on) => {
+      engine(on)
+      // 30 → 46 in the hour: 16 an hour, 54 left: 3 h 22 m, past the reset in 3 h.
+      await $.session.measure(reading(46, 30))
+      expect(await texts(await band($))).toBe(ENGINE)
+    })
+
+    test(`${surface}: ahead and running out: red, with how far ahead`, async ($, on) => {
+      engine(on)
+      await $.session.measure(reading(52, 30))
+      expect(await colorOf(await band($), /^5h ⇡\+12 → out/)).toBe('red')
+    })
+
+    // The weekly window 30 points in reserve, but 2 points in the last hour: at
+    // that rate the 80 left last 40 h, short of the reset in 84 h.
+    const weekInReserve = { 'pace:seven_day': { kind: 'seven_day', used: 18, resetsAt: NOW + 84 * HOUR, points: [{ t: NOW - HOUR, used: 18 }] } }
+
+    test(`${surface}: in reserve but running out at this rate: the reserve shown, yellow`, async ($, on) => {
+      engine(on, weekInReserve)
+      await $.session.measure(reading(40, 20))
+      const ui = await band($)
+      const shown = await texts(ui)
+      expect(shown).toContain(`7d 30% to spare → out ${fmtClock(NOW + 40 * HOUR, NOW)}`)
+      expect(shown).not.toContain('⇡')
+      expect(shown).not.toContain('5h')
+      expect(await colorOf(ui, /^7d /)).toBe('yellow')
+    })
+
+    test(`${surface}: the same in Russian`, { options: { language: 'ru' } }, async ($, on) => {
+      engine(on, weekInReserve)
+      await $.session.measure(reading(40, 20))
+      expect(await texts(await band($))).toContain(`7д запас 30% → кончится ${fmtClock(NOW + 40 * HOUR, NOW, WORDS.ru)}`)
+    })
+
     test(`${surface}: language ru pinned: the pane and the band in Russian`, { options: { language: 'ru' } }, async ($, on) => {
       engine(on)
       await $.session.measure(reading(52, 30))

@@ -2,16 +2,17 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
 import type { ContextView, Figures, LimitWindow } from '../types'
-import { AHEAD_WARN, PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
+import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
 
 // The status line's companion. The bash line shows totals; this mod shows
 // what only a mod can:
-// - a band above the prompt: what the last turn cost, a compact button past
-//   the line's red threshold, and a short forecast when a limit is spent
-//   ahead of pace;
+// - its status line under the prompt: what the last turn cost;
+// - a band above the prompt, only when there is something to act on: a
+//   compact button past the line's red threshold, or a limit window that runs
+//   out before its reset at this rate;
 // - /pace, a pane: each limit window against its time, how far ahead of pace
 //   it is spent, when it runs out at this rate; and the context by category,
 //   as /context counts it.
@@ -180,11 +181,30 @@ function forecastColor(f: Forecast) {
   return moodOf(f) === 'spare' ? PACE_COLORS.caution : PACE_COLORS.out
 }
 
-// The band's warning colour.
-function toneOf(f: Forecast, t: number) {
-  if (f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt) return 'red'
-  if (f.ahead >= AHEAD_WARN) return 'yellow'
-  return 'green'
+// The band warns only for a window that runs out before its reset at this rate:
+// red when it is already spent ahead of its time, yellow when it is still in
+// reserve (or on pace) and only the rate is too fast.
+function runsOutEarly(f: Forecast): f is Forecast & { runsOutAt: number } {
+  return f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt
+}
+
+function toneOf(f: Forecast) {
+  return moodOf(f) === 'short' ? 'red' : 'yellow'
+}
+
+function warningOf(f: Forecast & { runsOutAt: number }, t: number, w: Words) {
+  const standing = f.ahead >= 1 ? `⇡+${fmtPct(f.ahead)}` : f.ahead <= -1 ? w.toSpare(fmtPct(-f.ahead)) : w.onPace
+  return `${labelOf(f, w)} ${standing} → ${w.out} ${fmtClock(f.runsOutAt, t, w)}`
+}
+
+// The last turn's cost, pinned as this mod's status line under the prompt: one
+// quiet line, replaced when the next turn's figures are in.
+async function showTurn($: EngineInterface, option: unknown) {
+  const current = await read($, now)
+  const start = await read($, base)
+  const seconds = await read($, turnSeconds)
+  if (start === null || current === null || seconds === null) return
+  $.ui.status(describe(costOf(start, current, seconds), await wordsFor($, option)))
 }
 
 function forecasts(windows: readonly LimitWindow[], t: number) {
@@ -207,6 +227,8 @@ export const register: Register = (on, options) => {
     const current = figuresOf(u)
     await update($, now, () => current)
     await recordLimits($, u.rateLimits)
+    // A reload (a new language, say) keeps the state: show the last turn again.
+    await showTurn($, options.language)
     return result
   })
 
@@ -222,6 +244,7 @@ export const register: Register = (on, options) => {
     if (e.agentId === undefined) {
       const seconds = Math.round(e.durationMs / 1000)
       await update($, turnSeconds, () => seconds)
+      await showTurn($, options.language)
     }
     return next(e)
   })
@@ -232,6 +255,8 @@ export const register: Register = (on, options) => {
     await update($, now, () => current)
     if (e.changed.includes('rateLimits')) await recordLimits($, e.rateLimits)
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)
+    // A measurement after the turn ended still counts toward it.
+    await showTurn($, options.language)
     return next(e)
   })
 
@@ -342,13 +367,10 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const current = await read($, now)
-    const start = await read($, base)
-    const seconds = await read($, turnSeconds)
-    const turn = start !== null && current !== null && seconds !== null ? costOf(start, current, seconds) : null
     const needsCompact = (current?.ctx ?? 0) >= COMPACT_AT && !e.props.isWorking
     const t = await $.clock.now()
-    const warnings = forecasts(await read($, limits), t).filter(f => f.ahead >= AHEAD_WARN || (f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt))
-    if (e.props.hasSurvey || (await read($, isHidden)) || (turn === null && !needsCompact && warnings.length === 0)) {
+    const warnings = forecasts(await read($, limits), t).filter(runsOutEarly)
+    if (e.props.hasSurvey || (await read($, isHidden)) || (!needsCompact && warnings.length === 0)) {
       return next(e)
     }
     const { Box, Button, Text } = $.ui.resolve(e)
@@ -359,14 +381,9 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column">
         <Box>
-          {turn !== null ? (
-            <Text dimColor wrap="truncate-end">
-              {describe(turn, w)}{' '}
-            </Text>
-          ) : null}
           {warnings.map(f => (
-            <Text key={`warn-${f.kind}`} color={toneOf(f, t)}>
-              {`${labelOf(f, w)} ⇡+${fmtPct(f.ahead)}${f.runsOutAt !== undefined && f.runsOutAt < f.resetsAt ? ` → ${w.out} ${fmtClock(f.runsOutAt, t, w)}` : ''}  `}
+            <Text key={`warn-${f.kind}`} color={toneOf(f)}>
+              {`${warningOf(f, t, w)}  `}
             </Text>
           ))}
           {needsCompact ? (

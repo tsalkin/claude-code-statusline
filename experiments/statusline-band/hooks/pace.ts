@@ -13,9 +13,6 @@ export const WINDOWS: Readonly<Record<string, { ms: number; label: string }>> = 
   seven_day: { ms: 7 * 24 * HOUR, label: '7d' },
 }
 
-// Same threshold as the status line's pace warning (⇡ from 5 points).
-export const AHEAD_WARN = 5
-
 // A recent rate needs a reading at least this old, and no older than the
 // lookback; otherwise the rate is the window's own average.
 const RECENT_MIN = 10 * MINUTE

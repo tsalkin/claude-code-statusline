@@ -223,13 +223,13 @@ The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) write
 
 ## Companion: `/pace` (pace-band)
 
-A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. A band above the prompt shows what the last turn cost. Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
+A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. The last turn's cost goes to the mod's own status line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
 
 ```
 /plugin install pace-band@tsalkin
 ```
 
-In English or Russian, by the same rule as the line: Claude Code's `language` setting, or the plugin's own `language` option in `/config`. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+In English or Russian, one switch for the plugin and the line together: `/pace ru`, `/pace en` or `/pace auto` (the same as `/config` → `pace-band.language`); on `auto`, Claude Code's own `language` setting. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
 ## Optional modules
 

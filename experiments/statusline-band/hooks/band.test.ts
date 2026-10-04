@@ -18,14 +18,21 @@ const ENGINE = 'engine band'
 
 type Reading = { ctx: number; five: number; usd: number }
 
-// The engine beneath the plugin: its band, and the events the plugin passes on.
+// The engine beneath the plugin: its band, the events the plugin passes on, and
+// the mod's status line under the prompt, each text it was set to in order.
 function engine(on: On) {
+  const statuses: (string | undefined)[] = []
   mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
   mock.store(on)
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [ENGINE] }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
+  on('ui.status', (_$, e) => {
+    statuses.push(e.text)
+    return { value: undefined }
+  })
+  return statuses
 }
 
 const measured = (r: Reading) => ({
@@ -58,35 +65,48 @@ describe('pace-band', () => {
       expect(await texts(ui)).toEqual([ENGINE])
     })
 
-    test(`${surface}: shows what the last turn cost`, async ($, on) => {
-      engine(on)
+    test(`${surface}: the last turn's cost goes to the mod's status line, not the band`, async ($, on) => {
+      const statuses = engine(on)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
+      expect(statuses).toEqual([])
       await $.turn.complete(done(12))
-      const ui = await mount($)
-      expect(await texts(ui)).toContain('last turn 12s · $+0.42 · ctx +3% · 5h +1 ')
+      expect(statuses.at(-1)).toBe('last turn 12s · $+0.42 · ctx +3% · 5h +1')
+      expect(await texts(await mount($))).toEqual([ENGINE])
     })
 
     test(`${surface}: a measurement after the turn ended lands on that turn`, async ($, on) => {
-      engine(on)
+      const statuses = engine(on)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
       await $.turn.complete(done(12))
       await $.session.measure(measured({ ctx: 44, five: 31, usd: 1.5 }))
-      const ui = await mount($)
-      expect(await texts(ui)).toContain('last turn 12s · $+0.50 · ctx +4% · 5h +1 ')
+      expect(statuses.at(-1)).toBe('last turn 12s · $+0.50 · ctx +4% · 5h +1')
+    })
+
+    test(`${surface}: the next turn keeps the last one shown until its own figures are in`, async ($, on) => {
+      const statuses = engine(on)
+      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+      await $.turn.start({ text: 'go', turnId: 't1' })
+      await $.turn.complete(done(12))
+      const shown = statuses.length
+      await $.turn.start({ text: 'again', turnId: 't2' })
+      await $.session.measure(measured({ ctx: 41, five: 30, usd: 1.1 }))
+      expect(statuses.length).toBe(shown)
+      await $.turn.complete(done(4))
+      expect(statuses.at(-1)).toBe('last turn 4s · $+0.10 · ctx +1%')
     })
 
     test(`${surface}: a subagent's turn is not the last turn`, async ($, on) => {
-      engine(on)
+      const statuses = engine(on)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
       await $.turn.complete(done(5, 'agent-1'))
-      const ui = await mount($)
-      expect(await texts(ui)).toEqual([ENGINE])
+      expect(statuses).toEqual([])
+      expect(await texts(await mount($))).toEqual([ENGINE])
     })
 
     test(`${surface}: from 80% context a compact button appears and compacts`, async ($, on) => {
@@ -113,21 +133,15 @@ describe('pace-band', () => {
 
     test(`${surface}: keeps what the other mods draw in the shared band`, async ($, on) => {
       engine(on)
-      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
-      await $.turn.start({ text: 'go', turnId: 't1' })
-      await $.session.measure(measured({ ctx: 41, five: 30, usd: 1.1 }))
-      await $.turn.complete(done(3))
-      const shown = await texts(await mount($))
-      expect(shown.some(t => t.startsWith('last turn 3s'))).toBe(true)
-      expect(shown).toContain(ENGINE)
+      await $.session.measure(measured({ ctx: 85, five: 30, usd: 1 }))
+      const ui = await mount($)
+      expect(await ui.find({ key: 'compact' })).toBeDefined()
+      expect(await texts(ui)).toContain(ENGINE)
     })
 
     test(`${surface}: the dismiss button hides the band`, async ($, on) => {
       engine(on)
-      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
-      await $.turn.start({ text: 'go', turnId: 't1' })
-      await $.session.measure(measured({ ctx: 41, five: 30, usd: 1.1 }))
-      await $.turn.complete(done(3))
+      await $.session.measure(measured({ ctx: 85, five: 30, usd: 1 }))
       const ui = await mount($)
       await ui.press({ key: 'hide' })
       expect(await texts(ui)).toEqual([ENGINE])

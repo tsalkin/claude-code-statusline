@@ -11,7 +11,7 @@
     {
       "name": "pace-band",
       "source": "./experiments/statusline-band",
-      "description": "/pace: each usage limit against its time and when it runs out at this rate, plus the context by category; a band with the last turn's cost. A Claude Code mod (2.1.287+), companion to pace-statusline."
+      "description": "/pace: each usage limit against its time and when it runs out at this rate, plus the context by category; the last turn's cost on the mod's status line, a band only to act on. A Claude Code mod (2.1.287+), companion to pace-statusline."
     }
   ]
 }
