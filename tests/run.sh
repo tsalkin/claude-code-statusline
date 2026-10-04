@@ -424,6 +424,31 @@ new_case lang-kit-subagents
 lang_settings '{"effortLevel": "xhigh", "language": "English", "pluginConfigs": {"pace-band@tsalkin": {"options": {"language": "ru"}}}}'
 check lang-kit-subagents "$(render_sub subagents.json)"
 
+# 42-46. The last turn, written by the pace-band mod to <TMPDIR>/pace-band-turn-<session>.txt
+# (TMPDIR is the case root): dim, at the end of line 2, the first block a narrow
+# terminal drops.
+turn_file() { printf '%b' "$2" > "$CASE_ROOT/pace-band-turn-$1.txt"; }
+
+# 42. This session's file: the block at the end of line 2
+new_case turn; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
+check turn "$(render full.json)"
+
+# 43. Only another session's file: no block
+new_case turn-other; make_git; turn_file aaaaaaaa-0000-4000-8000-00000000dead 'last turn 9s · $+0.01\n'
+check turn-other "$(render full.json)"
+
+# 44. A backslash or a control character in the file never reaches the terminal
+new_case turn-escape; make_git; turn_file "$SID" 'ход 5с \x1b[31mred\x07 \\\\033[0m \x01 · $+0.02\n'
+check turn-escape "$(render full.json)"
+
+# 45. STATUSLINE_SHOW_TURN=0 hides it
+new_case turn-off; make_git; turn_file "$SID" 'last turn 43s · $+0.30\n'
+check turn-off "$(render full.json STATUSLINE_SHOW_TURN=0)"
+
+# 46. A terminal too narrow for all of line 2: the last turn goes first, the branch stays
+new_case turn-narrow; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
+check turn-narrow "$(render full.json STATUSLINE_WIDTH=60)"
+
 # 41. Both word tables: every row has a key, an English and a Russian word, and the
 # keys are unique. A word added in one language only goes red here.
 words_bad=""

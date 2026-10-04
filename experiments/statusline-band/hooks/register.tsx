@@ -9,7 +9,8 @@ import type { Lang, Words } from './words'
 
 // The status line's companion. The bash line shows totals; this mod shows
 // what only a mod can:
-// - its status line under the prompt: what the last turn cost;
+// - what the last turn cost, handed to the bash line through a file: one
+//   line for the person instead of two;
 // - a band above the prompt, only when there is something to act on: a
 //   compact button past the line's red threshold, or a limit window that runs
 //   out before its reset at this rate;
@@ -197,14 +198,31 @@ function warningOf(f: Forecast & { runsOutAt: number }, t: number, w: Words) {
   return `${labelOf(f, w)} ${standing} → ${w.out} ${fmtClock(f.runsOutAt, t, w)}`
 }
 
-// The last turn's cost, pinned as this mod's status line under the prompt: one
-// quiet line, replaced when the next turn's figures are in.
+// The last turn's cost goes to the pace-statusline line, which prints it at the
+// end of its second line: one line of text in a file per session, in the
+// temporary directory the line also sees (both run under Claude Code's
+// environment), rewritten when the next turn's figures are in. A mod's own
+// status line would be a second line under the prompt, with a ⚠ and the mod's
+// name Claude Code puts in front of it.
+async function turnFile($: EngineInterface) {
+  const dir = (await $.env.get('TMPDIR')) ?? (await $.env.get('TEMP')) ?? '/tmp'
+  const id = await $.session.id()
+  if (!/^[\w-]+$/.test(id)) return undefined
+  return `${dir.replace(/[\\/]+$/, '')}/pace-band-turn-${id}.txt`
+}
+
 async function showTurn($: EngineInterface, option: unknown) {
   const current = await read($, now)
   const start = await read($, base)
   const seconds = await read($, turnSeconds)
   if (start === null || current === null || seconds === null) return
-  $.ui.status(describe(costOf(start, current, seconds), await wordsFor($, option)))
+  const path = await turnFile($)
+  if (path === undefined) return
+  try {
+    await $.fs.write(path, `${describe(costOf(start, current, seconds), await wordsFor($, option))}\n`)
+  } catch {
+    // A temporary directory that refuses the write: the line just has no turn.
+  }
 }
 
 function forecasts(windows: readonly LimitWindow[], t: number) {
@@ -218,6 +236,8 @@ function forecasts(windows: readonly LimitWindow[], t: number) {
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
+    // Versions before 0.8.0 kept the last turn on the mod's own status line.
+    $.ui.status(undefined)
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)

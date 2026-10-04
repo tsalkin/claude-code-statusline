@@ -74,12 +74,13 @@ In the terminal every block is colored (green → yellow → red as things get e
 | `git:(main)` | `git` | Branch. |
 | `PR #1234 ✓` | `pr.*` | Open pull request of the branch (`MR !12` on GitLab), coloured by review: `✓` approved, `✗` changes requested, `…` pending, `draft`. A clickable link in terminals that support OSC 8. |
 | `⑂ feature-x` | `workspace.git_worktree` | You are inside a git worktree. |
+| `last turn 43s · $+0.30 · ctx +1%` | the [pace-band](#companion-pace-pace-band) mod | *Optional, with the mod.* What the last turn took: its time, its cost, how far it moved the context and the 5-hour limit. Dim. |
 
 The optional modules render **only** when their files exist (GSD) or a command is configured (tasks). Without them there are no empty blocks and no dangling separators.
 
 ### Narrow terminals
 
-Claude Code tells the script the terminal width (`$COLUMNS`). When a line does not fit, blocks are dropped, least important first, until it does: line 1 loses the session time, then the cache, the model, the effort, the RC badge, the limits; line 2 loses the GSD update notice, the worktree, the GSD state, the tasks, the project, the session name, the PR. The context bar and the branch stay. `STATUSLINE_FIT=0` switches this off.
+Claude Code tells the script the terminal width (`$COLUMNS`). When a line does not fit, blocks are dropped, least important first, until it does: line 1 loses the session time, then the cache, the model, the effort, the RC badge, the limits; line 2 loses the last turn, the GSD update notice, the worktree, the GSD state, the tasks, the project, the session name, the PR. The context bar and the branch stay. `STATUSLINE_FIT=0` switches this off.
 
 ### Subagent rows
 
@@ -177,6 +178,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SHOW_MISS_CAUSE` | `✗tools` cache-miss cause |
 | `STATUSLINE_SHOW_SESSION_NAME` | `✎ session name` |
 | `STATUSLINE_SHOW_PR` | `PR #…` |
+| `STATUSLINE_SHOW_TURN` | the last turn, from the pace-band mod |
 | `STATUSLINE_FIT` | dropping blocks to fit the width |
 | `STATUSLINE_LINKS` | the PR as a clickable link (`0` if your terminal or tmux prints the escape code instead) |
 
@@ -219,15 +221,15 @@ The plugin runs only its own bash scripts — `statusline.sh`, `subagent-statusl
 
 Without `STATUSLINE_USAGE_API=1` the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
 
-The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`.
+The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`. With the pace-band mod installed it also reads `pace-band-turn-<session>.txt` from that directory, which the mod writes.
 
 ## Companion: `/pace` (pace-band)
 
-A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. The last turn's cost goes to the mod's own status line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
+A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. The last turn's cost goes to the end of this line's second line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
 
 ![The /pace pane: limit windows against their time, and the context by category](docs/screenshots/pace-pane.png)
 
-![The last turn's cost on the mod's status line, above the pace-statusline line](docs/screenshots/pace-last-turn.png)
+![The last turn's cost at the end of the line](docs/screenshots/pace-last-turn.png)
 
 ```
 /plugin install pace-band@tsalkin
@@ -264,7 +266,7 @@ tests/run.sh            # renders every case in tests/fixtures and compares byte
 tests/run.sh --update   # rewrite tests/expected after an intended change (review the diff!)
 ```
 
-Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, usage-limits fallback (login file, token on stdin; no login at all — with fake `curl` and `security`), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
+Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, usage-limits fallback (login file, token on stdin; no login at all — with fake `curl` and `security`), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; the last turn from the pace-band mod's file (this session's only, escape characters stripped, first to go in a narrow terminal); subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
 
 ## License
 

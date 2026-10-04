@@ -30,11 +30,9 @@ Readings are kept in the mod's store, shared by every session on the machine: th
 
 ## The last turn, and the band
 
-**What the last turn cost** is the mod's own status line under the prompt, one quiet line replaced after each turn: `last turn 12s · $+0.42 · ctx +3% · 5h +1`. The limit figure is the account's: other sessions spending at the same time count in it.
+**What the last turn cost** goes to the end of the [pace-statusline](../../README.md) line's second line, dim, replaced after each turn: `last turn 12s · $+0.42 · ctx +3% · 5h +1`. The status line cannot tell where a turn ends; the mod can, and after each turn writes that text to `pace-band-turn-<session>.txt` in the temporary directory (`$TMPDIR`), where the line reads it. The limit figure is the account's: other sessions spending at the same time count in it. Without the pace-statusline line nothing shows the last turn: a mod's own status line would be a second line under the prompt.
 
-![The mod's status line under the prompt, above the pace-statusline line](../../docs/screenshots/pace-last-turn.png)
-
-Claude Code itself puts the mod's name, with a `⚠`, in front of a mod's status line.
+![The last turn at the end of the line](../../docs/screenshots/pace-last-turn.png)
 
 **The band** above the prompt shows only when there is something to act on, and stays away otherwise:
 - a `compact` button past 80 % context;
@@ -55,7 +53,7 @@ English or Russian, for `/pace` and the [pace-statusline](../../README.md) line 
 
 Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
 
-Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and writes only its own store; it makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
+Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and writes its own store and one small text file per session in the temporary directory (the last turn, for the line); it makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
 
 ## Tests
 

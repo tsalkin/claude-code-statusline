@@ -24,6 +24,7 @@ Updated 2026-10-04 (after one language switch for the kit: `/pace en|ru|auto`).
 | One kit language apart from Claude Code's: `/config` row + `/pace en\|ru\|auto` (line reads `pluginConfigs.pace-band…options.language`) | yes (owner, 04.10: "делай 3+4") | yes: pace-band 0.6.0; 49 + 68 tests | **not pushed** | not yet: `/pace ru` live not tried |
 | The band's warning for a window in reserve (`7d ⇡+-32` in red) | fixed with the split below | yes | with the split | the bug seen by the owner on screen 04.10 |
 | Split: last turn → the mod's status line, band only to act on | yes (owner, 04.10: "Делай 4", after a trial) | yes: pace-band 0.7.0, 78 tests, branch `band-split` | **on trial**: the owner's working copy checked out on `band-split`; `git checkout main` undoes it | not yet |
+| Last turn at the end of the line's second line, not on the mod's own status line (that one came with Claude Code's `⚠ pace-band:` in front) | yes (owner, 05.10: "делай", option 1) | yes: pace-band 0.8.0 writes `$TMPDIR/pace-band-turn-<session>.txt`, `statusline.sh` reads it (`STATUSLINE_SHOW_TURN`); 54 + 82 tests | on `band-split`, with the split | not yet: needs a fresh screenshot for `docs/screenshots/pace-last-turn.png` (the one there shows the old `⚠` line) |
 | Move the folder out of `experiments/` | **open** | — | — | moving it means changing `CLAUDE_CODE_PLUGIN_DIRS` in the owner's settings |
 | Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
 

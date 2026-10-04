@@ -18,18 +18,27 @@ const ENGINE = 'engine band'
 
 type Reading = { ctx: number; five: number; usd: number }
 
+const SESSION = 'a1b2c3d4-0000-4000-8000-000000000001'
+const TURN_FILE = `/tmp/claude-501/pace-band-turn-${SESSION}.txt`
+
 // The engine beneath the plugin: its band, the events the plugin passes on, and
-// the mod's status line under the prompt, each text it was set to in order.
+// the last turn's file for the bash line, each text written to it in order.
 function engine(on: On) {
   const statuses: (string | undefined)[] = []
   mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
   mock.store(on)
+  mock.env(on, { TMPDIR: '/tmp/claude-501/' })
+  on('session.id', () => ({ value: SESSION }))
+  on('fs.write', (_$, e) => {
+    if (e.path === TURN_FILE) statuses.push(e.text.replace(/\n$/, ''))
+    return { value: undefined }
+  })
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [ENGINE] }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
   on('ui.status', (_$, e) => {
-    statuses.push(e.text)
+    if (e.text !== undefined) throw new Error(`a status line under the prompt: ${e.text}`)
     return { value: undefined }
   })
   return statuses
@@ -65,7 +74,7 @@ describe('pace-band', () => {
       expect(await texts(ui)).toEqual([ENGINE])
     })
 
-    test(`${surface}: the last turn's cost goes to the mod's status line, not the band`, async ($, on) => {
+    test(`${surface}: the last turn's cost goes to the line's file, not the band`, async ($, on) => {
       const statuses = engine(on)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
@@ -107,6 +116,43 @@ describe('pace-band', () => {
       await $.turn.complete(done(5, 'agent-1'))
       expect(statuses).toEqual([])
       expect(await texts(await mount($))).toEqual([ENGINE])
+    })
+
+    test(`${surface}: the file goes where TEMP points when TMPDIR is unset, and nowhere for an odd session id`, async ($, on) => {
+      const written: string[] = []
+      mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
+      mock.store(on)
+      mock.env(on, { TEMP: '/var/tmp/me' })
+      let id = 's-1'
+      on('session.id', () => ({ value: id }))
+      on('fs.write', (_$, e) => {
+        written.push(e.path)
+        return { value: undefined }
+      })
+      on('session.measure', (_$, e) => ({ changed: e.changed }))
+      on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+      on('turn.complete', () => ({ text: '' }))
+      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+      await $.turn.start({ text: 'go', turnId: 't1' })
+      await $.turn.complete(done(3))
+      expect(written).toEqual(['/var/tmp/me/pace-band-turn-s-1.txt'])
+      id = '../x'
+      await $.turn.start({ text: 'go', turnId: 't2' })
+      await $.turn.complete(done(3))
+      expect(written.length).toBe(1)
+    })
+
+    test(`${surface}: a session start clears a status line left by an earlier version`, async ($, on) => {
+      const cleared: (string | undefined)[] = []
+      mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
+      mock.store(on)
+      on('session.start', () => ({ cwd: '/work' }))
+      on('ui.status', (_$, e) => {
+        cleared.push(e.text)
+        return { value: undefined }
+      })
+      await $.session.start({ cwd: '/work', surface, isInteractive: true })
+      expect(cleared).toEqual([undefined])
     })
 
     test(`${surface}: from 80% context a compact button appears and compacts`, async ($, on) => {

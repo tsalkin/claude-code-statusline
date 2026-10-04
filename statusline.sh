@@ -2,7 +2,7 @@
 # claude-code-statusline — a two-line status line for Claude Code.
 #
 # Line 1: model · [remote control] · effort · context · prompt cache · usage limits · session time
-# Line 2: [GSD state] · [tasks] · [session name] · project · git branch · [PR] · worktree
+# Line 2: [GSD state] · [tasks] · [session name] · project · git branch · [PR] · worktree · [last turn]
 #
 # Claude Code pipes a JSON payload to this script on stdin after every assistant
 # message; whatever it prints becomes the status line.
@@ -50,6 +50,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_MISS_CAUSE:=1}"       # "✗tools" after a recent cache miss
 : "${STATUSLINE_SHOW_SESSION_NAME:=1}"     # the session's name (--name, /rename, or its AI title)
 : "${STATUSLINE_SHOW_PR:=1}"               # open pull / merge request of the branch
+: "${STATUSLINE_SHOW_TURN:=1}"             # what the last turn cost, written by the pace-band mod
 
 # Thresholds
 : "${STATUSLINE_BAR_LEN:=6}"
@@ -724,6 +725,25 @@ if [ "$STATUSLINE_SHOW_RC" = "1" ] && [ -n "$session_id" ] && [ -d "$CLAUDE_DIR/
     [ -n "$rc_id" ] && rc_part="\033[1;32m📡 RC\033[0m"
 fi
 
+# === Last turn (from the pace-band mod) =====================================
+# The mod sees where a turn ends, which the payload does not say, and after each one
+# writes a line of text ("last turn 43s · $+0.30 · ctx +1%", in the kit's language)
+# to <tmp>/pace-band-turn-<session>.txt: the temporary directory of Claude Code's
+# environment, which this script inherits. No mod, no file, no block. Read with a
+# builtin; a backslash or a control character would reach printf %b below.
+turn_part=""
+if [ "$STATUSLINE_SHOW_TURN" = "1" ] && [[ "$session_id" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    turn_dir="${TMPDIR:-/tmp}"
+    turn_file="${turn_dir%/}/pace-band-turn-${session_id}.txt"
+    if [ -f "$turn_file" ]; then
+        turn=""
+        IFS= read -r turn < "$turn_file"
+        turn="${turn//\\/}"; turn="${turn//[[:cntrl:]]/}"
+        [ ${#turn} -gt 60 ] && turn="${turn:0:59}…"
+        [ -n "$turn" ] && turn_part="\033[2m${turn}\033[0m"
+    fi
+fi
+
 # === Build output (two lines) ===============================================
 # Each block carries a drop rank: when a line is wider than the terminal, blocks go
 # from the highest rank down until it fits. 0 = never dropped.
@@ -752,6 +772,7 @@ add2 "$name_part" 3
 [ -n "$branch" ] && add2 "git:(${branch})" 1
 add2 "$pr_part" 2
 [ "$STATUSLINE_SHOW_WORKTREE" = "1" ] && [ -n "$git_worktree" ] && add2 "\033[35m⑂ ${git_worktree}\033[0m" 7
+add2 "$turn_part" 9
 
 # Columns a block takes on screen, into $cols: escape sequences removed, characters
 # counted, the two double-width emoji counted twice. Needs a UTF-8 locale for ${#}.

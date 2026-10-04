@@ -1,7 +1,7 @@
 {
   "name": "pace-band",
   "displayName": "Pace Band",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, and the context by category. The last turn's cost on the mod's status line; a band above the prompt only to act on: a limit that runs out before its reset, a compact button. A Claude Code mod; companion to pace-statusline.",
   "author": {
     "name": "Maxim Tsalkin",
