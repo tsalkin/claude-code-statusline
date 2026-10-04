@@ -1,7 +1,7 @@
 {
   "name": "pace-band",
   "displayName": "Pace Band",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, and the context by category. A band above the prompt: the last turn's cost, a pace warning, a compact button. A Claude Code mod; companion to pace-statusline.",
   "author": {
     "name": "Maxim Tsalkin",
@@ -20,7 +20,7 @@
     "language": {
       "type": "string",
       "title": "Language",
-      "description": "auto follows Claude Code's own Language setting (/config); en or ru pins one.",
+      "description": "For /pace and the pace-statusline line. auto follows Claude Code's own Language setting (/config); en or ru pins one. /pace en|ru|auto sets it too.",
       "default": "auto",
       "options": [
         "auto",

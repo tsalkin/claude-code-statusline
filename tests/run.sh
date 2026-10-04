@@ -382,15 +382,47 @@ new_case lang-one-line; make_git
 printf '{"language":"ru-RU","effortLevel":"high"}\n' > "$CASE_ROOT/home/.claude/settings.json"
 check lang-one-line "$(render rich.json)"
 
-# 39. "language" only inside a plugin's options: not Claude Code's, so English
+# 39. "language" only inside another plugin's options: neither Claude Code's nor the
+# kit's, so English
 new_case lang-nested-only; make_git
-lang_settings '{"pluginConfigs": {"pace-band@tsalkin": {"options": {"language": "ru"}}}}'
+lang_settings '{"pluginConfigs": {"other-mod@market": {"options": {"language": "ru"}}}}'
 check lang-nested-only "$(render rich.json)"
+
+# 39b. The kit's language (the pace-band mod's option, installed) over an English Claude Code
+new_case lang-kit-ru; make_git; make_gsd; cold_miss_payload
+lang_settings '{"language": "English", "pluginConfigs": {"other-mod": {"options": {"language": "en"}}, "pace-band@tsalkin": {"options": {"language": "ru"}}}}'
+check lang-kit-ru "$(render rich.json)
+$(render "$CASE_ROOT/payload.json")"
+
+# 39c. The kit's en (the mod loaded from a folder: key "pace-band") over a Russian Claude Code
+new_case lang-kit-en; make_git
+lang_settings '{"language": "Russian", "pluginConfigs": {"pace-band": {"options": {"language": "en"}}}}'
+check lang-kit-en "$(render rich.json)"
+
+# 39d. The kit on auto: Claude Code's language decides
+new_case lang-kit-auto; make_git
+lang_settings '{"language": "ru", "pluginConfigs": {"pace-band@inline": {"options": {"language": "auto"}}}}'
+check lang-kit-auto "$(render rich.json)"
+
+# 39e. STATUSLINE_LANG pins over the kit
+new_case lang-pinned-over-kit; make_git
+lang_settings '{"pluginConfigs": {"pace-band@tsalkin": {"options": {"language": "ru"}}}}'
+check lang-pinned-over-kit "$(render rich.json STATUSLINE_LANG=en)"
+
+# 39f. pluginConfigs of the wrong shape: the kit's language is unset, Claude Code's stands
+new_case lang-kit-garbage; make_git
+lang_settings '{"language": "Russian", "pluginConfigs": {"pace-band": {"options": 5}}, "x": {"language": 1}}'
+check lang-kit-garbage "$(render rich.json)"
 
 # 40. Subagent rows follow the same setting: units and the inherited effort in Russian
 new_case lang-ru-subagents
 lang_settings '{"effortLevel": "xhigh", "language": "Russian"}'
 check lang-ru-subagents "$(render_sub subagents.json)"
+
+# 40b. Subagent rows take the kit's language too, over Claude Code's
+new_case lang-kit-subagents
+lang_settings '{"effortLevel": "xhigh", "language": "English", "pluginConfigs": {"pace-band@tsalkin": {"options": {"language": "ru"}}}}'
+check lang-kit-subagents "$(render_sub subagents.json)"
 
 # 41. Both word tables: every row has a key, an English and a Russian word, and the
 # keys are unique. A word added in one language only goes red here.

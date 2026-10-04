@@ -33,23 +33,28 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SUBAGENT_NAME_MAX:=32}"   # a name (or the description standing in for it) is cut here
 : "${STATUSLINE_CTX_WARN:=50}"
 : "${STATUSLINE_CTX_CRIT:=80}"
-: "${STATUSLINE_LANG:=auto}"             # auto = Claude Code's `language` setting; en or ru pins one
+: "${STATUSLINE_LANG:=auto}"             # auto = the kit's language (pace-band), else Claude Code's; en or ru pins one
 NOW="${STATUSLINE_NOW:-$(date +%s)}"
 
-# One jq for both settings this script reads: the configured effort and the language.
-effort_want="" cc_language=""
+# One jq for the settings this script reads: the configured effort, Claude Code's
+# language and the kit's (the pace-band mod's `language` option, as in statusline.sh).
+effort_want="" cc_language="" kit_language=""
 if [ -f "$CLAUDE_DIR/settings.json" ]; then
-    IFS='|' read -r effort_want cc_language < <(jq -r \
-        '[.effortLevel, .language] | map(if type == "string" then . else "" end) | join("|")' \
+    IFS='|' read -r effort_want cc_language kit_language < <(jq -r \
+        '[.effortLevel, .language,
+          ([.pluginConfigs | objects | to_entries[] | select(.key | test("^pace-band(@|$)"))
+            | .value | objects | .options | objects | .language | strings][0] // "")]
+         | map(if type == "string" then . else "" end) | join("|")' \
         "$CLAUDE_DIR/settings.json" 2>/dev/null)
 fi
 [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || effort_want=""
 
-# The rows' own words, as in statusline.sh: Russian when STATUSLINE_LANG is ru, or
-# auto and Claude Code's language is Russian; English otherwise.
+# The rows' own words, as in statusline.sh: STATUSLINE_LANG when it pins one, else the
+# kit's language when it pins one, else Russian when Claude Code's language is Russian.
 case "$STATUSLINE_LANG" in
     en|ru) ui_lang=$STATUSLINE_LANG ;;
-    *)  case "$cc_language" in
+    *)  case "$kit_language" in en|ru) cc_language=$kit_language ;; esac
+        case "$cc_language" in
             [Rr][Uu]|[Rr][Uu][Ss]|[Rr][Uu][-_]*|[Rr][Uu][Ss][Ss][Ii][Aa][Nn]|Русский|русский|РУССКИЙ) ui_lang=ru ;;
             *) ui_lang=en ;;
         esac ;;

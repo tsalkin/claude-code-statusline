@@ -62,8 +62,9 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_MISS_RECENT:=900}"       # seconds a cache-miss cause stays on screen
 : "${STATUSLINE_NAME_MAX:=32}"           # session name longer than this is cut with "…"
 
-# Language of the line's own words: auto = Claude Code's `language` setting
-# (/config → Language), en or ru pins one.
+# Language of the line's own words: auto = the kit's language, set by the pace-band
+# mod (/config → pace-band.language, or /pace en|ru|auto), else Claude Code's own
+# `language` setting (/config → Language); en or ru pins one.
 : "${STATUSLINE_LANG:=auto}"
 
 # Clickable PR number (OSC 8 hyperlink). 0 = plain text, for terminals or tmux setups
@@ -101,33 +102,49 @@ NOW="${STATUSLINE_NOW:-$(date +%s)}"
 # The line's own words, in English or Russian. Models, branches, session names and
 # task text are shown as they come.
 
-# Claude Code's `language` setting into CC_LANGUAGE without starting a process:
-# Claude Code writes settings.json with its top-level keys two spaces in. A file laid
-# out otherwise by hand, or one with a nested "language" only, falls back to jq.
+# Claude Code's `language` setting into CC_LANGUAGE, and the kit's language (the
+# pace-band mod's `language` option) into KIT_LANGUAGE. Claude Code writes
+# settings.json with its top-level keys two spaces in, so its own `language` is read
+# without starting a process. A "language" anywhere else (a plugin's options, or a
+# file laid out by hand) takes one jq, which reads both.
 claude_language() {
-    local f="$CLAUDE_DIR/settings.json" line seen="" re='^  "language"[[:space:]]*:[[:space:]]*"([^"]*)"'
-    CC_LANGUAGE=""
+    local f="$CLAUDE_DIR/settings.json" line top="" nested="" both re='^  "language"[[:space:]]*:[[:space:]]*"([^"]*)"'
+    CC_LANGUAGE="" KIT_LANGUAGE=""
     [ -f "$f" ] || return 0
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in *'"language"'*) ;; *) continue ;; esac
-        if [[ "$line" =~ $re ]]; then
+        if [ -z "$top" ] && [[ "$line" =~ $re ]]; then
             CC_LANGUAGE="${BASH_REMATCH[1]}"
-            return 0
+            top=1
+        else
+            nested=1
         fi
-        seen=1
     done < "$f"
-    [ -n "$seen" ] && CC_LANGUAGE=$(jq -r '.language // empty | strings' "$f" 2>/dev/null)
+    [ -n "$nested" ] || return 0
+    # pluginConfigs is keyed by the plugin's name: pace-band (a plugin folder),
+    # pace-band@inline, or pace-band@<marketplace> once installed.
+    both=$(jq -r '[(.language | strings) // "",
+        ([.pluginConfigs | objects | to_entries[] | select(.key | test("^pace-band(@|$)"))
+            | .value | objects | .options | objects | .language | strings][0] // "")] | join("|")' "$f" 2>/dev/null) || return 0
+    case "$both" in *"|"*) CC_LANGUAGE=${both%%|*} KIT_LANGUAGE=${both#*|} ;; esac
     return 0
 }
 
 # Claude Code takes any language name or code ("Russian", "ru", "ru-RU"); anything
-# but Russian gets the English words.
+# but Russian gets the English words. Sets ui_lang (no subshell: a fork costs on Windows).
+lang_of() {
+    case "$1" in
+        [Rr][Uu]|[Rr][Uu][Ss]|[Rr][Uu][-_]*|[Rr][Uu][Ss][Ss][Ii][Aa][Nn]|Русский|русский|РУССКИЙ) ui_lang=ru ;;
+        *) ui_lang=en ;;
+    esac
+}
+
 case "$STATUSLINE_LANG" in
     en|ru) ui_lang=$STATUSLINE_LANG ;;
     *)  claude_language
-        case "$CC_LANGUAGE" in
-            [Rr][Uu]|[Rr][Uu][Ss]|[Rr][Uu][-_]*|[Rr][Uu][Ss][Ss][Ii][Aa][Nn]|Русский|русский|РУССКИЙ) ui_lang=ru ;;
-            *) ui_lang=en ;;
+        case "$KIT_LANGUAGE" in
+            en|ru) ui_lang=$KIT_LANGUAGE ;;
+            *) lang_of "$CC_LANGUAGE" ;;
         esac ;;
 esac
 

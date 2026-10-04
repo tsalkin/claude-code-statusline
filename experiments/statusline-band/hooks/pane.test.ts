@@ -196,3 +196,74 @@ describe('pace pane', () => {
     })
   }
 })
+
+// /pace en|ru|auto sets the kit's language: the mod's own `language` row in /config,
+// which the status line reads too.
+describe('pace command: language', () => {
+  const ROW = { label: 'Language', kind: 'choice', value: 'auto', options: ['auto', 'en', 'ru'], isLocked: false } as const
+  const rows = (...keys: string[]) => keys.map(key => ({ ...ROW, key, provider: { plugin: 'pace-band', tier: 'user' } as const }))
+  const run = ($: Engine, args: string) =>
+    $.command.run({ command: 'pace', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
+
+  // The writer beneath the plugin: keeps what it was asked to set.
+  function writer(on: On, list: ReturnType<typeof rows>, answer?: { deny: string }) {
+    const sets: { key: string; value: unknown }[] = []
+    on('config.list', () => ({ value: list }))
+    on('config.set', (_, e) => {
+      sets.push({ key: e.key, value: e.value })
+      return answer ?? { value: e.value }
+    })
+    return sets
+  }
+
+  test('/pace ru sets the row the session lists, and answers in Russian', async ($, on) => {
+    engine(on)
+    on('settings.read', () => ({ value: { language: 'English' } }))
+    const sets = writer(on, rows('theme', 'pace-band@tsalkin.language'))
+    expect((await run($, ' RU ')).text).toBe('Язык строки статуса и /pace: русский')
+    expect(sets).toEqual([{ key: 'pace-band@tsalkin.language', value: 'ru' }])
+  })
+
+  test('/pace en with no row listed sets pace-band.language', async ($, on) => {
+    engine(on)
+    on('settings.read', () => ({ value: { language: 'Russian' } }))
+    const sets = writer(on, rows('other-mod.language'))
+    expect((await run($, 'en')).text).toBe('Language of the status line and /pace: English')
+    expect(sets).toEqual([{ key: 'pace-band.language', value: 'en' }])
+  })
+
+  test('/pace auto answers in Claude Code’s language', async ($, on) => {
+    engine(on)
+    on('settings.read', () => ({ value: { language: 'Russian' } }))
+    const sets = writer(on, rows('pace-band.language'))
+    expect((await run($, 'auto')).text).toBe('Язык строки статуса и /pace: авто, как у Claude Code')
+    expect(sets).toEqual([{ key: 'pace-band.language', value: 'auto' }])
+  })
+
+  test('a refused change says so, in the words as they were', async ($, on) => {
+    engine(on)
+    on('settings.read', () => ({ value: { language: 'English' } }))
+    writer(on, rows('pace-band.language'), { deny: 'locked by policy' })
+    expect((await run($, 'ru')).text).toBe('Language not changed: locked by policy')
+  })
+
+  test('anything else: how to use it, nothing set', { options: { language: 'ru' } }, async ($, on) => {
+    engine(on)
+    const sets = writer(on, rows('pace-band.language'))
+    expect((await run($, 'de')).text).toContain('/pace en, /pace ru или /pace auto')
+    expect(sets).toEqual([])
+  })
+
+  test('/pace alone still opens the pane, nothing set', async ($, on) => {
+    engine(on)
+    const sets = writer(on, rows('pace-band.language'))
+    const opened: string[] = []
+    on('ui.open', (_, e) => {
+      opened.push(e.id)
+      return { value: { isPlaced: true } }
+    })
+    expect((await run($, '')).text).toBeUndefined()
+    expect(opened).toEqual(['pace'])
+    expect(sets).toEqual([])
+  })
+})

@@ -43,6 +43,12 @@ export type Words = {
   out: string
   compact: string
   command: string
+  commandHint: string
+  // /pace en|ru|auto: the kit's language, set for the status line and /pace alike.
+  languageNames: Readonly<Record<'auto' | Lang, string>>
+  languageSet: (name: string) => string
+  languageRefused: (reason: string) => string
+  languageUsage: string
 }
 
 export const WORDS: Readonly<Record<Lang, Words>> = {
@@ -74,7 +80,12 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ctx: 'ctx',
     out: 'out',
     compact: 'compact',
-    command: 'Limits forecast and context by category (toggles a pane)',
+    command: 'Limits forecast and context by category (toggles a pane); en, ru or auto sets the language',
+    commandHint: '[en|ru|auto]',
+    languageNames: { auto: 'auto, as Claude Code', en: 'English', ru: 'Russian' },
+    languageSet: name => `Language of the status line and /pace: ${name}`,
+    languageRefused: reason => `Language not changed: ${reason}`,
+    languageUsage: '/pace opens or closes the pane; /pace en, /pace ru or /pace auto sets the language of the status line and /pace',
   },
   ru: {
     d: 'д',
@@ -113,6 +124,11 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ctx: 'контекст',
     out: 'кончится',
     compact: 'сжать',
-    command: 'Прогноз лимитов и контекст по категориям (открывает и закрывает панель)',
+    command: 'Прогноз лимитов и контекст по категориям (открывает и закрывает панель); en, ru или auto — язык',
+    commandHint: '[en|ru|auto]',
+    languageNames: { auto: 'авто, как у Claude Code', en: 'английский', ru: 'русский' },
+    languageSet: name => `Язык строки статуса и /pace: ${name}`,
+    languageRefused: reason => `Язык не изменён: ${reason}`,
+    languageUsage: '/pace открывает и закрывает панель; /pace en, /pace ru или /pace auto задаёт язык строки статуса и /pace',
   },
 }

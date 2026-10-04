@@ -182,7 +182,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 
 ### Language
 
-The line's own words — `H:`/`W:`, the units of time, `cold` and the cause of a cache miss, `inh` in subagent rows — come in English or Russian. `STATUSLINE_LANG=auto` (the default) follows Claude Code's `language` setting (`/config` → Language, read from `~/.claude/settings.json`): Russian when it names Russian (`Russian`, `ru`, `ru-RU`), English otherwise. `en` or `ru` pins one. Models, branches, session names and task text are shown as they come.
+The line's own words — `H:`/`W:`, the units of time, `cold` and the cause of a cache miss, `inh` in subagent rows — come in English or Russian. `STATUSLINE_LANG=auto` (the default) takes the kit's language when the [pace-band](experiments/statusline-band/) mod sets one (`/pace en`, `/pace ru`, or `/config` → `pace-band.language`), so one switch changes the line and `/pace` together without touching Claude Code's own language; otherwise it follows Claude Code's `language` setting (`/config` → Language). Both are read from `~/.claude/settings.json`: Russian when it names Russian (`Russian`, `ru`, `ru-RU`), English otherwise. `en` or `ru` pins the line alone. Models, branches, session names and task text are shown as they come.
 
 ```
 [Opus 5.5] | ⚡high | ▰▰▱▱▱▱ 30% (60K/200K) | ◈91% →14:43 ✗инстр+1 | Ч:20% 3ч0м ⇡40% Н:25% 2д0ч | ⏱ 0м

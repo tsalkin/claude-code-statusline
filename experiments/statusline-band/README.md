@@ -4,7 +4,7 @@ A [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/): companion to
 
 ## `/pace`
 
-A pane, opened and closed by `/pace`:
+A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language instead, see [Language](#language)):
 
 ```
 5h ━━━━━━━━┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━  12% used · 72% of time · 60% to spare
@@ -30,7 +30,7 @@ Above the prompt, after each turn: what the last turn cost (`last turn 12s · $+
 
 ## Language
 
-English or Russian. The plugin's `language` option (`/config` → `pace-band.language`): `auto` (the default) follows Claude Code's own `language` setting; `en` or `ru` pins one. In Russian the forecast reads `кончится Вт 21:06 (через 2д 21ч), за 14ч 54м до сброса · темп за час`.
+English or Russian, for `/pace` and the [pace-statusline](../../README.md) line together, independent of the language Claude answers in. `/pace en`, `/pace ru` or `/pace auto` sets it, as does `/config` → `pace-band.language`, the plugin's `language` option: `auto` (the default) follows Claude Code's own `language` setting. The status line reads the same option from `settings.json`; its own `STATUSLINE_LANG=en|ru` still pins the line alone. In Russian the forecast reads `кончится Вт 21:06 (через 2д 21ч), за 14ч 54м до сброса · темп за час`.
 
 ## Install
 

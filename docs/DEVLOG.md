@@ -2,6 +2,25 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-04 — one language switch for the kit, apart from Claude Code's
+
+The owner: the line and `/pace` need a language of their own, independent of Claude Code's global one, switched for both at once. Of five ways offered (Claude Code's language; two separate pins; one `/config` row for both; `/pace en|ru|auto`; a button in the pane) the owner chose the `/config` row plus the command.
+
+**Where the value lives.** The kit's language is the pace-band mod's own `language` option, which Claude Code keeps in `settings.json` under `pluginConfigs.<plugin>.options.language` and draws as a `/config` row. The key is `pace-band` for a mod loaded from a folder (the owner's `CLAUDE_CODE_PLUGIN_DIRS`), `pace-band@inline`, or `pace-band@<marketplace>` once installed (types of 2.1.289: "A `--plugin-dir` plugin's key is its plugin.json `<name>` (or `<name>@inline`)"); the line accepts all three. A status line script has no `/config` row of its own, so the mod's row is the one visible switch.
+
+**The line.** Order: `STATUSLINE_LANG` when it pins `en`/`ru`, then the kit's language when it pins one, then Claude Code's. Claude Code's own top-level `language` is still read by bash builtins; a `"language"` anywhere else (the mod's option) takes one `jq` that reads both, as a hand-laid file already did. The settings scan now reads the whole file instead of stopping at the first match. Timing on a copy of the owner's settings (385 lines): 17.3 ms before, 16.1 ms after, 16.5 ms with the kit's option set (20 runs each, noise-level). Subagent rows: the same key added to their one `jq`. The jq filter tolerates a `pluginConfigs` of the wrong shape (`objects` at each step), so a broken entry cannot cost the subagent rows their effort check.
+
+**/pace (pace-band 0.6.0).** `/pace en`, `/pace ru`, `/pace auto` (any case, spaces trimmed) set the row through `$.config.set`, as the person would in `/config`, which reloads the module with the new option. The row's key is looked up in `$.config.list()` (`pace-band…language`), falling back to `pace-band.language`. The answer is in the new language (`Язык строки статуса и /pace: русский`); a refusal is reported in the old one; anything else prints the usage; `/pace` alone still toggles the pane. `argumentHint: [en|ru|auto]`.
+
+**Pitfalls.**
+- *A reverse check that restored too much.* `git checkout` of the broken file brought back the committed version, dropping the uncommitted feature with it; the next two checks then ran against old code and proved nothing. Redone from a copy of the good file (`cp` back, `cmp` to confirm).
+- *A test stand-in that the test needs.* Without an `on('ui.open', …)` answer (`{ value: { isPlaced: true } }`), `/pace` with no arguments fails in a test with "no implementation for command.run": the hook's `$.ui.open` call throws and the hook is skipped.
+- *`CLAUDE_DIR` is derived, not read.* The line sets it from `CLAUDE_CONFIG_DIR`; a timing run that set `CLAUDE_DIR` measured the owner's real settings three times.
+
+**Checks.** Line: 49/49 (six new: kit ru over English Claude Code, kit en over Russian, kit auto, `STATUSLINE_LANG` over the kit, a broken `pluginConfigs`, subagent rows; case 39 now uses another plugin's `language` and keeps its English golden). No existing golden changed. Reverse: line ignoring the kit → `lang-kit-ru`, `lang-kit-en` red; any plugin's `language` taken → `lang-nested-only`, `lang-kit-ru` red; subagent rows ignoring the kit → `lang-kit-subagents` red. Mod: 68 tests (six new), `tsc` clean, `validate --strict` passed. Reverse: the listed row ignored → its test red; arguments not trimmed or lowercased → that test red; arguments ignored → all five language tests red.
+
+**Not checked:** the live `/pace ru` in a session (whether `$.config.set` on the mod's own row writes `pluginConfigs` and reloads the module, as the types say); the row's key for an installed copy.
+
 ## 2026-10-04 — /pace: the language switch in a running session, tested
 
 The entry below left `config.set` untested, on the belief that the test engine has no `/config`. It has one. The test's `$.config.set(input)` raises `config.set` the way the engine does, through the plugin's hooks, and the test's own `on('config.set', …)` stands in for the writer beneath them. Two tests, on terminal and desktop: with the language on auto and Claude Code in English, an open pane shows `12% ahead`; the person picks Russian in `/config` (`origin: { kind: 'composer' }`), and the same mounted pane, then the band, show Russian with no new mount. A refused change (`{ deny }`) leaves the words English.

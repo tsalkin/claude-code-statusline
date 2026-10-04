@@ -95,6 +95,19 @@ async function wordsFor($: EngineInterface, option: unknown): Promise<Words> {
   return WORDS[(await read($, claudeLang)) ?? (await readClaudeLang($))]
 }
 
+// /pace en|ru|auto: the kit's language is this mod's own `language` option, a
+// /config row; the status line reads the same value from settings.json. Set as
+// the person would in /config, which reloads the module with the new option.
+async function setLanguage($: EngineInterface, arg: string, current: unknown): Promise<string> {
+  if (arg !== 'en' && arg !== 'ru' && arg !== 'auto') return (await wordsFor($, current)).languageUsage
+  // The row is `<plugin>.language`, the plugin named as the session loaded it.
+  const row = (await $.config.list()).find(r => /^pace-band(@[^.]+)?\.language$/.test(r.key))
+  const result = await $.config.set({ key: row?.key ?? 'pace-band.language', value: arg })
+  if (result.deny !== undefined) return (await wordsFor($, current)).languageRefused(result.deny)
+  const w = await wordsFor($, arg)
+  return w.languageSet(w.languageNames[arg])
+}
+
 // --- Limit history: one key per window kind in $.store, shared by every
 // session on the machine, since they all spend the same account's limits.
 
@@ -188,7 +201,7 @@ export const register: Register = (on, options) => {
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)
-    await $.command.register({ name: 'pace', description: w.command })
+    await $.command.register({ name: 'pace', description: w.command, argumentHint: w.commandHint })
     await loadLimits($)
     const u = await $.session.usage()
     const current = figuresOf(u)
@@ -223,6 +236,8 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'pace' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    if (arg !== '') return { text: await setLanguage($, arg, options.language) }
     if (await read($, paneOpen)) {
       await $.ui.close({ id: PANE })
       await update($, paneOpen, () => false)
