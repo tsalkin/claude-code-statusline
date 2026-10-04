@@ -14,6 +14,15 @@ const OUT = NOW + (48 / 22) * HOUR
 
 const SURFACES = ['terminal', 'desktop'] as const
 
+// The person picks Russian in /config → Language.
+const TO_RUSSIAN = {
+  key: 'language',
+  value: 'Russian',
+  previous: 'English',
+  provider: { plugin: 'engine', tier: 'core' },
+  origin: { kind: 'composer' },
+} as const
+
 const PANE_PROPS = {
   title: 'pace',
   isFocused: false,
@@ -156,6 +165,27 @@ describe('pace pane', () => {
       engine(on)
       on('settings.read', () => ({ value: { language: 'ru' } }))
       await $.session.measure(reading(52, 30))
+      expect(await texts(await pane($))).toContain('12% ahead')
+    })
+
+    test(`${surface}: auto: Claude Code's language changed in /config, the open pane follows`, async ($, on) => {
+      engine(on)
+      on('settings.read', () => ({ value: { language: 'English' } }))
+      on('config.set', (_, e) => ({ value: e.value }))
+      await $.session.measure(reading(52, 30))
+      const open = await pane($)
+      expect(await texts(open)).toContain('12% ahead')
+      expect(await $.config.set(TO_RUSSIAN)).toEqual({ value: 'Russian' })
+      expect(await texts(open)).toContain('опережение 12%')
+      expect(await texts(await band($))).toContain(`5ч ⇡+12 → кончится ${fmtClock(OUT, NOW, WORDS.ru)}`)
+    })
+
+    test(`${surface}: a refused language change leaves the words as they were`, async ($, on) => {
+      engine(on)
+      on('settings.read', () => ({ value: { language: 'English' } }))
+      on('config.set', () => ({ deny: 'locked' }))
+      await $.session.measure(reading(52, 30))
+      await $.config.set(TO_RUSSIAN)
       expect(await texts(await pane($))).toContain('12% ahead')
     })
 

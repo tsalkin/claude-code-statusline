@@ -2,6 +2,19 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-04 — /pace: the language switch in a running session, tested
+
+The entry below left `config.set` untested, on the belief that the test engine has no `/config`. It has one. The test's `$.config.set(input)` raises `config.set` the way the engine does, through the plugin's hooks, and the test's own `on('config.set', …)` stands in for the writer beneath them. Two tests, on terminal and desktop: with the language on auto and Claude Code in English, an open pane shows `12% ahead`; the person picks Russian in `/config` (`origin: { kind: 'composer' }`), and the same mounted pane, then the band, show Russian with no new mount. A refused change (`{ deny }`) leaves the words English.
+
+**Pitfalls.**
+- *A test's stand-in hook takes `($, e)`, like a plugin's.* `on('config.set', e => ({ value: e.value }))` got `$` as `e`; the hook was skipped ("returned a value that is not a boolean, a string, a number or a list of strings"), and the call failed with "no implementation for config.set".
+- *The test's `$.config.set` takes the whole event input*, `key`, `value`, `previous`, `provider`, `origin`, not the plugin's two-field `ConfigSetArgs`. The test ran green with two fields; `tsc` caught it.
+- *`npx tsc` installs an unrelated package named `tsc`.* Use `npx -p typescript tsc -p .`. A fresh worktree has no `.claude-plugin/types/` (written by the engine, ignored by git): copy it from the loaded working copy before type-checking.
+
+**Checks.** Mod: 62 tests (58 + 4), `tsc` clean, `validate --strict` passed. Line: 43/43. Reverse: the `config.set` hook not writing the language → exactly the two new switch tests red.
+
+**Still not checked:** Russian on the owner's screen, and the live `/config` → Language in a session (the test stands in for the writer, so it proves the mod's half only).
+
 ## 2026-10-04 — Russian for the line and for /pace
 
 The owner: a setting to switch the line and the plugin to Russian. Chosen of three options: one switch for the whole kit, Claude Code's own `language` setting (`/config` → Language), with an override in each part.
