@@ -136,6 +136,27 @@ describe('pace-band', () => {
       expect(statuses).toEqual([])
     })
 
+    // A /clear ends the session and the process goes on under a new id with no
+    // session.start: the state the host keeps for the session starts over, the
+    // module does not. Here the state lives beneath the plugin and the end clears it.
+    test(`${surface}: after a /clear the next turn still goes to the line's file`, async ($, on) => {
+      const statuses = engine(on)
+      const state = new Map<string, unknown>()
+      let version = 0
+      on('state.get', (_$, e) => ({ value: { value: state.get(e.key), version } }))
+      on('state.set', (_$, e) => (state.set(e.key, e.value), { value: { isSet: true, version: ++version } }))
+      on('session.end', () => (state.clear(), { sessionId: SESSION }))
+      const { changed: _, ...usage } = measured({ ctx: 40, five: 30, usd: 1 })
+      on('session.usage', () => ({ value: { ...usage, startedAt: 0 } }))
+      await start($)
+      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+      await $.session.end({ reason: 'clear', sessionId: SESSION, resume: { id: SESSION } })
+      await $.turn.start({ text: 'go', turnId: 't1' })
+      await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
+      await $.turn.complete(done(12))
+      expect(statuses.at(-1)).toBe('last turn 12s · $+0.42 · ctx +3% · 5h +1')
+    })
+
     test(`${surface}: the file goes where TEMP points when TMPDIR is unset, and nowhere for an odd session id`, async ($, on) => {
       const written: string[] = []
       mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })

@@ -44,8 +44,6 @@ declare module 'claude-code' {
       context: ContextView | null
       paneOpen: boolean
       claudeLang: 'en' | 'ru' | null
-      // A session with a screen: only there the line shows the last turn.
-      isInteractive: boolean
     }
   }
 }

@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-05 — the last turn gone after a /clear
+
+The owner sent a screenshot: the line's second line ended at `git:(main)`, no last turn. The session had started with `/clear`. Of today's transcripts, the three `cli` sessions begun by a `/clear` had no turn file, the fourteen begun afresh all had one.
+
+**Why.** The plugin-authoring types of 2.1.289 (`SessionEndInput.reason`): at a `/clear` the session ends, the process goes on under a new id, and no `session.start` fires. 0.8.1 kept `isInteractive` in `$.state`, set only at `session.start`, and the state is the session's. After a `/clear` it read `false` and nothing was written. The module itself stays loaded across a `/clear`; a reload raises `session.start` again.
+
+**The fix, pace-band 0.8.2.** `isInteractive` moves from `$.state` to a variable of the module, set at `session.start` (the contract loses the key). And `turn.start`, finding no figures in the session's state (the first turn after a `/clear`), takes the engine's own from `$.session.usage()`; without that the first turn after a `/clear` would still be lost.
+
+**Pitfalls.**
+- *The test kit keeps `$.state` across `$.session.end({ reason: 'clear' })` and has no `$.state` noun to reset it.* The test puts a small store beneath the plugin (`state.get` / `state.set` answered from a `Map`, emptied by its `session.end`). A test stand-in for a `$` call answers `{ value: … }`: `state.get` gets `{ value: { value, version } }`, `session.usage` `{ value: SessionUsage }`.
+- *A stand-in registered after the test's first `$` call is refused* ("the hooks beneath the plugins are registered before that").
+
+**Checks.** Mod: 86 tests (new: after a `/clear` the next turn still goes to the file, on terminal and desktop), `tsc` clean, `validate --strict` passed. Line: 54/54. Reverse: 0.8.1's `register.tsx` → both new tests red; the `$.session.usage()` seed alone removed → both red. Live: not seen yet; a session that loads 0.8.2 and then runs `/clear` is the check.
+
 ## 2026-10-05 — the last turn at the end of the line; the mod's file only where there is a screen
 
 The owner tried the split live (`/pace ru`, `/pace en` both switched) and asked what `⚠ pace-band: last turn 47s · $+0.54` means, then whether it could sit at the end of the line's second line instead. The `⚠ pace-band:` is not the mod's: `grep` finds no `⚠` under `hooks/`; Claude Code puts the mod's name, with that sign, in front of every `$.ui.status` line. The plugin-authoring reference of 2.1.289 does not say why. The owner chose option 1 of three: the line shows the turn, the mod's own status line goes.

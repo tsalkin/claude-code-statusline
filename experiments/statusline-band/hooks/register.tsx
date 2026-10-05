@@ -28,9 +28,6 @@ const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 // Claude Code's own `language` setting as en or ru: read at session start, kept
 // until /config changes it; null before the first read.
 const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
-// Set at session start: a headless run (claude -p, a scripted session) shows no
-// line, so it writes no file for one.
-const isInteractive = atom({ plugin: 'pace-band', key: 'isInteractive' } as const, false)
 
 const PANE = 'pace'
 
@@ -214,11 +211,11 @@ async function turnFile($: EngineInterface) {
   return `${dir.replace(/[\\/]+$/, '')}/pace-band-turn-${id}.txt`
 }
 
-async function showTurn($: EngineInterface, option: unknown) {
+async function showTurn($: EngineInterface, option: unknown, interactive: boolean) {
   const current = await read($, now)
   const start = await read($, base)
   const seconds = await read($, turnSeconds)
-  if (start === null || current === null || seconds === null || !(await read($, isInteractive))) return
+  if (!interactive || start === null || current === null || seconds === null) return
   const path = await turnFile($)
   if (path === undefined) return
   try {
@@ -237,11 +234,17 @@ function forecasts(windows: readonly LimitWindow[], t: number) {
 }
 
 export const register: Register = (on, options) => {
+  // A headless run (claude -p, a scripted session) shows no line, so it writes
+  // no file for one. Kept by the module, not in $.state: a /clear starts the
+  // session's state over under a new id and raises no session.start, while the
+  // module and the process it runs in go on; a reload raises session.start again.
+  let interactive = false
+
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     // Versions before 0.8.0 kept the last turn on the mod's own status line.
     $.ui.status(undefined)
-    await update($, isInteractive, () => e.isInteractive)
+    interactive = e.isInteractive
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)
@@ -252,13 +255,16 @@ export const register: Register = (on, options) => {
     await update($, now, () => current)
     await recordLimits($, u.rateLimits)
     // A reload (a new language, say) keeps the state: show the last turn again.
-    await showTurn($, options.language)
+    await showTurn($, options.language, interactive)
     return result
   })
 
   // turn.start fires for the main loop only; a subagent's run raises none.
   on('turn.start', async ($, e, next) => {
-    const current = await read($, now)
+    // Nothing measured yet in this session's state (the first turn after a
+    // /clear): the engine's own figures are the turn's start.
+    const current = (await read($, now)) ?? figuresOf(await $.session.usage())
+    await update($, now, () => current)
     await update($, base, () => current)
     await update($, turnSeconds, () => null)
     return next(e)
@@ -268,7 +274,7 @@ export const register: Register = (on, options) => {
     if (e.agentId === undefined) {
       const seconds = Math.round(e.durationMs / 1000)
       await update($, turnSeconds, () => seconds)
-      await showTurn($, options.language)
+      await showTurn($, options.language, interactive)
     }
     return next(e)
   })
@@ -280,7 +286,7 @@ export const register: Register = (on, options) => {
     if (e.changed.includes('rateLimits')) await recordLimits($, e.rateLimits)
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)
     // A measurement after the turn ended still counts toward it.
-    await showTurn($, options.language)
+    await showTurn($, options.language, interactive)
     return next(e)
   })
 
