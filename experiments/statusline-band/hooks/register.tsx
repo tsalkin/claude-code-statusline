@@ -28,6 +28,9 @@ const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 // Claude Code's own `language` setting as en or ru: read at session start, kept
 // until /config changes it; null before the first read.
 const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
+// Set at session start: a headless run (claude -p, a scripted session) shows no
+// line, so it writes no file for one.
+const isInteractive = atom({ plugin: 'pace-band', key: 'isInteractive' } as const, false)
 
 const PANE = 'pace'
 
@@ -215,7 +218,7 @@ async function showTurn($: EngineInterface, option: unknown) {
   const current = await read($, now)
   const start = await read($, base)
   const seconds = await read($, turnSeconds)
-  if (start === null || current === null || seconds === null) return
+  if (start === null || current === null || seconds === null || !(await read($, isInteractive))) return
   const path = await turnFile($)
   if (path === undefined) return
   try {
@@ -238,6 +241,7 @@ export const register: Register = (on, options) => {
     const result = await next(e)
     // Versions before 0.8.0 kept the last turn on the mod's own status line.
     $.ui.status(undefined)
+    await update($, isInteractive, () => e.isInteractive)
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)

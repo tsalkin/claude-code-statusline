@@ -34,6 +34,7 @@ function engine(on: On) {
     return { value: undefined }
   })
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [ENGINE] }))
+  on('session.start', () => ({ cwd: '/work' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
@@ -63,6 +64,9 @@ const done = (seconds: number, agentId?: string) => ({
 const texts = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) =>
   (await ui.findAll({ type: 'Text' })).map(t => t.text)
 
+// A session with a screen; a headless one (claude -p) passes false.
+const start = ($: Engine, isInteractive = true) => $.session.start({ cwd: '/work', surface: null, isInteractive })
+
 describe('pace-band', () => {
   for (const surface of SURFACES) {
     const mount = ($: Engine, props = PROPS) =>
@@ -76,6 +80,7 @@ describe('pace-band', () => {
 
     test(`${surface}: the last turn's cost goes to the line's file, not the band`, async ($, on) => {
       const statuses = engine(on)
+      await start($)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
@@ -87,6 +92,7 @@ describe('pace-band', () => {
 
     test(`${surface}: a measurement after the turn ended lands on that turn`, async ($, on) => {
       const statuses = engine(on)
+      await start($)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
@@ -97,6 +103,7 @@ describe('pace-band', () => {
 
     test(`${surface}: the next turn keeps the last one shown until its own figures are in`, async ($, on) => {
       const statuses = engine(on)
+      await start($)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.turn.complete(done(12))
@@ -110,12 +117,23 @@ describe('pace-band', () => {
 
     test(`${surface}: a subagent's turn is not the last turn`, async ($, on) => {
       const statuses = engine(on)
+      await start($)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
       await $.turn.complete(done(5, 'agent-1'))
       expect(statuses).toEqual([])
       expect(await texts(await mount($))).toEqual([ENGINE])
+    })
+
+    test(`${surface}: a headless session writes no file`, async ($, on) => {
+      const statuses = engine(on)
+      await start($, false)
+      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+      await $.turn.start({ text: 'go', turnId: 't1' })
+      await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
+      await $.turn.complete(done(12))
+      expect(statuses).toEqual([])
     })
 
     test(`${surface}: the file goes where TEMP points when TMPDIR is unset, and nowhere for an odd session id`, async ($, on) => {
@@ -129,9 +147,11 @@ describe('pace-band', () => {
         written.push(e.path)
         return { value: undefined }
       })
+      on('session.start', () => ({ cwd: '/work' }))
       on('session.measure', (_$, e) => ({ changed: e.changed }))
       on('turn.start', (_$, e) => ({ turnId: e.turnId }))
       on('turn.complete', () => ({ text: '' }))
+      await start($)
       await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
       await $.turn.start({ text: 'go', turnId: 't1' })
       await $.turn.complete(done(3))
