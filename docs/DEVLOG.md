@@ -2,6 +2,22 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-05 — the last turn at the end of the line; the mod's file only where there is a screen
+
+The owner tried the split live (`/pace ru`, `/pace en` both switched) and asked what `⚠ pace-band: last turn 47s · $+0.54` means, then whether it could sit at the end of the line's second line instead. The `⚠ pace-band:` is not the mod's: `grep` finds no `⚠` under `hooks/`; Claude Code puts the mod's name, with that sign, in front of every `$.ui.status` line. The plugin-authoring reference of 2.1.289 does not say why. The owner chose option 1 of three: the line shows the turn, the mod's own status line goes.
+
+**How the two talk.** The bash line cannot tell where a turn ends; the payload has the session's total cost and no turn boundary. The mod can. pace-band 0.8.0 writes the same text it used to show (`last turn 43s · $+0.30 · ctx +1%`, in the kit's language) to `pace-band-turn-<session>.txt` in the temporary directory, by `$.fs.write`: `$.env.get('TMPDIR')`, else `TEMP`, else `/tmp`, and `$.session.id()` checked against `^[\w-]+$`. Both processes run under Claude Code's environment, so the line finds the file at `${TMPDIR:-/tmp}`. `statusline.sh` reads it with `read` (no process), strips backslashes and control characters (the text reaches `printf %b`), cuts it at 60 characters and adds it dim at the end of line 2 with drop rank 9: the first block a narrow terminal loses. `STATUSLINE_SHOW_TURN=0` hides it. At `session.start` the mod clears any status line an earlier version left (`$.ui.status(undefined)`).
+
+**What the first night showed.** By the next morning `$TMPDIR` held 94 turn files, 85 of them written in nine minutes (03:23–03:32) by short sessions somewhere in the fleet, about `last turn 8s · $+0.35` each. Every session the owner's settings start loads the mod from this working copy (`CLAUDE_CODE_PLUGIN_DIRS`), headless ones included, and their hooks run though they draw nothing. pace-band 0.8.1 keeps `session.start`'s `isInteractive` in state and writes only when it is true. The 94 old files are left for macOS to clear (not checked that it does).
+
+**Pitfalls.**
+- *`$.session.start` in a test needs the full input.* `{ cwd, surface, isInteractive }`; without `cwd` the engine skips the mod's hook ("next() passed an argument with no { cwd }"), and the test's own `session.start` stand-in must answer `{ cwd }` too. `tsc` caught a `source` field that does not exist.
+- *A hook refused a grep.* A pattern with the word `env` in it read as an environment dump to the fleet's secret guard; the whole call was cancelled. Spell the filter without it.
+
+**Screenshots.** `docs/screenshots/pace-pane.png` is the owner's own capture of `/pace`. `pace-last-turn.png` is not a terminal capture: the real `statusline.sh` on a sample payload with a turn file, drawn to PNG by headless Chrome (`--screenshot`, JetBrains Mono, Ghostty's default palette and background). Sample figures, real rendering.
+
+**Checks.** Line: 54/54, five new: this session's file shown, another session's file not, an ESC, a BEL, a backslash and a control byte stripped, `STATUSLINE_SHOW_TURN=0`, a 60-column terminal drops the turn and keeps the branch. Reverse: no stripping → `turn-escape` red; rank 1 instead of 9 → `turn-narrow` red. Mod: 84 tests (the four turn tests rewritten against the file; new: the `TEMP` fallback and an odd session id, the cleared status line, a headless session writes nothing), `tsc` clean, `validate --strict` passed (it lists `env reads: TEMP, TMPDIR` and `$.fs.write`). Reverse: the `isInteractive` guard removed → the headless test red. Live: this session's file is rewritten after each turn; from 0.8.1 (05.10 10:50) to 11:33 only six existing files changed and no new one appeared, but no headless burst ran in that time.
+
 ## 2026-10-04 — the band only to act on; the last turn on the mod's status line
 
 The owner saw the band in Russian (`ход 47с · $+0.84 · контекст +1% · 5ч +16  5ч ⇡+1.6 → кончится Пн 02:15  7д ⇡+-32 → кончится Пн 22:52`) and asked where it belongs: above the prompt, in the status line, or in the mod's own line. Of four options the owner chose the split: each fact in one place.
