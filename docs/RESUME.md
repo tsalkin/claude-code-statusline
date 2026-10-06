@@ -39,6 +39,7 @@ Updated 2026-10-06 (the usage-limits fallback removed and the DEVLOG image paths
 - Weekly runs of the hub's novelty watch (now covering github.com/anthropics) are manual. A schedule is the owner's call; the hub's letter is closed.
 
 **Working notes.**
+- The fleet dashboard reads this project's slice `~/.claude/shared/dashboard/slices/claude-code-statusline.json`. Its `work` field (contract: `~/.claude/shared/library/dashboard-contract.md`, section 3) holds the directions N1 (directory) and N2 (pace-band), the line L1 (each new Claude Code version) and the owner's key decisions. In the same move as taking or closing a direction, a line or a key decision of the owner, or a backlog item decided next: add or update its entry (`horizon`, `finished`, `result` in the owner's words) and move `updated`. The project has no phases (`absent: ["phases"]`).
 - The live status line on the owner's Mac runs straight from this working copy (`~/.claude/settings.json` points at `statusline.sh` here), so checking out a branch changes it immediately.
 - `git push` and remote branch deletion are done by the owner (a hook blocks them for the agent).
 - Edits to `statusline.sh` or the mod reach the owner's live sessions at once. This session worked in a git worktree in the scratchpad and fast-forwarded `main` only when the gate was green.
