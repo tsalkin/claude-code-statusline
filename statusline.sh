@@ -11,7 +11,7 @@
 # variables or an optional config file — see README.md.
 #
 # Requires: bash, jq. Optional: git (branch), python3 (reset countdown, effort
-# check, limits fallback, GSD bridge).
+# check, GSD bridge).
 #
 # SPDX-License-Identifier: MIT
 
@@ -78,13 +78,6 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_FIT:=1}"
 : "${STATUSLINE_WIDTH:=${COLUMNS:-}}"
 : "${STATUSLINE_WIDTH_RESERVE:=4}"
-
-# Usage-limits fallback, for Claude Code before 2.1.80 (no rate_limits in the
-# payload): read the OAuth token from Claude Code's stored login (Keychain or
-# .credentials.json) and ask the usage endpoint. Off by default: 1 = on.
-: "${STATUSLINE_USAGE_API:=0}"
-: "${STATUSLINE_USAGE_TTL:=120}"
-: "${STATUSLINE_USAGE_CACHE:=$CLAUDE_DIR/.usage-cache.json}"
 
 # Tasks module (optional): a command printing JSON
 #   {"total": N, "first": "text", "priority": 0..9, "urgent": N}
@@ -299,54 +292,6 @@ print(int(max(0, min(100, 100 - usable_rem))))
 fi
 
 # === Usage limits ===========================================================
-fetch_usage() {
-    local token cred_json
-
-    # Step 1: the credentials JSON where Claude Code keeps it (code.claude.com/docs/en/iam,
-    # "Credential management"): the Keychain on macOS; $CLAUDE_DIR/.credentials.json on
-    # Linux and Windows, and on macOS when the Keychain refused the write.
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        cred_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
-    fi
-    if [ -z "$cred_json" ] && [ -f "$CLAUDE_DIR/.credentials.json" ]; then
-        cred_json=$(cat "$CLAUDE_DIR/.credentials.json" 2>/dev/null)
-    fi
-
-    # Step 2: extract the OAuth access token
-    if [ -n "$cred_json" ]; then
-        token=$(printf '%s' "$cred_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
-    fi
-
-    # Step 3: ask the usage endpoint. The Authorization header goes to curl on stdin
-    # (-H @-, printf is a builtin): a token in argv is visible in the process list.
-    if [ -n "$token" ]; then
-        printf 'Authorization: Bearer %s\n' "$token" \
-            | curl -sf --max-time 5 "https://api.anthropic.com/api/oauth/usage" \
-                -H @- \
-                -H "anthropic-beta: oauth-2025-04-20" \
-                -H "Accept: application/json" 2>/dev/null
-    fi
-}
-
-get_usage() {  # cached: at most one request per STATUSLINE_USAGE_TTL seconds
-    local cache_time=0
-    [ -f "$STATUSLINE_USAGE_CACHE" ] && cache_time=$(mtime "$STATUSLINE_USAGE_CACHE" || echo 0)
-    [ -z "$cache_time" ] && cache_time=0
-
-    if [ $((NOW - cache_time)) -gt "$STATUSLINE_USAGE_TTL" ]; then
-        local data
-        data=$(fetch_usage)
-        if [ -n "$data" ] && echo "$data" | jq -e '.five_hour' >/dev/null 2>&1; then
-            umask 077
-            echo "$data" > "$STATUSLINE_USAGE_CACHE"
-        fi
-    fi
-
-    if [ -f "$STATUSLINE_USAGE_CACHE" ]; then
-        cat "$STATUSLINE_USAGE_CACHE"
-    fi
-}
-
 usage_color() {  # $1 = % remaining
     local val=$1
     if [ "$val" -gt "$STATUSLINE_LIMIT_OK" ] 2>/dev/null; then
@@ -421,20 +366,9 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
 
 limits_part=""
 if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
-    # Preferred: native rate_limits from the payload (no stored login, no network)
+    # rate_limits from the payload (Claude Code 2.1.80+): no stored login, no network
     if [ -n "$rl_five_used" ]; then
         limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset" "$rl_week_reset")
-    fi
-    # Fallback: stored login + usage endpoint, only if the payload lacks rate_limits
-    if [ -z "$limits_part" ] && [ "$STATUSLINE_USAGE_API" = "1" ]; then
-        usage_data=$(get_usage)
-        if [ -n "$usage_data" ]; then
-            limits_part=$(build_limits \
-                "$(echo "$usage_data" | jq -r '.five_hour.utilization // 0')" \
-                "$(echo "$usage_data" | jq -r '.seven_day.utilization // 0')" \
-                "$(echo "$usage_data" | jq -r '.five_hour.resets_at // ""')" \
-                "$(echo "$usage_data" | jq -r '.seven_day.resets_at // ""')")
-        fi
     fi
 fi
 

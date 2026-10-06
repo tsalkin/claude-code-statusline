@@ -1,3 +1,0 @@
-#!/bin/bash
-# Fake macOS `security`: no Keychain entry, so the tests never read the real one.
-exit 44

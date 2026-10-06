@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-06 — the usage-limits fallback removed; image paths out of backticks
+
+**Context.** The directory's scan held every version of pace-statusline for a reviewer on two findings. "Uses a credential from the user's machine" (`MCP_FORWARDS_CREDENTIAL_ENV`, 5 findings: README.md, README.ru.md, statusline.sh, tests/run.sh, plugin.json): the fallback read Claude Code's OAuth token from the Keychain or `.credentials.json` and sent it to `api.anthropic.com/api/oauth/usage`. And `UNREAD_ASSET_REFERENCED` on this file: the checklist holds a version whose text writes a bundled image's path in backticks (lines about the screenshots and the icon). On 03.10 the owner chose to remove the fallback only if the reviewer objected; on 06.10 they chose to remove it now, in one version (owner: "делай одну версию").
+
+**What the portal showed (06.10, Versions tab and activity).** A new commit does not put the submission back in the queue: "submitted 3 days ago" stays, the log has no reset event, and "In review" moves to the newest version while the older ones become "Scan passed". The scheduled check runs about every 6 hours and takes only the newest commit: six versions in three days, not one per push. The docs say a version's hold can come back on each new version, and that the tracked branch cannot change while the plugin is with a reviewer. So: no pushes of small things to `main` during the review, and a tag to track only after it.
+
+**What changed.** `fetch_usage`, `get_usage`, `STATUSLINE_USAGE_API`, `_TTL`, `_CACHE` gone from `statusline.sh`; the config example and both READMEs lose them, and Privacy now says the line never reads the stored login. Claude Code sends `rate_limits` since 2.1.80; an older one shows no `H:`/`W:` block. The three fallback tests and their fakes go; one guard stays, `no-network`: fake `curl` and `security` first on PATH leave a mark if called. Reverse-checked: a `curl` line put at the script's top level turns it red (`ran: curl-ran`). Image paths in this file lose their backticks.
+
+**Checks.** Line: 52/52. `claude plugin validate .` passes with the known `version` warning only.
+
 ## 2026-10-05 — the last turn gone after a /clear
 
 The owner sent a screenshot: the line's second line ended at `git:(main)`, no last turn. The session had started with `/clear`. Of today's transcripts, the three `cli` sessions begun by a `/clear` had no turn file, the fourteen begun afresh all had one.
@@ -28,7 +38,7 @@ The owner tried the split live (`/pace ru`, `/pace en` both switched) and asked 
 - *`$.session.start` in a test needs the full input.* `{ cwd, surface, isInteractive }`; without `cwd` the engine skips the mod's hook ("next() passed an argument with no { cwd }"), and the test's own `session.start` stand-in must answer `{ cwd }` too. `tsc` caught a `source` field that does not exist.
 - *A hook refused a grep.* A pattern with the word `env` in it read as an environment dump to the fleet's secret guard; the whole call was cancelled. Spell the filter without it.
 
-**Screenshots.** `docs/screenshots/pace-pane.png` is the owner's own capture of `/pace`. `pace-last-turn.png` is not a terminal capture: the real `statusline.sh` on a sample payload with a turn file, drawn to PNG by headless Chrome (`--screenshot`, JetBrains Mono, Ghostty's default palette and background). Sample figures, real rendering.
+**Screenshots.** docs/screenshots/pace-pane.png is the owner's own capture of `/pace`. pace-last-turn.png is not a terminal capture: the real `statusline.sh` on a sample payload with a turn file, drawn to PNG by headless Chrome (`--screenshot`, JetBrains Mono, Ghostty's default palette and background). Sample figures, real rendering.
 
 **Checks.** Line: 54/54, five new: this session's file shown, another session's file not, an ESC, a BEL, a backslash and a control byte stripped, `STATUSLINE_SHOW_TURN=0`, a 60-column terminal drops the turn and keeps the branch. Reverse: no stripping → `turn-escape` red; rank 1 instead of 9 → `turn-narrow` red. Mod: 84 tests (the four turn tests rewritten against the file; new: the `TEMP` fallback and an odd session id, the cleared status line, a headless session writes nothing), `tsc` clean, `validate --strict` passed (it lists `env reads: TEMP, TMPDIR` and `$.fs.write`). Reverse: the `isInteractive` guard removed → the headless test red. Live: this session's file is rewritten after each turn; from 0.8.1 (05.10 10:50) to 11:33 only six existing files changed and no new one appeared, but no headless burst ran in that time.
 
@@ -140,7 +150,7 @@ Submitted from the owner's claude.ai account (Max plan) at `main @ 4bc254b`. Eac
 
 **What the portal asked, and what bit us.**
 - *Reserved name* (`claude-…`): renamed to `pace-statusline@tsalkin` (entry below).
-- *Icon only once*: the portal takes `.claude-plugin/icon.png` on the first save or submission and never again. Added before the first save (`docs/icon/icon.py` redraws it).
+- *Icon only once*: the portal takes .claude-plugin/icon.png on the first save or submission and never again. Added before the first save (`docs/icon/icon.py` redraws it).
 - *Listed on*: the portal ticked Claude Code, Cowork and the Claude apps. A status line works only in Claude Code, so the owner unticked the other two. The agent's clicks on those checkboxes collapsed the row instead, and setting them through the form did not reach the page's state.
 - *Documentation link*: with no `documentationUrl` the portal took the first link in the README, Claude Code's credential docs. `documentationUrl`, `supportUrl` and `privacyPolicyUrl` are now set; the directory reads them, though `claude plugin validate` calls them unrecognised.
 - *"No local code execution"*: the portal derives this label itself (no hooks or MCP servers), although the status line runs bash. No manifest field changes it. The README's Privacy section says what runs.

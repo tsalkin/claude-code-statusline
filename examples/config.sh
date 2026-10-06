@@ -48,11 +48,6 @@
 # STATUSLINE_SUBAGENT_SPARK_LEN=8   # 0 = no sparkline
 # STATUSLINE_SUBAGENT_NAME_MAX=32   # the description standing in for a missing name is cut here
 
-# --- Usage-limits fallback (reads Claude Code's stored login: Keychain or ~/.claude/.credentials.json) ---
-# STATUSLINE_USAGE_API=0        # 1 = on, for Claude Code before 2.1.80 (no rate_limits in the payload)
-# STATUSLINE_USAGE_TTL=120
-# STATUSLINE_USAGE_CACHE="$HOME/.claude/.usage-cache.json"   # default: $CLAUDE_DIR/.usage-cache.json
-
 # --- Tasks module: your own tracker, printing {"total":N,"first":"...","priority":0-9,"urgent":N} ---
 # STATUSLINE_TASKS_CMD="$HOME/bin/my-tasks-json"
 # STATUSLINE_TASKS_CACHE="$HOME/.cache/my-tasks.json"

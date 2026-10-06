@@ -7,8 +7,8 @@
 #
 # STATUSLINE_SCRIPT=path overrides the script under test.
 #
-# Every case runs in a throw-away HOME with a fixed clock and the usage-limits
-# fallback switched off: no network, no credential store, no user config.
+# Every case runs in a throw-away HOME with a fixed clock: no network, no user
+# config.
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="${STATUSLINE_SCRIPT:-$HERE/../statusline.sh}"
@@ -74,7 +74,6 @@ render() {
             LANG=en_US.UTF-8 \
             TZ=UTC \
             STATUSLINE_NOW="$NOW" \
-            STATUSLINE_USAGE_API=0 \
             STATUSLINE_GSD_BRIDGE=0 \
             "$@" /bin/bash "${RENDER_SCRIPT:-$SCRIPT}")
 }
@@ -188,44 +187,18 @@ check rc-no-record "$(render full.json)"
 new_case rc-config-dir; make_git; make_sessions bridge-0002 "$CASE_ROOT/altclaude"
 check rc-config-dir "$(render full.json CLAUDE_CONFIG_DIR="$CASE_ROOT/altclaude")"
 
-# 16. Usage-limits fallback: no rate_limits in the payload, the token comes from
-# $CLAUDE_DIR/.credentials.json (Linux, Windows) and reaches curl on stdin, never in
-# argv. Fake curl and security: no network, and the real Keychain is never read.
-# The fakes must be executable: PATH lookup skips a file without the x bit (macOS,
-# Linux; Git Bash ignores it), and then the REAL curl and security run — network and
-# Keychain. Refuse to render instead.
-usage_bin_ok() {
-    local t
-    for t in curl security; do
-        [ -x "$FIX/usage-bin/$t" ] && continue
-        echo "FAIL     $1: usage-bin/$t is not executable — the real $t would run"
-        fail=$((fail + 1)); return 1
-    done
-}
-new_case usage-fallback
-cp "$FIX/credentials.json" "$CASE_ROOT/home/.claude/.credentials.json"
-usage_bin_ok usage-fallback && check usage-fallback "$(render minimal.json STATUSLINE_USAGE_API=1 \
-    PATH="$FIX/usage-bin:$SANDBOX_PATH")"
-
-# 17. Fallback on, but no stored login anywhere: no H:/W: block, nothing else changes
-new_case usage-no-login
-usage_bin_ok usage-no-login && check usage-no-login "$(render minimal.json STATUSLINE_USAGE_API=1 PATH="$FIX/usage-bin:$SANDBOX_PATH")"
-
-# 17b. Fallback off by default: with the switch unset, a stored login is there but
-# nothing reads it and nothing goes out. The fakes leave a mark when they run.
-new_case usage-default-off
-cp "$FIX/credentials.json" "$CASE_ROOT/home/.claude/.credentials.json"
+# 16. No network and no stored login: the script never runs curl or security. Fakes
+# first on PATH leave a mark if anything calls them.
+new_case no-network
 mkdir -p "$CASE_ROOT/bin"
 for t in curl security; do
     printf '#!/bin/bash\ntouch "%s/%s-ran"\nexit 1\n' "$CASE_ROOT" "$t" > "$CASE_ROOT/bin/$t"
     chmod +x "$CASE_ROOT/bin/$t"
 done
-out=$(sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/minimal.json" | (cd "$WORK" && env -i HOME="$CASE_ROOT/home" \
-    PATH="$CASE_ROOT/bin:$SANDBOX_PATH" TMPDIR="$CASE_ROOT" LANG=en_US.UTF-8 TZ=UTC STATUSLINE_NOW="$NOW" \
-    STATUSLINE_GSD_BRIDGE=0 /bin/bash "$SCRIPT"))
+out=$(render minimal.json PATH="$CASE_ROOT/bin:$SANDBOX_PATH")
 ran=$(cd "$CASE_ROOT" && ls -- *-ran 2>/dev/null | tr '\n' ' ')
-check usage-default-off "$out
-fallback ran: ${ran:-nothing}"
+check no-network "$out
+ran: ${ran:-nothing}"
 
 # 18. GSD context bridge lands in $TMPDIR, where the hook's os.tmpdir() looks
 new_case gsd-bridge
@@ -336,7 +309,7 @@ printf '{"version":2,"plugins":{"pace-statusline@tsalkin":[{"scope":"user","inst
 out=$(run_install "$pdir/scripts/install.sh")
 cmd=$(jq -r .statusLine.command "$CASE_ROOT/home/.claude/settings.json")
 via_launcher=$(sed "s#__ROOT__#$CASE_ROOT#g" "$FIX/minimal.json" | (cd "$WORK" && env -i HOME="$CASE_ROOT/home" \
-    PATH="$SANDBOX_PATH" LANG=en_US.UTF-8 TZ=UTC STATUSLINE_NOW="$NOW" STATUSLINE_USAGE_API=0 STATUSLINE_GSD_BRIDGE=0 \
+    PATH="$SANDBOX_PATH" LANG=en_US.UTF-8 TZ=UTC STATUSLINE_NOW="$NOW" STATUSLINE_GSD_BRIDGE=0 \
     /bin/bash -c "$cmd"))
 if [ "$via_launcher" = "$(render minimal.json)" ]; then same="launcher renders the same line"; else same="launcher: $via_launcher"; fi
 check install-plugin "$out

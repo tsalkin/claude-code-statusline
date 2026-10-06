@@ -140,7 +140,6 @@ For an idle session (waiting on background agents, remote control) add `"refresh
 | `jq` | everything — without it the line prints `jq not found` and nothing else |
 | `git` | branch block (skipped silently if missing) |
 | `python3` | reset countdowns and pace, effort check, GSD bridge |
-| `curl` | only the usage-limits fallback, off by default (see Privacy) |
 
 Works on macOS, Linux and Windows via Git Bash. The test suite passes on macOS (bash 3.2), Ubuntu 24.04 (bash 5.2, ext4) and Windows 11 in Git Bash (bash 5.3).
 
@@ -210,16 +209,7 @@ The line's own words — `H:`/`W:`, the units of time, `cold` and the cause of a
 
 ## Privacy
 
-The plugin runs only its own bash scripts — `statusline.sh`, `subagent-statusline.sh` and the installer behind `setup` — and downloads or runs nothing else. By default it reads the payload Claude Code hands it on stdin and the local files named below, and sends nothing over the network. Usage limits come from `rate_limits` in that payload (Claude Code 2.1.80 and later).
-
-**Off by default: the usage-limits fallback.** For Claude Code before 2.1.80, whose payload has no `rate_limits`, the script can fall back to the old way. Switch it on with `STATUSLINE_USAGE_API=1`. Then, when the payload has no `rate_limits`, it reads Claude Code's own stored login from where [Claude Code keeps it](https://code.claude.com/docs/en/iam#credential-management) —
-
-- macOS: the Keychain entry `Claude Code-credentials` (`security find-generic-password`), or `~/.claude/.credentials.json` if Claude Code had to fall back to that file,
-- Linux and Windows (Git Bash): `~/.claude/.credentials.json` (under `$CLAUDE_CONFIG_DIR` if set),
-
-— takes the OAuth access token from it and asks `https://api.anthropic.com/api/oauth/usage` for your usage. The answer is cached in `~/.claude/.usage-cache.json` (mode 600) for 2 minutes. The token is never written to disk, printed or put on a command line: it reaches `curl` on stdin (`-H @-`), so it does not show up in the process list. This endpoint is not part of the documented public API and may change.
-
-Without `STATUSLINE_USAGE_API=1` the script never touches the stored login or the network; if the payload lacks `rate_limits`, the `H:`/`W:` block is just not shown.
+The plugin runs only its own bash scripts — `statusline.sh`, `subagent-statusline.sh` and the installer behind `setup` — and downloads or runs nothing else. It reads the payload Claude Code hands it on stdin and the local files named below, never reads Claude Code's stored login, and sends nothing over the network. Usage limits come from `rate_limits` in that payload (Claude Code 2.1.80 and later); on an older Claude Code the `H:`/`W:` block is just not shown.
 
 The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`. With the pace-band mod installed it also reads `pace-band-turn-<session>.txt` from that directory, which the mod writes.
 
@@ -266,7 +256,7 @@ tests/run.sh            # renders every case in tests/fixtures and compares byte
 tests/run.sh --update   # rewrite tests/expected after an intended change (review the diff!)
 ```
 
-Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, usage-limits fallback (login file, token on stdin; no login at all — with fake `curl` and `security`), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; the last turn from the pace-band mod's file (this session's only, escape characters stripped, first to go in a narrow terminal); subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock and the credentials fallback off.
+Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, no network and no stored login (fake `curl` and `security` that leave a mark if called), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; the last turn from the pace-band mod's file (this session's only, escape characters stripped, first to go in a narrow terminal); subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock.
 
 ## License
 
