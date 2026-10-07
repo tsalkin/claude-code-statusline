@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-07 — Claude Code 2.1.288–2.1.292: nothing to change, three ideas
+
+**Context.** The owner asked what the new releases change for the project and what it could use. Checked the changelog (`~/.claude/cache/changelog.md`, 2.1.288 to 2.1.292; installed 2.1.292) and the platform notes of 01.10 and 05.10 against what `statusline.sh` reads and what the mod calls.
+
+**The line.** No release touches the status line payload (`rate_limits`, context, cost): `statusline.sh` is not affected. The Models API's new `line` and `capabilities.thinking.types.disabled` fields are not ours: the line takes the model's name from Claude Code's payload.
+
+**The mod, gate on 2.1.292.** `claude plugin test` 86/86. Since 2.1.292 a failed `expect` inside a hook the test registered, or a stub answer the engine refuses, fails the test instead of passing silently, so these 86 are real. `claude plugin validate --strict` clean. Its new `gatingHooks` report (2.1.290) lists two hooks without `.catch`: `config.set{key=language}` and `ui.close`. Left as they are: per the plugin-authoring reference of 2.1.292, a failing hook is skipped and the chain goes on, and `.catch` is for a hook whose answer refuses something. Ours only watch and pass on, so a failure in them still saves the language and still closes the pane.
+
+**Fixed for us by Claude Code.** Redraws stalling on long multi-line text that is not Latin (2.1.290: the Russian `/pace`); right-aligned text drawn under a pane's close mark (2.1.288–289: the percentages column of `/pace`); endless redraws of a band or pane whose height changes (2.1.290); GitHub plugin installs without an SSH key now fall back to HTTPS (2.1.288–289); `claude plugin test` no longer reports mods turned off remotely from an out-of-date saved setting (2.1.288), nor refuses to run after an upgrade for the same reason (2.1.292).
+
+**The remote switch, read again.** Both sightings of 03.10 (11:03 and 22:39, entry below) read `tengu_plugin_hooks_modules: false` saved in `~/.claude.json`, on 2.1.288. The two `claude plugin test` fixes say that saved value can lag the live one. Whether it lagged on 03.10 is not known. From now on the saved flag alone is not proof that mods are off; `claude plugin test` in a folder with no mod, on 2.1.292 or later, is the check.
+
+**Ideas, not taken.** (1) `prompt.autocomplete` (2.1.292): offer `en`, `ru`, `auto` while `/pace ` is typed. (2) `claude plugin install … --marketplace <owner>/<repo>` (2.1.292): one install command in the three READMEs instead of two. (3) `ThemeKey` and `Color` types (2.1.290) for the `/pace` palettes, at the next edit of the mod. None of them goes to `main` while the plugin is with the directory's reviewer: each push is a new version, and its holds come back.
+
 ## 2026-10-06 — the usage-limits fallback removed; image paths out of backticks
 
 **Context.** The directory's scan held every version of pace-statusline for a reviewer on two findings. "Uses a credential from the user's machine" (`MCP_FORWARDS_CREDENTIAL_ENV`, 5 findings: README.md, README.ru.md, statusline.sh, tests/run.sh, plugin.json): the fallback read Claude Code's OAuth token from the Keychain or `.credentials.json` and sent it to `api.anthropic.com/api/oauth/usage`. And `UNREAD_ASSET_REFERENCED` on this file: the checklist holds a version whose text writes a bundled image's path in backticks (lines about the screenshots and the icon). On 03.10 the owner chose to remove the fallback only if the reviewer objected; on 06.10 they chose to remove it now, in one version (owner: "делай одну версию").
