@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-08 — Claude Code 2.1.294 and Haiku 5.5: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Since the 2.1.293 check: Claude Code 2.1.294 (installed) and the platform notes of 07.10 and 08.10.
+
+**2.1.294.** Two fixes, both for hooks of type `prompt` and `agent` (an instruction-style hook let through what it should block; Stop and SubagentStop prompt hooks judged better). The line and the mod have no hooks of that kind, and neither has the owner's `~/.claude/settings.json` (`jq` count 0, 08.10). Nothing for us.
+
+**Haiku 5.5 (07.10).** Now has the effort setting and a 1M window. Nothing in the code is tied to a model: the subagent row shortens any id and reads the window size from the payload. Checked with the fixture's `a3` set to `claude-haiku-5-5[1m]` at `low`: `Explore · haiku-5-5 1M ⚡low(≠high)`, as it should be. The mod's cost is Claude Code's own measure, so the cheaper Sonnet 5.5 cache reads (07.10) reach `$+…` with no change on our side.
+
+**Gate on 2.1.294.** Line 52/52. The mod's `claude plugin test` not re-run: nothing in 2.1.294 touches mods, and the machine had 24 MB free that morning.
+
 ## 2026-10-08 — awesome-claude-code: the submission closed as "not planned"
 
 **What happened.** The owner submitted `pace-statusline` to hesreallyhim/awesome-claude-code through its form on 2026-10-06 13:12 UTC (issue #3090, category Status Lines). The form bot passed it 20 seconds later (`validation-passed`; per the list's CONTRIBUTING it checks the form only, not the resource). On 2026-10-07 15:38 UTC the maintainer, hesreallyhim, closed it by hand as "not planned", with no comment (timeline event 32703565358).
