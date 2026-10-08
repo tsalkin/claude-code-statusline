@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-08 — awesome-claude-code: the submission closed as "not planned"
+
+**What happened.** The owner submitted `pace-statusline` to hesreallyhim/awesome-claude-code through its form on 2026-10-06 13:12 UTC (issue #3090, category Status Lines). The form bot passed it 20 seconds later (`validation-passed`; per the list's CONTRIBUTING it checks the form only, not the resource). On 2026-10-07 15:38 UTC the maintainer, hesreallyhim, closed it by hand as "not planned", with no comment (timeline event 32703565358).
+
+**Not a rule failure.** The ground rules: at least 14 days since the first commit with work after the first day, or 100 stars. The first commit is 2026-09-22, so the submission came on day 14; a submission that fails the rules is closed by the bot and labelled `auto-closed`, and this one was not.
+
+**The maintainer's usual practice.** Of the closed `resource-submission` issues read on 08.10, 193 are "not planned" and 104 completed; on 07.10 they triaged dozens in one pass, closing most without a word. Why this one was declined is not known. Likely: the Status Lines section already lists eight (ccstatusline, claude-powerline, Claude HUD and others), and the repository has 0 stars, while CONTRIBUTING asks for users first and a submission after.
+
+**Decision (owner, 08.10: "делай 1").** Accept it and record it here; no resubmission and no question to the maintainer now. Coming back to such lists is for after the Anthropic directory's decision and once the project has users or stars. The awesome list is not tied to the directory review.
+
 ## 2026-10-08 — Claude Code 2.1.293: one field for the subagent rows, nothing else to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Since 07.10 one new version, 2.1.293 (installed), and the platform notes of 06.10 to 08.10.
