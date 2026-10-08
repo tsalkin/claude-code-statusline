@@ -84,7 +84,7 @@ Claude Code tells the script the terminal width (`$COLUMNS`). When a line does n
 
 ### Subagent rows
 
-Claude Code's agent panel shows a row per running subagent. `subagent-statusline.sh` (the `subagentStatusLine` setting) replaces the body of each agent's row with: name · model ⚡effort · context bar, tokens and a sparkline of how fast the agent is filling its context · time running · what it is doing.
+Claude Code's agent panel shows a row per running subagent. `subagent-statusline.sh` (the `subagentStatusLine` setting) replaces the body of each agent's row with: name · model ⚡effort · context bar, tokens and a sparkline of how fast the agent is filling its context · time running · what it is doing. An agent without a name of its own shows its type instead (`Explore`, or your own agent's, Claude Code 2.1.293 and later), else its description.
 
 - `⚡low(≠xhigh)` in red: the agent set its own effort **below** `effortLevel` in `settings.json` — the same check as on the main line.
 - `⚡inh`: the agent inherits the session's effort. `⚡8K`: a numeric token budget.

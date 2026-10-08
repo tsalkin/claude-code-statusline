@@ -93,6 +93,19 @@
       "tokenCount": 442000
     },
     {
+      "id": "a7",
+      "type": "local_agent",
+      "agentType": "mekhanik",
+      "status": "running",
+      "description": "Bump the version",
+      "label": "Bumping the version in plugin.json",
+      "startTime": 1789999900000,
+      "model": "claude-sonnet-5-5",
+      "effort": "low",
+      "contextWindowSize": 200000,
+      "tokenCount": 21000
+    },
+    {
       "id": "b1",
       "type": "local_bash",
       "status": "running",

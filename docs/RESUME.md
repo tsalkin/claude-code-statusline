@@ -1,6 +1,6 @@
 # RESUME — where to pick up
 
-Updated 2026-10-08 (Claude Code 2.1.293 checked: gate 52/52 and 86/86, one idea for the subagent rows, `agentType`, waiting for the owner, DEVLOG 08.10; 07.10: 2.1.288–2.1.292 checked, nothing to change; before that, 06.10: the usage-limits fallback removed, pushed by the owner, `origin/main` = `6dfff89`, checked by `git ls-remote`).
+Updated 2026-10-08 (Claude Code 2.1.293 checked: gate 52/52 and 86/86, the subagent rows now show `agentType` when an agent has no name, committed locally, not pushed, DEVLOG 08.10; 07.10: 2.1.288–2.1.292 checked, nothing to change; before that, 06.10: the usage-limits fallback removed, pushed by the owner, `origin/main` = `6dfff89`, checked by `git ls-remote`).
 
 **Where we are.** Two plugins in the `tsalkin` marketplace. `pace-statusline` (the status line) went to Anthropic's plugin directory on 2026-10-03 at `4bc254b`, auto-publish **off**; every push since is a new directory version waiting for the owner's Publish (the last one `718b165`, 06.10). `pace-band` 0.8.2 (`/pace` and the band, a Claude Code mod in `experiments/statusline-band/`) installs from GitHub; checked in a sandbox only. The last turn's cost now sits dim at the end of the line's second line: the mod writes it to `$TMPDIR/pace-band-turn-<session>.txt` (interactive sessions only), the line reads it; the mod's own status line, which came with Claude Code's `⚠ pace-band:` in front, is gone. The band shows only to act on. One language switch for both (`/pace en|ru|auto`, or `/config` → `pace-band.language`). After a `/clear` 0.8.1 wrote no turn file (the owner's screenshot, 05.10); 0.8.2 fixes it. Gate: 52/52 line tests (54 before the fallback's three tests went, 06.10), 86 mod tests, `tsc` and `validate --strict` clean; on Claude Code 2.1.292 (07.10) the mod's 86 pass under the stricter `claude plugin test` and `validate --strict` is clean. See `docs/DEVLOG.md`, entries of 2026-10-03 to 2026-10-07.
 
@@ -39,7 +39,7 @@ Updated 2026-10-08 (Claude Code 2.1.293 checked: gate 52/52 and 86/86, one idea 
 - `version` unset in `plugin.json` (a directory warning): Claude Code tracks the plugin by commit, so there is no version to bump.
 - Weekly runs of the hub's novelty watch (now covering github.com/anthropics) are manual. A schedule is the owner's call; the hub's letter is closed.
 - Ideas from Claude Code 2.1.290–2.1.292, not taken (DEVLOG 07.10): `/pace en|ru|auto` offered as the person types (`prompt.autocomplete`); one install command in the READMEs (`claude plugin install … --marketplace`); `ThemeKey`/`Color` types for the `/pace` palettes. Not to `main` while the reviewer has the plugin.
-- Idea from Claude Code 2.1.293, not taken (DEVLOG 08.10): `agentType` in the subagent rows, so `ispolnitel` and `mekhanik` on one model can be told apart. Waits for the owner; not to `main` while the reviewer has the plugin.
+- Local, not pushed (08.10): the subagent rows show the agent's type (`agentType`, Claude Code 2.1.293) when it has no name. Goes out with the first push after the reviewer decides. Still to see: a real agent row in a live session.
 - Last Claude Code version checked against the line and the mod: 2.1.293 (08.10). The hub's watcher (`cc-watch.py --mark`) is fleet-wide: this project does not mark it.
 
 **Working notes.**

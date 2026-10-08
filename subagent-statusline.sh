@@ -114,9 +114,10 @@ def effort_color:
 
 # name, bold; a finished or failed agent gets a mark
 # name: an agent started by the Agent tool usually comes without one (Claude Code
-# then shows the description in its own row), so the description stands in; the type
-# ("local_agent") says nothing.
-| ([$t.name, $t.description] | map(select(. != null) | clean | sub("^ +"; "") | select(. != ""))
+# then shows the description in its own row), so its subagent type stands in
+# (agentType, Claude Code 2.1.293+: "Explore", "ispolnitel"), then the description;
+# the task kind ("local_agent") says nothing.
+| ([$t.name, $t.agentType, $t.description] | map(select(. != null) | clean | sub("^ +"; "") | select(. != ""))
    | .[0] // "agent") as $name_full
 | (if ($name_full | length) > $name_max then $name_full[0:$name_max - 1] + "…" else $name_full end) as $name
 | (if $t.status == "completed" then sgr("32") + "✓ " + off
