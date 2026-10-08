@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-08 — Claude Code 2.1.293: one field for the subagent rows, nothing else to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Since 07.10 one new version, 2.1.293 (installed), and the platform notes of 06.10 to 08.10.
+
+**The subagent rows: `agentType`.** 2.1.293 adds `agentType` to each task of the `subagentStatusLine` payload: the subagent type the task runs as (`Explore`, or a custom one such as `ispolnitel` or `mekhanik`), the same value hooks get as `agent_type` (docs, "Task fields", read 08.10). `subagent-statusline.sh` does not read it yet. Today an agent started by the Agent tool usually comes without `name`, so the row shows the description, and two agents of different types on one model look alike. Not taken yet: a change to the script reaches the owner's sessions at once, and a push to `main` is a new directory version while the plugin is with the reviewer. Waits for the owner's word.
+
+**The mod.** It uses none of what 2.1.293 fixed for mods: no `classic.*` hooks, no `$.session.append`, no `$.tool.register` (so the new `isDeferred` is not ours either). On 2.1.293: `claude plugin test` 86/86.
+
+**The line.** No release touches the main status line payload. Haiku 5.5 (`claude-haiku-5-5`, now the default Haiku) needs nothing: the line has no price table and shortens any model id the same way. The cheaper Sonnet 5.5 cache reads (platform, 07.10) are not ours either: the line shows Claude Code's own cost. `tests/run.sh` 52/52.
+
 ## 2026-10-07 — Claude Code 2.1.288–2.1.292: nothing to change, three ideas
 
 **Context.** The owner asked what the new releases change for the project and what it could use. Checked the changelog (`~/.claude/cache/changelog.md`, 2.1.288 to 2.1.292; installed 2.1.292) and the platform notes of 01.10 and 05.10 against what `statusline.sh` reads and what the mod calls.
