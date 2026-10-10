@@ -2,6 +2,36 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-10 — Claude Code 2.1.296: nothing to change, one gap in the subagent rows to watch
+
+**Context.** The owner asked again what the new release changes and what the project could use. Installed: 2.1.296 (`claude --version`); the mod's generated types were rebuilt by it (`.claude-plugin/types/claude-code/index.d.ts`, 10.10 12:24).
+
+**Nothing breaks.** Each item that touches what we built, checked against the code:
+- Sonnet 5.5 cache reads now priced at $0.10 per million (was $0.20) in `/cost`, the status line and the SDK. The line keeps no price table, and the mod's turn cost is Claude Code's own figure (`u.cost?.usd`, `register.tsx:47`), so a Sonnet 5.5 turn now shows its lower, correct cost with no change here.
+- Fixes for a mod's `$.agent.register`, `$.http.fetch` (`HEAD`), served `$` methods, `prompt.submit` on Esc and toasts held behind `/diff`: the mod uses none of them (`grep` over `hooks/`: no `agent.register`, `http.fetch`, served methods, toast or notify; its `on(...)` list unchanged since 09.10).
+- Token counts for Haiku 5.5 and other adaptive-thinking-only models: a counting fix behind gateways; the subagent rows read `tokenCount` as given and have no model-specific branch.
+- `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL`: workflow agents may now share one model; the rows print whatever `model` arrives.
+
+**The gap: `autoCompactWindow`.** A subagent's frontmatter (and `--agents`) can now set `autoCompactWindow`, 100K–1M tokens, at which it compacts earlier than its model's window. The rows' bar is `tokenCount / contextWindowSize` (`subagent-statusline.sh:139–141`), and `contextWindowSize` is the model's window, "computed the same way as the main status line's `context_window.context_window_size`" (code.claude.com/docs/en/statusline, the `tasks` table); the payload has no `autoCompactWindow`. So an agent on a 1M window with `autoCompactWindow: 200000` compacts at a bar of 20 %, never reaching yellow or red. Latent today: no agent definition in the fleet sets it (`grep` over `~/.claude/agents` and the projects' `.claude/agents`: none). Not fixed: reading the agent's definition file by `agentType` misses plugin and `--agents` agents and costs a file read per row per tick; the right carrier is a field in the payload. Watch the changelog for it.
+
+**Gate on 2.1.296.** Line 52/52. The mod's `claude plugin test` not re-run: the mod-facing fixes touch nothing it uses, and the machine had 23 MB free.
+
+## 2026-10-09 — Claude Code 2.1.295: nothing to change, two ideas for the mod
+
+**Context.** The owner asked what the new release changes and what the project could use. Installed: 2.1.295 (`claude --version`).
+
+**Nothing breaks.** Each item that touches what we built, checked against the code:
+- `/model`, `/fast` and `/output-style` now go through a plugin's `config.set` hook. The mod's one `config.set` hook is filtered to `{ key: 'language' }` (`register.tsx:309`), so those settings never reach it.
+- A mod's hook could get a deeply nested tool input cut short. The mod has no tool hooks: its `on(...)` list is `session.start`, `turn.start`, `turn.complete`, `session.measure`, `command.run`, `config.set`, `ui.close`, `ui.render`.
+- Tab stops now count from where a text starts. Neither script prints a tab (`grep -c $'\t'`: 0 and 0).
+- `/model` no longer claims a Max pick is saved as the default. The effort check (`(≠…)`) shows only a shortfall against `effortLevel`, and max is above every level, so a session on Max shows `⚡max` with no mark — as before.
+- Background sessions no longer inherit `FORCE_COLOR=3`; the line writes its own escapes and `git branch --show-current` prints no colour, so nothing changes.
+- `claude plugin validate` now advises an install line when a plugin's README has none. Both READMEs have one (`README.md:100`, `:225`; the mod's `README.md:51`).
+
+**Ideas, not taken.** `$.ui.notify` raises a native notification through the person's own setting: the mod could say so when a limit window nears its end while the terminal is out of sight — the band's "show only to act on", carried outside the terminal. `Button` now takes `Text` children: the band's warning and its compact button could be one pressable row. Not to `main` while the reviewer has the plugin.
+
+**Gate on 2.1.295.** Line 52/52. The mod's `claude plugin test` not re-run: the mod-facing fixes (hot reload, `session.append` in `plugin test`, `config.set` for `/model`) touch nothing it uses, and the machine had 26 MB free.
+
 ## 2026-10-08 — Claude Code 2.1.294 and Haiku 5.5: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Since the 2.1.293 check: Claude Code 2.1.294 (installed) and the platform notes of 07.10 and 08.10.
