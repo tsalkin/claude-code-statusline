@@ -62,3 +62,23 @@ Stars from Yiğit Konur's comparison (<https://yigitkonur.com/research/claude-co
 - `npx …@latest` in `settings.json`: unpinned code runs on every render.
 - Patching Claude Code's `cli.js` (CCometixLine).
 - Cache files keyed by `$$` — changes every run; key by `session_id`.
+
+## Update 2026-10-12 — the mod wave
+
+What changed since 28.09, from the web (12.10):
+
+- **Mods became a crowd.** [awesome-claude-code-mods](https://github.com/karanb192/awesome-claude-code-mods) (browse: mods.aidojo.si) lists 3,382 mods, scanned 11.10; a dozen cover limits and pace: `headroom` (run-out forecast by least squares over 90 min, because the API reports whole points; a notification when a hot window resets; `en`/`ru`), `weektoken` (pace incl. per-model limits), `usage-band`, `quota-meter`, `burn-meter`, `token-ledger` (last-turn tokens, cache ratio), `context-lens`, `agent-compact-advisor`, `cctop`, `agentpane`. The catalogue picks up repos with the `claude-code-mod` topic on their next push. Neither plugin of this project is listed; the repo has no topics.
+- **[claude-statuspane](https://github.com/xuanji86/claude-statuspane)** (~7★, DevOps.com wrote it up): a clickable card above the prompt (model, effort, context with a `⟲ compact` button, limits, cost, branch, GitHub CI) and a **progress API**: any script writes `~/.claude/statuspane/progress/<id>.json`, any mod calls `$.statuspane.progress()`. No pace, no cache, no subagents.
+- **claude-hud** (~28.5k★) now has usage pace, cache expiry and hit rate, daily/weekly cost ledgers, ultracode and `/advisor` display, per-model weekly windows, zh labels. Pace and cache expiry are no longer ours alone.
+- **ccstatusline** 2.2.29–2.2.32 (03.09–09.10): Claude Status widget with incident strip, session cost rate, extra-usage daily budget, thinking effort and skills widgets.
+- **Docs** (code.claude.com/docs/en/statusline, 12.10): a plugin can ship a default `subagentStatusLine` in its own `settings.json` (no setup step needed for the subagent rows); new payload field `prompt_id`; `rate_limits.spend_limit.*` (gateway) still unread here.
+
+What still looks like this project's own (not checked against all 3,382 mods): the cache-miss cause, effort drift (`≠xhigh`) for the session and for subagents, the remote-control badge, `subagentStatusLine` rows with a fill sparkline, one language switch for line and mod, bash + jq with no network.
+
+Ideas from this pass (not taken; nothing to `main` while the directory reviewer has the plugin):
+1. GitHub topics (`claude-code-mod`, `claude-code-statusline`, `claude-code-plugin`) — owner's call; on 08.10 the owner chose to revisit lists after the directory's decision.
+2. Ship `subagentStatusLine` in the plugin's `settings.json`.
+3. Profile drift as the thesis: configured vs actual for model as well as effort, in the line and the subagent rows.
+4. Fleet view: all live sessions on one account share the 5-hour window; the mod's turn files already sit in `$TMPDIR` — a `/pace` section on who spends the window and whose cache went cold.
+5. Forecast by regression over a window (headroom's method) instead of two readings; a notification when a hot window resets.
+6. `spend_limit` as a third limit; Claude service status, opt-in.
