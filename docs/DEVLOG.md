@@ -2,6 +2,25 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-12 — Profile drift and the fleet: two directions from the prior-art pass
+
+**Context.** A web pass (PRIOR-ART, update 12.10) found the limits-and-pace niche crowded: 3,382 mods in awesome-claude-code-mods, a dozen on limits (`headroom` forecasts by regression, notifies on reset, speaks Russian), and claude-hud (~28.5k★) now shows pace and cache expiry. What stayed ours: the line says whether what was meant is what runs. The owner chose two directions (12.10: "делай 1 и 2"): profile drift, and the fleet.
+
+**1. Profile drift.** The line now checks the model as well as the effort: `[Sonnet 5.5](≠opus)` when `model.id` is of another family than `model` in the settings, red when smaller (haiku < sonnet < opus), yellow otherwise (fable is not ranked; `opusplan` and `default` are not checked). The settings are read as Claude Code layers them, the project's local file, then the project's, then the user's, for the effort check too: a project that pins `effortLevel: high` no longer shows `(≠xhigh)` against the user's level. The subagent rows hold each agent to its own definition (`model:` and `effort:` in `~/.claude/agents/<type>.md`, the project's `.claude/agents/` winning; a file without `name:` by its file name), looked up by `agentType`, else `name`. The old rows compared every agent's effort with the global `effortLevel`, so `mekhanik`, defined `effort: low` on purpose, was always red; README's own example showed it. The payload's `effort` is the configured value (definition or invocation, per the docs' task fields), so a shortfall against the definition means an invocation lowered it. `.effort-check.json` now caches both answers, keyed by model, effort and project.
+
+**2. The fleet.** All sessions of one account spend one 5-hour window, and the owner runs about ten. Each interactive session's mod writes `$TMPDIR/pace-band-fleet-<session>.json`: its project, start, and cost samples over five hours plus one baseline before them (samples a minute apart merge; a lower cost starts them over). One writer per file: `$.store` is one JSON file for all sessions, and per-session keys in it would race. The mod has no prompt-cache figures (`SessionUsage` has none), so the line writes `pace-band-line-<session>.json` with the session's name and cache, only when the mod's turn file exists and the content changed, renamed into place. `/pace` lists the sessions that moved in the current window (from the 5-hour limit's reset, else the last five hours), by what each spent in the last hour, with its share, the window total, when it last moved and its cache; shown only with two sessions or more. Spend is each session's own `/cost` figure, so the split is exact; limit points are account-wide and are not split.
+
+**What bit us.**
+- An apostrophe in a comment inside the subagent script's single-quoted jq program closed the quote; the script printed nothing and the tests showed it as empty output. Comments inside that program stay free of `'`.
+- The pane's render asked `$.session.id()` on every draw; the older pane tests stub no `session.id`, and the hook was skipped. Asked only when there is a fleet to draw, with a `.catch`.
+- In a mod test, stubbing `command.run` takes the whole command family away from the engine; `command.register` then fails. Stub only what is missing (`command.register`, `ui.open`, `session.usage`).
+- `old` matched inside `cold`: a negative `toContain` needs a word that occurs nowhere else.
+- `tsc` in a fresh worktree needs the generated `.claude-plugin/types/` (git-ignored), copied from the main working copy.
+
+**Checks.** Line 58/58 (six new: model smaller, other family, project settings over the user's, `opusplan`, subagent rows against their definitions with both checks off, the fleet file with a quote, a backslash and a tab in the name, none without the mod or switched off). Mod 99/99 (13 new), `validate --strict` clean, `tsc` clean, root `validate` with the known `version` warning. Reverse: without the project's settings files → `model-project` red; subagents held to the global level → `subagents-profile` red; the name not escaped, or the file written without the mod → `fleet-line` red; records written by headless sessions → the headless test red. The mtime filter on fleet files is a saving only: a stale record is also out by its own time, so removing it keeps the tests green.
+
+**Not seen live yet.** A `(≠model)` mark in a real session; the fleet section with real sessions (needs the mod reloaded in each, and one turn in each, before their records exist).
+
 ## 2026-10-10 — Claude Code 2.1.296: nothing to change, one gap in the subagent rows to watch
 
 **Context.** The owner asked again what the new release changes and what the project could use. Installed: 2.1.296 (`claude --version`); the mod's generated types were rebuilt by it (`.claude-plugin/types/claude-code/index.d.ts`, 10.10 12:24).
