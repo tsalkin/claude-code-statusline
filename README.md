@@ -37,7 +37,8 @@ And with the optional subagent rows, each running agent in Claude Code's agent p
 
 ```
 ispolnitel · opus-5-5 ⚡high · ▰▱▱▱ 34% 68K ▁▂▃▅▆▇██ · 3m12s · Writing tests for the pace block
-mekhanik · sonnet-5 ⚡low(≠xhigh) · ▰▰▰▱ 85% 170K · 50s · Bump version
+mekhanik · sonnet-5 ⚡low · ▰▰▰▱ 85% 170K · 50s · Bump version
+ispolnitel · sonnet-5-5(≠opus) ⚡high · ▱▱▱▱ 5% 9K · 1m40s · Build the fleet section
 ```
 
 In the terminal every block is colored (green → yellow → red as things get expensive).
@@ -50,7 +51,8 @@ In the terminal every block is colored (green → yellow → red as things get e
 | `📡 RC` | `~/.claude/sessions/*.json` (not the payload) | This session is currently reachable via Remote Control (claude.ai / phone). See below. |
 | `⚡high` | `effort.level` | Current reasoning effort. Green `low`/`auto`, cyan `medium`, yellow `high`, magenta `xhigh`/`max`. |
 | `✦` | `thinking.enabled` | Extended thinking is on. |
-| `(≠xhigh)` | `effort.level` vs `effortLevel` in `settings.json` | You are running **below** the effort configured globally (for example a per-model override lowered it). Shown in red. |
+| `(≠xhigh)` | `effort.level` vs `effortLevel` in the settings | You are running **below** the effort configured (for example a per-model override lowered it). Shown in red. |
+| `[Sonnet 5.5](≠opus)` | `model.id` vs `model` in the settings | The session runs on another model family than the one configured: a fallback, a stray `--model`, a `/model` you forgot. Red when it is a smaller one (haiku < sonnet < opus), yellow otherwise. `opusplan` and `default` are not checked. |
 | `▰▰▰▱▱▱ 42% (420K/1000K)` | `context_window.*` | Context used: bar — filled ▰ bright, empty ▱ dim (green <50%, yellow <80%, red ≥80%), percent, tokens used / window size. |
 | `◈95%` / `◈cold 175K` | `prompt_cache.*` | Warm cache and its hit ratio — or a cold cache and how many tokens the next request will re-cache. That number is the price of "continue this session vs start fresh". |
 | `→14:32` | `prompt_cache.expires_at` | When the warm cache goes cold: step away past this time and the next request pays for the whole context again. A clock time, not a countdown — the line is not redrawn while you are away. |
@@ -86,7 +88,7 @@ Claude Code tells the script the terminal width (`$COLUMNS`). When a line does n
 
 Claude Code's agent panel shows a row per running subagent. `subagent-statusline.sh` (the `subagentStatusLine` setting) replaces the body of each agent's row with: name · model ⚡effort · context bar, tokens and a sparkline of how fast the agent is filling its context · time running · what it is doing. An agent without a name of its own shows its type instead (`Explore`, or your own agent's, Claude Code 2.1.293 and later), else its description.
 
-- `⚡low(≠xhigh)` in red: the agent set its own effort **below** `effortLevel` in `settings.json` — the same check as on the main line.
+- **Each agent is held to its own definition** (`~/.claude/agents/<type>.md`, or the project's `.claude/agents/`, which wins): `sonnet-5-5(≠opus)` when it runs on another model family than its `model:` (red when smaller, yellow otherwise), `⚡medium(≠high)` in red when its effort is below its `effort:`. A `mekhanik` defined with `effort: low` is not flagged for being low. An agent with no `effort:` in its definition is held to `effortLevel`, as on the main line.
 - `⚡inh`: the agent inherits the session's effort. `⚡8K`: a numeric token budget.
 - Rows that are not agents (shell tasks, workflows) keep Claude Code's own rendering.
 - An agent started by the Agent tool usually has no name in the row data; its description stands in, cut at 32 characters (`STATUSLINE_SUBAGENT_NAME_MAX`).
@@ -163,6 +165,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SHOW_RC` | `📡 RC` remote control |
 | `STATUSLINE_SHOW_EFFORT` | `⚡effort✦` |
 | `STATUSLINE_SHOW_EFFORT_CHECK` | `(≠level)` |
+| `STATUSLINE_SHOW_MODEL_CHECK` | `(≠model)`, on the line and in the subagent rows |
 | `STATUSLINE_SHOW_CONTEXT` | context bar |
 | `STATUSLINE_SHOW_CACHE` | `◈` prompt cache |
 | `STATUSLINE_SHOW_LIMITS` | `H:` / `W:` |
@@ -256,7 +259,7 @@ tests/run.sh            # renders every case in tests/fixtures and compares byte
 tests/run.sh --update   # rewrite tests/expected after an intended change (review the diff!)
 ```
 
-Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, no network and no stored login (fake `curl` and `security` that leave a mark if called), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; the last turn from the pace-band mod's file (this session's only, escape characters stripped, first to go in a narrow terminal); subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock.
+Cases: full payload, minimal payload (no `rate_limits`, `prompt_cache`, `effort`), empty payload, no git, no optional modules, cold cache with low limits, blocks switched off, thresholds from a config file, GSD in-progress task, remote-control badge (bridged, not bridged, no registry record, registry under `CLAUDE_CONFIG_DIR`), session time from the transcript's birth, no network and no stored login (fake `curl` and `security` that leave a mark if called), GSD bridge in `$TMPDIR`, the `.planning/` walk stopping at `$HOME` (Windows-style path under Git Bash), `jq` missing; pace and the weekly countdown, cache expiry and miss cause (recent, stale, cold), session name cut by characters, PR / MR (approved, changes requested, draft) with and without links, fitting to 70 and 20 columns, the new blocks switched off; the last turn from the pace-band mod's file (this session's only, escape characters stripped, first to go in a narrow terminal); subagent rows (effort shortfall, inherited, budget, sparkline, non-agent rows left alone, narrow panel, no `jq`, each agent held to its definition, the project's definition winning); the model against the settings (smaller, another family, the project's settings winning, `opusplan`, switched off); the installer (clone, someone else's status line, uninstall, plugin layout rendering through the launcher). Tests run in a throw-away `HOME` with a fixed clock.
 
 ## License
 

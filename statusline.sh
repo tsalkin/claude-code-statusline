@@ -35,6 +35,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_MODEL:=1}"
 : "${STATUSLINE_SHOW_EFFORT:=1}"
 : "${STATUSLINE_SHOW_EFFORT_CHECK:=1}"   # "(≠xhigh)" when running below the configured effort
+: "${STATUSLINE_SHOW_MODEL_CHECK:=1}"    # "(≠opus)" when running on another model than the configured one
 : "${STATUSLINE_SHOW_CONTEXT:=1}"
 : "${STATUSLINE_SHOW_CACHE:=1}"
 : "${STATUSLINE_SHOW_LIMITS:=1}"
@@ -492,37 +493,70 @@ join_parts() {
     echo "$result"
 }
 
-# === Effort check: actual level vs configured level =========================
-# `.effort.level` in the payload is the level actually in use. A global
-# `effortLevel` in settings.json can be higher while a per-model override silently
-# lowers it. Show that shortfall instead of hiding it.
-effort_mismatch=""
+# === Profile check: actual model and effort vs the configured ones ==========
+# `.effort.level` and `.model.id` in the payload are what the session runs on.
+# `effortLevel` and `model` in the settings say what it was meant to run on; a
+# per-model override, a fallback or a stray `--model` can leave the two apart.
+# Settings as Claude Code layers them: the project's local file, the project's
+# shared file, then the user's. Effort: only a shortfall is shown. Model: any
+# other family, red when it is a smaller one (haiku < sonnet < opus), yellow
+# otherwise (fable, a family this script does not rank).
+effort_mismatch="" model_mismatch=""
 settings_file="$CLAUDE_DIR/settings.json"
-if [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] && [ -f "$settings_file" ] && [ -n "$model_id" ]; then
+if { [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || [ "$STATUSLINE_SHOW_MODEL_CHECK" = "1" ]; } \
+        && [ -n "$model_id" ] && command -v python3 >/dev/null 2>&1; then
     eff_cache="$CLAUDE_DIR/.effort-check.json"
-    eff_key="${model_id}|${effort}"
+    eff_key="${model_id}|${effort}|${project_dir}"
     eff_age=999999
     [ -f "$eff_cache" ] && eff_age=$(( NOW - $(mtime "$eff_cache" || echo 0) ))
     if [ "$eff_age" -lt 600 ] 2>/dev/null && [ "$(jq -r '.key // ""' "$eff_cache" 2>/dev/null)" = "$eff_key" ]; then
-        effort_want=$(jq -r '.want // ""' "$eff_cache" 2>/dev/null)
+        profile=$(jq -r '[.want // "", .model // "", .lower // ""] | join("|")' "$eff_cache" 2>/dev/null)
     else
-    effort_want=$(python3 - "$settings_file" "$effort" 2>/dev/null <<'PYEOF'
-import json, sys
-try:
-    s = json.load(open(sys.argv[1], encoding="utf-8"))
-except Exception:
-    sys.exit(0)
-actual = sys.argv[2]
-configured = s.get("effortLevel")
+        profile=$(python3 - "$effort" "$model_id" "$project_dir/.claude/settings.local.json" \
+                  "$project_dir/.claude/settings.json" "$settings_file" 2>/dev/null <<'PYEOF'
+import json, re, sys
+actual, model_id, files = sys.argv[1], sys.argv[2], sys.argv[3:]
+def setting(key):
+    for f in files:
+        try:
+            v = json.load(open(f, encoding="utf-8")).get(key)
+        except Exception:
+            continue
+        if isinstance(v, str) and v:
+            return v
+    return None
 scale = ["low", "medium", "high", "xhigh", "max"]
-# Only a SHORTFALL against the global setting is worth showing.
+configured = setting("effortLevel")
+want = ""
+# Only a SHORTFALL against the configured level is worth showing.
 if configured and actual in scale and configured in scale and scale.index(actual) < scale.index(configured):
-    print(configured)
+    want = configured
+def family(m):
+    found = re.search(r"haiku|sonnet|opus|fable", (m or "").lower())
+    return found.group(0) if found else None
+rank = {"haiku": 1, "sonnet": 2, "opus": 3}
+meant = setting("model")
+model, lower = "", ""
+# opusplan and default name no single family: nothing to compare.
+if meant and meant.lower() not in ("opusplan", "default"):
+    m, a = family(meant), family(model_id)
+    if m and a and m != a:
+        model = m
+        lower = "1" if m in rank and a in rank and rank[a] < rank[m] else ""
+print("%s|%s|%s" % (want, model, lower))
 PYEOF
 )
-        printf '{"key":"%s","want":"%s"}' "$eff_key" "$effort_want" > "$eff_cache" 2>/dev/null
+        IFS='|' read -r c_want c_model c_lower <<< "$profile"
+        jq -cn --arg k "$eff_key" --arg w "$c_want" --arg m "$c_model" --arg l "$c_lower" \
+            '{key: $k, want: $w, model: $m, lower: $l}' > "$eff_cache" 2>/dev/null
     fi
-    [ -n "$effort_want" ] && effort_mismatch="\033[31m(≠${effort_want})\033[0m"
+    IFS='|' read -r effort_want model_want model_lower <<< "$profile"
+    [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] && [ -n "$effort_want" ] \
+        && effort_mismatch="\033[31m(≠${effort_want})\033[0m"
+    if [ "$STATUSLINE_SHOW_MODEL_CHECK" = "1" ] && [ -n "$model_want" ]; then
+        if [ -n "$model_lower" ]; then model_mismatch="\033[31m(≠${model_want})\033[0m"
+        else model_mismatch="\033[33m(≠${model_want})\033[0m"; fi
+    fi
 fi
 
 # === Effort indicator (color by level) ======================================
@@ -686,7 +720,7 @@ line2_parts=(); line2_ranks=()
 add1() { [ -n "$1" ] && line1_parts+=("$1") && line1_ranks+=("$2"); }
 add2() { [ -n "$1" ] && line2_parts+=("$1") && line2_ranks+=("$2"); }
 
-[ "$STATUSLINE_SHOW_MODEL" = "1" ] && [ -n "$model_name" ] && add1 "[${model_name}]" 5
+[ "$STATUSLINE_SHOW_MODEL" = "1" ] && [ -n "$model_name" ] && add1 "[${model_name}]${model_mismatch}" 5
 add1 "$rc_part" 3
 [ "$STATUSLINE_SHOW_EFFORT" = "1" ] && add1 "$effort_part" 4
 [ "$STATUSLINE_SHOW_CONTEXT" = "1" ] && add1 "${bar} ${used_int}% (${tokens_display}/${context_display})" 0

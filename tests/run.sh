@@ -439,6 +439,39 @@ else
     echo "FAIL     word-tables:$words_bad"; fail=$((fail + 1))
 fi
 
+# Profile check, main line: the model against `model` in the settings (the
+# project's over the user's). A smaller family is red, another one yellow;
+# opusplan names no family; the check can be switched off.
+model_payload() { jq --arg id "$1" --arg name "$2" '.model.id = $id | .model.display_name = $name' "$FIX/rich.json" > "$CASE_ROOT/payload.json"; }
+new_case model-lower; lang_settings '{"model": "opus[1m]", "effortLevel": "high"}'; model_payload claude-sonnet-5-5 "Sonnet 5.5"
+check model-lower "$(render "$CASE_ROOT/payload.json" COLUMNS=200)
+$(render "$CASE_ROOT/payload.json" COLUMNS=200 STATUSLINE_SHOW_MODEL_CHECK=0)"
+new_case model-other; lang_settings '{"model": "opus"}'; model_payload claude-fable-5-1 "Fable 5.1"
+check model-other "$(render "$CASE_ROOT/payload.json" COLUMNS=200)"
+new_case model-project; lang_settings '{"model": "opus", "effortLevel": "xhigh"}'; model_payload claude-sonnet-5-5 "Sonnet 5.5"
+mkdir -p "$WORK/.claude"; printf '{"model": "sonnet", "effortLevel": "high"}\n' > "$WORK/.claude/settings.json"
+jq --arg d "$WORK" '.workspace.project_dir = $d | .workspace.current_dir = $d' "$CASE_ROOT/payload.json" > "$CASE_ROOT/p2.json"
+check model-project "$(render "$CASE_ROOT/p2.json" COLUMNS=200)"
+new_case model-opusplan; lang_settings '{"model": "opusplan"}'; model_payload claude-sonnet-5-5 "Sonnet 5.5"
+check model-opusplan "$(render "$CASE_ROOT/payload.json" COLUMNS=200)"
+
+# Profile check, subagent rows: each agent held to its definition. ispolnitel
+# (opus, high) is no longer red against effortLevel xhigh, and red on sonnet;
+# mekhanik (a file with no name:, so its file name) keeps its low; the project
+# research (haiku) wins over the user's (opus), and an opus run of it is yellow;
+# an agent with no definition is held to effortLevel as before.
+new_case subagents-profile; make_settings
+mkdir -p "$CASE_ROOT/home/.claude/agents" "$WORK/.claude/agents"
+printf -- '---\nname: ispolnitel\ndescription: x\nmodel: opus\neffort: high\n---\nbody\n' > "$CASE_ROOT/home/.claude/agents/ispolnitel.md"
+printf -- '---\ndescription: y\nmodel: "sonnet"\neffort: low\n---\n' > "$CASE_ROOT/home/.claude/agents/mekhanik.md"
+printf -- '---\nname: research\nmodel: opus\n---\n' > "$CASE_ROOT/home/.claude/agents/research.md"
+printf -- '---\nname: research\nmodel: haiku\n---\n' > "$WORK/.claude/agents/research.md"
+jq '.tasks += [{"id": "a8", "type": "local_agent", "agentType": "ispolnitel", "status": "running",
+     "description": "Build the fleet section", "startTime": 1789999900000, "model": "claude-sonnet-5-5",
+     "effort": "high", "contextWindowSize": 200000, "tokenCount": 9000}]' "$FIX/subagents.json" > "$CASE_ROOT/payload.json"
+check subagents-profile "$(render_sub "$CASE_ROOT/payload.json")
+$(render_sub "$CASE_ROOT/payload.json" STATUSLINE_SHOW_MODEL_CHECK=0 STATUSLINE_SHOW_EFFORT_CHECK=0)"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

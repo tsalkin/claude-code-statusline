@@ -10,9 +10,13 @@
 # own row — this script leaves out everything that is not an agent with a model
 # (shell commands, workflows).
 #
-# The effort check is the one from the main status line: a subagent that set its own
-# effort BELOW `effortLevel` in settings.json gets a red "(≠high)". No effort in the
-# row data means the subagent inherits the session's level ("⚡inh").
+# The profile check: a subagent whose definition (`~/.claude/agents/<type>.md`, or
+# the project's `.claude/agents/`) names a model and an effort is held to them. A
+# model of another family than the definition's gets "(≠opus)", red when smaller
+# (haiku < sonnet < opus); an effort below the definition's a red "(≠high)". With no
+# effort in the definition, the effort is held to `effortLevel` in settings.json, as
+# in the main status line. No effort in the row data means the subagent inherits the
+# session's level ("⚡inh").
 #
 # Requires: bash, jq 1.6+. Settings: the same config file and variables as statusline.sh.
 #
@@ -28,6 +32,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 [ -f "$STATUSLINE_CONFIG" ] && . "$STATUSLINE_CONFIG"
 
 : "${STATUSLINE_SHOW_EFFORT_CHECK:=1}"
+: "${STATUSLINE_SHOW_MODEL_CHECK:=1}"
 : "${STATUSLINE_SUBAGENT_BAR_LEN:=4}"
 : "${STATUSLINE_SUBAGENT_SPARK_LEN:=8}"   # token-growth sparkline cells; 0 = none
 : "${STATUSLINE_SUBAGENT_NAME_MAX:=32}"   # a name (or the description standing in for it) is cut here
@@ -48,6 +53,30 @@ if [ -f "$CLAUDE_DIR/settings.json" ]; then
         "$CLAUDE_DIR/settings.json" 2>/dev/null)
 fi
 [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || effort_want=""
+
+# The subagent definitions' model and effort, by type: the user's, then the
+# project's, which win (as Claude Code picks them). A file without `name:` goes by
+# its file name.
+agent_defs='{}'
+if [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || [ "$STATUSLINE_SHOW_MODEL_CHECK" = "1" ]; then
+    agents_cwd=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
+    agent_defs=$(for f in "$CLAUDE_DIR"/agents/*.md ${agents_cwd:+"$agents_cwd"/.claude/agents/*.md}; do
+        [ -f "$f" ] || continue
+        awk -v file="$f" '
+            NR == 1 && $0 !~ /^---[ \t\r]*$/ { exit }
+            NR > 1 && $0 ~ /^---[ \t\r]*$/ { exit }
+            NR > 1 && match($0, /^(name|model|effort):[ \t]*/) {
+                k = substr($0, 1, index($0, ":") - 1); v = substr($0, RLENGTH + 1)
+                gsub(/["\047\r\t]/, "", v); sub(/ +$/, "", v); a[k] = v
+            }
+            END {
+                n = a["name"]; if (n == "") { n = file; sub(/^.*\//, "", n); sub(/\.md$/, "", n) }
+                if (NR > 1) printf "%s\t%s\t%s\n", n, a["model"], a["effort"]
+            }' "$f"
+    done | jq -R -s -c 'split("\n") | map(select(. != "") | split("\t")
+                         | {key: .[0], value: {model: (.[1] // ""), effort: (.[2] // "")}}) | from_entries' 2>/dev/null)
+    [ -n "$agent_defs" ] || agent_defs='{}'
+fi
 
 # The rows' own words, as in statusline.sh: STATUSLINE_LANG when it pins one, else the
 # kit's language when it pins one, else Russian when Claude Code's language is Russian.
@@ -73,6 +102,9 @@ WORDS
 printf '%s' "$input" | jq -c \
     --argjson now "$NOW" \
     --arg want "$effort_want" \
+    --argjson defs "$agent_defs" \
+    --arg effort_check "$STATUSLINE_SHOW_EFFORT_CHECK" \
+    --arg model_check "$STATUSLINE_SHOW_MODEL_CHECK" \
     --arg uh "$W_H" --arg um "$W_M" --arg us "$W_S" --arg inh "$W_INH" \
     --argjson bar_len "$STATUSLINE_SUBAGENT_BAR_LEN" \
     --argjson spark_len "$STATUSLINE_SUBAGENT_SPARK_LEN" \
@@ -103,6 +135,10 @@ def spark:
         | $s | map(((. - $lo) / $span * 7 | round) as $i | "▁▂▃▄▅▆▇█"[$i:$i + 1]) | join("")
       else "" end;
 
+# "claude-sonnet-5-5" → "sonnet"; null for a model this script does not know
+def family: ascii_downcase | [scan("haiku|sonnet|opus|fable")] | .[0];
+def frank: {"haiku": 1, "sonnet": 2, "opus": 3}[.];
+
 def effort_color:
     if . == "low" then "32" elif . == "medium" then "36" elif . == "high" then "33"
     elif . == "xhigh" or . == "max" then "35" else "0" end;
@@ -126,14 +162,29 @@ def effort_color:
    else "" end) as $mark
 | ($t.model | short_model) as $model
 
+# the definition this agent runs from: by its type, else by its name
+| ([$t.agentType, $t.name] | map(select(type == "string")) | map($defs[.]) | map(select(. != null)) | .[0]
+   // {}) as $def
+
+# model: another family than the definition names
+| ($def.model // "" | family) as $mwant
+| ($t.model | family) as $mis
+| (if $model_check == "1" and $mwant != null and $mis != null and $mwant != $mis then
+     (if ($mwant | frank) != null and ($mis | frank) != null and ($mis | frank) < ($mwant | frank)
+      then "31" else "33" end) as $hue
+     | sgr($hue) + "(≠" + $mwant + ")" + off
+   else "" end) as $mcheck
+
 # effort: a level, a numeric token budget, or absent (inherited)
 | ($t.effort) as $e
 | (if $e == null then sgr("2") + "⚡" + $inh + off
    elif ($e | type) == "number" then sgr("36") + "⚡" + ($e | kilo) + off
    else sgr($e | clean | effort_color) + "⚡" + ($e | clean) + off end) as $eff
-| (if ($e | type) == "string" and rank($e) != null and rank($want) != null
-       and rank($e) < rank($want)
-   then sgr("31") + "(≠" + $want + ")" + off else "" end) as $check
+# held to the effort of the definition when it names one, else to effortLevel
+| (if rank($def.effort // "") != null then $def.effort else $want end) as $ewant
+| (if $effort_check == "1" and ($e | type) == "string" and rank($e) != null and rank($ewant) != null
+       and rank($e) < rank($ewant)
+   then sgr("31") + "(≠" + $ewant + ")" + off else "" end) as $check
 
 # context: bar + percent when the window size is known, tokens always
 | ($t.tokenCount // 0) as $tok
@@ -156,7 +207,7 @@ def effort_color:
 
 # assemble; the task text gets whatever width is left
 | ([ $mark + sgr("1") + $name + off,
-     sgr("2") + $model + off + " " + $eff + $check,
+     sgr("2") + $model + off + $mcheck + " " + $eff + $check,
      ([$bar, sgr("2") + ($tok | kilo) + off, (if $growth != "" then sgr("36") + $growth + off else "" end)]
        | map(select(. != "")) | join(" ")),
      (if $time != "" then sgr("2") + $time + off else "" end)
