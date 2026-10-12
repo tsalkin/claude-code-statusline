@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
-import type { ContextView, Figures, LimitWindow } from '../types'
+import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow } from '../types'
+import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
 import { WORDS, langFrom } from './words'
@@ -15,8 +16,9 @@ import type { Lang, Words } from './words'
 //   compact button past the line's red threshold, or a limit window that runs
 //   out before its reset at this rate;
 // - /pace, a pane: each limit window against its time, how far ahead of pace
-//   it is spent, when it runs out at this rate; and the context by category,
-//   as /context counts it.
+//   it is spent, when it runs out at this rate; the fleet, every session that
+//   spent the 5-hour window, by what it spent in the last hour, and whose cache
+//   went cold; and the context by category, as /context counts it.
 
 const now = atom({ plugin: 'pace-band', key: 'now' } as const, null)
 const base = atom({ plugin: 'pace-band', key: 'base' } as const, null)
@@ -28,6 +30,7 @@ const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 // Claude Code's own `language` setting as en or ru: read at session start, kept
 // until /config changes it; null before the first read.
 const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
+const fleet = atom({ plugin: 'pace-band', key: 'fleet' } as const, null)
 
 const PANE = 'pace'
 
@@ -204,11 +207,73 @@ function warningOf(f: Forecast & { runsOutAt: number }, t: number, w: Words) {
 // environment), rewritten when the next turn's figures are in. A mod's own
 // status line would be a second line under the prompt, with a ⚠ and the mod's
 // name Claude Code puts in front of it.
-async function turnFile($: EngineInterface) {
+async function tmpDir($: EngineInterface) {
   const dir = (await $.env.get('TMPDIR')) ?? (await $.env.get('TEMP')) ?? '/tmp'
+  return dir.replace(/[\\/]+$/, '')
+}
+
+async function turnFile($: EngineInterface) {
   const id = await $.session.id()
   if (!/^[\w-]+$/.test(id)) return undefined
-  return `${dir.replace(/[\\/]+$/, '')}/pace-band-turn-${id}.txt`
+  return `${await tmpDir($)}/pace-band-turn-${id}.txt`
+}
+
+// --- The fleet: this session's record, and every session's for /pace. -------
+
+// This session's record as last written; kept by the module, like `interactive`.
+let ownRecord: FleetRecord | undefined
+
+async function recordFleet($: EngineInterface, interactive: boolean) {
+  const current = await read($, now)
+  if (!interactive || current?.usd === undefined) return
+  const id = await $.session.id()
+  if (!/^[\w-]+$/.test(id)) return
+  const dir = await tmpDir($)
+  const path = `${dir}/${FLEET_PREFIX}${id}.json`
+  try {
+    let saved = ownRecord?.id === id ? ownRecord : undefined
+    // A reload forgets the module's copy: the file still has it.
+    if (saved === undefined && (await $.fs.exists(path))) saved = parseRecord(await $.fs.read(path))
+    const startedAt = saved?.startedAt ?? (await $.session.usage()).startedAt
+    const project = (await $.session.root()).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '?'
+    ownRecord = withSample(saved, id, project, startedAt, await $.clock.now(), current.usd)
+    await $.fs.write(path, `${JSON.stringify(ownRecord)}\n`)
+  } catch {
+    // A temporary directory that refuses the write: /pace shows no fleet.
+  }
+}
+
+// The 5-hour window as the limits last had it, else the last five hours.
+function windowStartOf(windows: readonly LimitWindow[], t: number) {
+  const five = windows.find(w => w.kind === 'five_hour')
+  return five !== undefined && five.resetsAt > t ? five.resetsAt - FLEET_KEEP : t - FLEET_KEEP
+}
+
+async function loadFleet($: EngineInterface) {
+  try {
+    const dir = await tmpDir($)
+    const t = await $.clock.now()
+    const entries = await $.fs.list(dir)
+    const names = new Set(entries.map(e => e.name))
+    const records: FleetRecord[] = []
+    const lines: Record<string, FleetLine> = {}
+    for (const e of entries) {
+      if (e.kind !== 'file' || !e.name.startsWith(FLEET_PREFIX) || !e.name.endsWith('.json')) continue
+      if (e.mtimeMs < t - FLEET_KEEP) continue
+      const r = parseRecord(await $.fs.read(`${dir}/${e.name}`))
+      if (r === undefined) continue
+      records.push(r)
+      const lineName = `${LINE_PREFIX}${r.id}.json`
+      if (names.has(lineName)) {
+        const l = parseLine(await $.fs.read(`${dir}/${lineName}`))
+        if (l !== undefined) lines[r.id] = l
+      }
+    }
+    const windowStart = windowStartOf(await read($, limits), t)
+    await update($, fleet, () => ({ at: t, windowStart, records, lines }))
+  } catch {
+    // No listing (a thin client): the section stays out.
+  }
 }
 
 async function showTurn($: EngineInterface, option: unknown, interactive: boolean) {
@@ -275,6 +340,7 @@ export const register: Register = (on, options) => {
       const seconds = Math.round(e.durationMs / 1000)
       await update($, turnSeconds, () => seconds)
       await showTurn($, options.language, interactive)
+      await recordFleet($, interactive)
     }
     return next(e)
   })
@@ -287,6 +353,8 @@ export const register: Register = (on, options) => {
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)
     // A measurement after the turn ended still counts toward it.
     await showTurn($, options.language, interactive)
+    if (e.changed.includes('cost')) await recordFleet($, interactive)
+    if (await read($, paneOpen)) await loadFleet($)
     return next(e)
   })
 
@@ -300,6 +368,7 @@ export const register: Register = (on, options) => {
     }
     await loadLimits($)
     await loadContext($, e.presentation.columns ?? 100)
+    await loadFleet($)
     await $.ui.open({ id: PANE, title: 'pace' })
     await update($, paneOpen, () => true)
     return {}
@@ -325,6 +394,8 @@ export const register: Register = (on, options) => {
     const width = Math.max(30, e.props.bodyColumns)
     const fs = forecasts(await read($, limits), t)
     const ctx = await read($, context)
+    const fleetView = await read($, fleet)
+    const selfId = fleetView === null ? undefined : await $.session.id().catch(() => undefined)
     const barWidth = Math.min(40, Math.max(10, width - 48))
     const w = await wordsFor($, options.language)
 
@@ -386,10 +457,36 @@ export const register: Register = (on, options) => {
             )),
           ]
 
+    // The fleet: read when /pace opened and after each measurement since.
+    const fleetLines =
+      fleetView === null
+        ? undefined
+        : fleetText(fleetOf(fleetView.records, new Map(Object.entries(fleetView.lines)), t, fleetView.windowStart, selfId), t, w)
+    const fleetRows =
+      fleetLines === undefined
+        ? []
+        : [
+            <Text key="fleet-head" bold wrap="truncate-end">
+              {fleetLines.head}
+            </Text>,
+            ...fleetLines.rows.map((r, i) => (
+              <Text
+                key={`fleet-${i}`}
+                bold={r.self || r.top}
+                color={r.cold ? PACE_COLORS.caution : r.top ? PACE_COLORS.out : undefined}
+                wrap="truncate-end"
+              >
+                {r.text}
+              </Text>
+            )),
+            <Text key="fleet-gap"> </Text>,
+          ]
+
     return (
       <Box flexDirection="column">
         {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>{w.noLimits}</Text>]}
         <Text key="gap"> </Text>
+        {fleetRows}
         {contextRows}
       </Box>
     )

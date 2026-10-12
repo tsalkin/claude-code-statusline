@@ -39,6 +39,13 @@ export type Words = {
   // /context's category names, lowercased; a name not listed is shown as it comes.
   categories: Readonly<Record<string, string>>
   lastTurn: (seconds: string) => string
+  // The fleet section of /pace: sessions, then what they spent in the last hour
+  // and in the 5-hour window, when each last moved, and its prompt cache.
+  fleetHead: (sessions: string, hour: string, window: string) => string
+  justNow: string
+  ago: (span: string) => string
+  cacheWarm: (until?: string) => string
+  cacheCold: (tokens?: string) => string
   ctx: string
   out: string
   compact: string
@@ -77,6 +84,11 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     compactBuffer: 'compact buffer',
     categories: {},
     lastTurn: seconds => `last turn ${seconds}s`,
+    fleetHead: (sessions, hour, window) => `fleet  ${sessions} sessions · last hour ${hour} · 5h window ${window}`,
+    justNow: 'now',
+    ago: span => `${span} ago`,
+    cacheWarm: until => (until === undefined ? 'cache warm' : `cache → ${until}`),
+    cacheCold: tokens => (tokens === undefined ? 'cache cold' : `cache cold, ${tokens} to re-cache`),
     ctx: 'ctx',
     out: 'out',
     compact: 'compact',
@@ -121,6 +133,11 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
       messages: 'сообщения',
     },
     lastTurn: seconds => `ход ${seconds}с`,
+    fleetHead: (sessions, hour, window) => `флот  сессий: ${sessions} · за час ${hour} · за окно 5ч ${window}`,
+    justNow: 'сейчас',
+    ago: span => `${span} назад`,
+    cacheWarm: until => (until === undefined ? 'кеш тёплый' : `кеш до ${until}`),
+    cacheCold: tokens => (tokens === undefined ? 'кеш остыл' : `кеш остыл, заново ${tokens}`),
     ctx: 'контекст',
     out: 'кончится',
     compact: 'сжать',

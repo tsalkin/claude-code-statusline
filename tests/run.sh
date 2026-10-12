@@ -472,6 +472,30 @@ jq '.tasks += [{"id": "a8", "type": "local_agent", "agentType": "ispolnitel", "s
 check subagents-profile "$(render_sub "$CASE_ROOT/payload.json")
 $(render_sub "$CASE_ROOT/payload.json" STATUSLINE_SHOW_MODEL_CHECK=0 STATUSLINE_SHOW_EFFORT_CHECK=0)"
 
+# Fleet: with the mod's turn file there, the line writes this session's name and
+# prompt cache for /pace, as JSON that stays valid with a quote, a backslash and a
+# tab in the name; no turn file, or STATUSLINE_SHARE_FLEET=0: nothing written.
+SID_RICH=3c3c3c3c-2222-4333-8444-555555555555   # session_id in rich.json
+new_case fleet-line; turn_file "$SID_RICH" 'last turn 5s\n'
+jq '.session_name = "Fix \"login\" \\ path\ttab"' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+render "$CASE_ROOT/payload.json" >/dev/null
+fl="$CASE_ROOT/pace-band-line-$SID_RICH.json"
+out="$(cat "$fl" 2>&1)
+$(jq -c . "$fl" 2>&1)"
+new_case fleet-line-cold; turn_file "$SID_RICH" 'last turn 5s\n'; cold_miss_payload
+render "$CASE_ROOT/payload.json" >/dev/null
+out="$out
+$(cat "$CASE_ROOT/pace-band-line-$SID_RICH.json" 2>&1)"
+new_case fleet-line-none
+render rich.json >/dev/null
+out="$out
+no mod: $(ls "$CASE_ROOT" | grep -c pace-band-line)"
+new_case fleet-line-off; turn_file "$SID_RICH" 'last turn 5s\n'
+render rich.json STATUSLINE_SHARE_FLEET=0 >/dev/null
+out="$out
+switched off: $(ls "$CASE_ROOT" | grep -c pace-band-line)"
+check fleet-line "$out"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

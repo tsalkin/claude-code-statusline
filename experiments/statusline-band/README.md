@@ -16,6 +16,11 @@ The same as text:
 7d ━━━━━━━━━━━━━━━━━━━━┃━━━━━━━━━━━━━━━━━  19% used · 50% of time · 31% to spare
    → runs out Tue 21:06 (in 2d 21h), 14h 54m before reset · 1h rate
 
+fleet  3 sessions · last hour $9.50 · 5h window $10.50
+  tsalkin-ai              $7.00 74%     $7.00   now   cache cold, 175k to re-cache
+▸ Fix the login flow      $2.50 26%     $2.50   20m ago   cache → 14:32
+  yadro                   $0.00 0%      $1.00   1h 30m ago   cache cold, 60k to re-cache
+
 context  95.7k of 1M · 10%
 █████████████████████████████████████████
 ■ system prompt 3.7k 0.4%   ■ messages 46.2k 4.6%   ■ free 871k 87%
@@ -24,6 +29,7 @@ context  95.7k of 1M · 10%
 - **Each limit window against its time.** The bar's fill is the share of the limit used, the `┃` is the share of the window's time gone. `to spare` means the limit is spent slower than its time, by that many percent of the limit; `ahead` means faster.
 - **Two palettes per window, by the fact.** In reserve: the 5-hour bar green to cyan, the weekly one blue to violet, and the stretch up to `┃` tinted: that is the reserve. Short: amber or pink up to `┃`, red beyond it: that is the overshoot.
 - **The forecast.** At the last hour's rate (`1h rate`), or the window's average when there is no reading 10–90 minutes old (`avg rate`). Quiet when the limit lasts to its reset; amber when it runs out while still in reserve; red when it runs out and is already short.
+- **The fleet.** Every session on this machine spends the same 5-hour window. With two or more sessions in the window, `/pace` lists them, the one that spent most in the last hour first: what each spent in the last hour (its share of all of them) and in the window, when it last moved, and its prompt cache (warm until when, or cold and how many tokens its next request re-caches). `▸` is this session; the top spender is red when it took half the hour or more, a cold cache amber. The amounts are the sessions' own costs at list price, as `/cost` counts them, so the split is exact even when sessions run at once; the window's limit points are account-wide and cannot be split. The name and the cache come from the [pace-statusline](../../README.md) line; without it a session shows under its project's folder and with no cache.
 - **The context by category**, as `/context` counts it, estimated locally.
 
 Readings are kept in the mod's store, shared by every session on the machine: they all spend one account's limits, so the forecast counts all of them.
@@ -53,7 +59,7 @@ English or Russian, for `/pace` and the [pace-statusline](../../README.md) line 
 
 Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
 
-Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and writes its own store and one small text file per interactive session in the temporary directory (the last turn, for the line); it makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
+Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and writes its own store and two small files per interactive session in the temporary directory: the last turn, for the line, and the session's cost over the last five hours, `pace-band-fleet-<session>.json`, for the fleet. `/pace` reads those of every session, and the line's `pace-band-line-<session>.json` (name and cache). It makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
 
 ## Tests
 

@@ -52,6 +52,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_SESSION_NAME:=1}"     # the session's name (--name, /rename, or its AI title)
 : "${STATUSLINE_SHOW_PR:=1}"               # open pull / merge request of the branch
 : "${STATUSLINE_SHOW_TURN:=1}"             # what the last turn cost, written by the pace-band mod
+: "${STATUSLINE_SHARE_FLEET:=1}"           # with the pace-band mod: this session's name and cache for /pace
 
 # Thresholds
 : "${STATUSLINE_BAR_LEN:=6}"
@@ -709,6 +710,28 @@ if [ "$STATUSLINE_SHOW_TURN" = "1" ] && [[ "$session_id" =~ ^[A-Za-z0-9_-]+$ ]];
         turn="${turn//\\/}"; turn="${turn//[[:cntrl:]]/}"
         [ ${#turn} -gt 60 ] && turn="${turn:0:59}…"
         [ -n "$turn" ] && turn_part="\033[2m${turn}\033[0m"
+    fi
+fi
+
+# === Fleet: what only the line sees, for the mod's /pace ====================
+# /pace lists every session that spent the 5-hour window, from records the mod
+# writes. The session's name and its prompt cache are in this payload, not the
+# mod's: written to <tmp>/pace-band-line-<session>.json next to the mod's turn
+# file, only when that file is there (no mod, nothing written), and only when it
+# changed. Renamed into place, so the mod never reads half a file.
+if [ "$STATUSLINE_SHARE_FLEET" = "1" ] && [[ "$session_id" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    fleet_dir="${TMPDIR:-/tmp}"; fleet_dir="${fleet_dir%/}"
+    if [ -f "$fleet_dir/pace-band-turn-${session_id}.txt" ]; then
+        fl_name="${session_name//\\/\\\\}"; fl_name="${fl_name//\"/\\\"}"; fl_name="${fl_name//[[:cntrl:]]/ }"
+        fl_warm=false; [ "$cache_warm" = "true" ] && fl_warm=true
+        fl_exp=0; [[ "$cache_expires" =~ ^[0-9]+$ ]] && fl_exp=$cache_expires
+        fl_tok=0; [[ "$cache_cold_tokens" =~ ^[0-9]+$ ]] && fl_tok=$cache_cold_tokens
+        printf -v fl_text '{"name":"%s","warm":%s,"expires_at":%s,"recache":%s}' "$fl_name" "$fl_warm" "$fl_exp" "$fl_tok"
+        fl_file="$fleet_dir/pace-band-line-${session_id}.json"
+        fl_old=""; [ -f "$fl_file" ] && IFS= read -r fl_old < "$fl_file"
+        if [ "$fl_old" != "$fl_text" ]; then
+            printf '%s\n' "$fl_text" > "$fl_file.$$" 2>/dev/null && mv -f "$fl_file.$$" "$fl_file" 2>/dev/null
+        fi
     fi
 fi
 

@@ -181,6 +181,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SHOW_SESSION_NAME` | `✎ session name` |
 | `STATUSLINE_SHOW_PR` | `PR #…` |
 | `STATUSLINE_SHOW_TURN` | the last turn, from the pace-band mod |
+| `STATUSLINE_SHARE_FLEET` | with the pace-band mod: this session's name and cache, written for `/pace`'s fleet section (not a block of the line) |
 | `STATUSLINE_FIT` | dropping blocks to fit the width |
 | `STATUSLINE_LINKS` | the PR as a clickable link (`0` if your terminal or tmux prints the escape code instead) |
 
@@ -214,11 +215,11 @@ The line's own words — `H:`/`W:`, the units of time, `cold` and the cause of a
 
 The plugin runs only its own bash scripts — `statusline.sh`, `subagent-statusline.sh` and the installer behind `setup` — and downloads or runs nothing else. It reads the payload Claude Code hands it on stdin and the local files named below, never reads Claude Code's stored login, and sends nothing over the network. Usage limits come from `rate_limits` in that payload (Claude Code 2.1.80 and later); on an older Claude Code the `H:`/`W:` block is just not shown.
 
-The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`. With the pace-band mod installed it also reads `pace-band-turn-<session>.txt` from that directory, which the mod writes.
+The installer (`scripts/install.sh`, also behind `/pace-statusline:setup`) writes `settings.json` after a backup copy and, for a plugin install, `launch.sh` in the plugin's data directory. Other files the script writes: `~/.claude/.effort-check.json` (10-minute cache of the effort check) and, only with the GSD context-monitor hook installed, `claude-ctx-<session>.json` in `$TMPDIR` (falling back to `/tmp`) — the directory the hook reads through Node's `os.tmpdir()`. With the pace-band mod installed it also reads `pace-band-turn-<session>.txt` from that directory, which the mod writes, and writes `pace-band-line-<session>.json` there (the session's name and prompt cache, for the fleet section of `/pace`; only when it changed; `STATUSLINE_SHARE_FLEET=0` turns it off).
 
 ## Companion: `/pace` (pace-band)
 
-A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, and the context by category. The last turn's cost goes to the end of this line's second line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
+A second plugin in the same marketplace, a [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/) rather than a script: `/pace` opens a pane with each usage limit drawn against its time (spent with some to spare, or ahead), when it runs out at the current rate, the fleet (every session of the machine that spent the 5-hour window: who spent most in the last hour, whose prompt cache went cold) and the context by category. The last turn's cost goes to the end of this line's second line; a band above the prompt shows only when there is something to act on (a limit that runs out before its reset, a compact button). Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab.
 
 ![The /pace pane: limit windows against their time, and the context by category](docs/screenshots/pace-pane.png)
 

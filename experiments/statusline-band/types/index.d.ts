@@ -33,6 +33,25 @@ export type ContextView = {
   slices: ContextSlice[]
 }
 
+// One reading of a session's cost so far, for the fleet section of /pace.
+export type FleetSample = { at: number; usd: number }
+
+// A session's record, in a file of its own in the temporary directory.
+export type FleetRecord = {
+  v: 1
+  id: string
+  project: string
+  startedAt: number
+  at: number
+  samples: FleetSample[]
+}
+
+// What the pace-statusline line adds: the session's name and its prompt cache.
+export type FleetLine = { name?: string; warm?: boolean; expiresAt?: number; recache?: number }
+
+// The fleet as /pace last read it.
+export type FleetView = { at: number; windowStart: number; records: FleetRecord[]; lines: Record<string, FleetLine> }
+
 declare module 'claude-code' {
   interface PluginState {
     'pace-band': {
@@ -44,6 +63,7 @@ declare module 'claude-code' {
       context: ContextView | null
       paneOpen: boolean
       claudeLang: 'en' | 'ru' | null
+      fleet: FleetView | null
     }
   }
 }
