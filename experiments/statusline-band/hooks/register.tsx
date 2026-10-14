@@ -324,8 +324,10 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  // turn.start fires for the main loop only; a subagent's run raises none.
+  // turn.start fires for a subagent's or teammate's run too (Claude Code 2.1.299);
+  // one started mid-turn must not restart the main loop's count.
   on('turn.start', async ($, e, next) => {
+    if (e.agentId !== undefined) return next(e)
     // Nothing measured yet in this session's state (the first turn after a
     // /clear): the engine's own figures are the turn's start.
     const current = (await read($, now)) ?? figuresOf(await $.session.usage())

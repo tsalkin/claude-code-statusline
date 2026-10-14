@@ -126,6 +126,20 @@ describe('pace-band', () => {
       expect(await texts(await mount($))).toEqual([ENGINE])
     })
 
+    // Since Claude Code 2.1.299 turn.start fires for a subagent's run as well.
+    test(`${surface}: a subagent started mid-turn does not restart the turn's count`, async ($, on) => {
+      const statuses = engine(on)
+      await start($)
+      await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+      await $.turn.start({ text: 'go', turnId: 't1' })
+      await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
+      await $.turn.start({ text: 'look into it', turnId: 'a1', agentId: 'agent-1' })
+      await $.session.measure(measured({ ctx: 45, five: 32, usd: 2 }))
+      await $.turn.complete({ ...done(5, 'agent-1'), turnId: 'a1' })
+      await $.turn.complete(done(20))
+      expect(statuses.at(-1)).toBe('last turn 20s · $+1.00 · ctx +5% · 5h +2')
+    })
+
     test(`${surface}: a headless session writes no file`, async ($, on) => {
       const statuses = engine(on)
       await start($, false)

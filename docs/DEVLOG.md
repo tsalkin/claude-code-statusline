@@ -2,6 +2,24 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-15 — Claude Code 2.1.299: subagent turns broke the last turn's cost (pace-band 0.9.1)
+
+**Context.** The owner asked what the new release changes and what the project could use. Installed: 2.1.299 (`claude --version`). On their word ("Да исправь сейчас") the fix below went in the same day.
+
+**The break.** `turn.start` now fires for subagents' and teammates' runs too, told apart by `e.agentId` (absent on the main loop). The changelog says so, and so does the generated contract at `TurnStartInput`: "a hook that follows the main loop alone returns `next(e)` first when `e.agentId !== undefined`". The mod's handler assumed the main loop only (its own comment said so) and reset the turn's starting figures on every start. A subagent spawned mid-turn therefore restarted the count, and the line showed only what was spent since the last agent started. The new test shows it: a turn of $1.00 shown as `$+0.58 · ctx +2% · 5h +1`. The gate was green on 2.1.299 before the fix (line 58/58, mod 99/99, `validate --strict` clean): no test ran a subagent's `turn.start`. Live in every session of the owner from 2.1.299 on, since the mod loads from this working copy.
+
+**Fix.** `turn.start` returns `next(e)` first for a subagent's run (`register.tsx`). A test runs a subagent's start, measurement and completion inside a main turn and expects the whole turn's cost. Reverse check: the test was written first and was red on the old handler (2 of 101, terminal and desktop); with the fix, 101/101. `tsc` clean (the generated types are gitignored, so a fresh worktree needs them copied from the main working copy before `tsc`), `validate --strict` clean, line 58/58. pace-band 0.9.1. Not yet seen in a live session.
+
+**What changes but does not break.**
+- Idle compaction: a conversation over 200K tokens left idle about 54 minutes is compacted before its one-hour cache expires (`idleCompaction: false` turns it off; the owner's settings do not). For such sessions the line's `◈ →HH:MM` (when the cache goes cold) now names an event that will not come: the session is compacted about six minutes earlier instead. The compaction also spends without a turn; the mod counts a measurement after a turn toward that turn, so it probably lands on the last turn shown. Not checked: whether the compaction raises `session.measure`, and whether the status line's payload says a session was compacted while idle.
+- `Text`'s `bold` is deprecated for `weight` (`bold: true` reads as `semibold`); `validate --strict` does not warn. Change it at the next touch of the pane. `tabular` and `mono` do nothing in the terminal.
+- `dimColor` now dims under the dark ANSI theme and on 16-colour terminals: `/pace`'s dim labels get the look they were written for.
+- `/usage`, the limit warning and the status line no longer show over 100 % (anthropics/claude-code#92238). The line clamps context already; nothing to change.
+- Mods switched off remotely now unload between turns (see the `tengu_plugin_hooks_modules` note in RESUME).
+- `claude plugin test`: render trees carry `part: { plugin }`, and a served `$` method has ten seconds to answer. No test compares whole trees and the mod serves no methods.
+
+**Ideas, not taken.** With subagents' turns now visible, the turn line could say how much of the turn the agents spent (`$+1.00, agents $0.42`): the line already shows totals, and attribution is what only the mod sees. The cache-expiry mark could become a compaction mark for sessions over 200K, once the payload shows idle compaction. Both wait for the owner's word and for the directory's decision.
+
 ## 2026-10-12 — Profile drift and the fleet: two directions from the prior-art pass
 
 **Context.** A web pass (PRIOR-ART, update 12.10) found the limits-and-pace niche crowded: 3,382 mods in awesome-claude-code-mods, a dozen on limits (`headroom` forecasts by regression, notifies on reset, speaks Russian), and claude-hud (~28.5k★) now shows pace and cache expiry. What stayed ours: the line says whether what was meant is what runs. The owner chose two directions (12.10: "делай 1 и 2"): profile drift, and the fleet.
