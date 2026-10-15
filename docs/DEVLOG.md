@@ -2,6 +2,25 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-15 — Claude Code 2.1.300: nothing to change, three ideas for the mod
+
+**Context.** The owner asked what the new releases change and what the project could use. Installed: 2.1.300 (`claude --version`); the hub's watcher lists 2.1.295 → 2.1.300 as unreviewed fleet-wide, but this project checked up to 2.1.299 already, so only 2.1.300 is new here. The changelog cache (`~/.claude/cache/changelog.md`) now starts at 2.1.300.
+
+**Gate on 2.1.300.** Line 58/58, mod 101/101, `validate --strict` clean, and `tsc` clean in the main working copy: the generated types now say "Written by Claude Code 2.1.300", so the red of the morning (types written by a 2.1.296 session) is gone, as expected.
+
+**What touches us, and does not break.**
+- Local transcripts now also record each request's system prompt, tools and parameters, so they grow faster. The line reads only the transcript's birth time (`stat`), and the fleet reads its own `pace-band-*` files, not transcripts: no cost to us.
+- `dimColor` fixed again under the dark ANSI theme and on 16-colour terminals: `/pace`'s dim labels.
+- A note about mod hot-reloading no longer shows in the transcript as if the owner typed it: the mod loads from this working copy and reloads on every saved edit.
+- `/autocompact` no longer warns when a smaller auto-compact window is chosen; the subagent rows' `autoCompactWindow` gap (10.10) stays as it was.
+- `updatedInput` of PreToolUse/PermissionRequest hooks is now validated, and SessionEnd hooks run on exit with a background command: neither plugin has such hooks.
+
+**Ideas, not taken.**
+- `virtualText` in the prompt's decorations: a quiet hint in the empty prompt box (`5h runs out ~14:20 · /pace`) for a window running ahead, softer than the band, which stays for what needs action.
+- `$.ui.view({ agentId })`: with the agents' share of the turn (idea of 2.1.299), `/pace` could list the turn's agents with their cost and open one's transcript on a press.
+- `agent.spawn` may now rewrite a workflow agent's `model` and `prompt`. The line already shows an agent run below its definition; the mod could correct it at spawn. That would be a silent change to what the owner chose, so it is a warning or nothing, and only on the owner's word.
+All three wait for the owner and for the directory's decision.
+
 ## 2026-10-15 — Claude Code 2.1.299: subagent turns broke the last turn's cost (pace-band 0.9.1)
 
 **Context.** The owner asked what the new release changes and what the project could use. Installed: 2.1.299 (`claude --version`). On their word ("Да исправь сейчас") the fix below went in the same day.
