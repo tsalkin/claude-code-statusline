@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-16 — released during the directory review
+
+**Context.** The plugin has been with Anthropic's reviewer since 03.10 with no decision. On 16.10 the owner lifted the hold on pushes: "учитывая сколько прошло времени и все нет прогресса в статус лини на антропике — делай выкат".
+
+**Gate before the push.** Claude Code 2.1.300. Line 58/58 (`bash tests/run.sh`), mod 101/101 (`claude plugin test`), `tsc` clean, `claude plugin validate --strict` clean for the mod; the root plugin fails `--strict` only on the known `version` warning (Claude Code tracks it by commit).
+
+**Released.** The owner pushed `main`: `6dfff89..3a6f2b3`, 20 commits, checked by `git ls-remote`. Out with it: the profile-drift marks (12.10), the agent's type on nameless subagent rows (08.10), pace-band 0.9.0 (the fleet in `/pace`) and 0.9.1 (a subagent no longer restarts the last turn's count).
+
+**The directory.** The push is a new version of the submission; the queue does not reset (portal, 06.10). "Uses a credential" on the guard test and on `plugin.json` will likely come back on it, left for the reviewer by the owner's word of 06.10. Nothing is published there yet.
+
 ## 2026-10-15 — Claude Code 2.1.300: nothing to change, three ideas for the mod
 
 **Context.** The owner asked what the new releases change and what the project could use. Installed: 2.1.300 (`claude --version`); the hub's watcher lists 2.1.295 → 2.1.300 as unreviewed fleet-wide, but this project checked up to 2.1.299 already, so only 2.1.300 is new here. The changelog cache (`~/.claude/cache/changelog.md`) now starts at 2.1.300.
