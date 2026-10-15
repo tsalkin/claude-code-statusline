@@ -2,6 +2,22 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-16 — Claude Code 2.1.301: nothing to change
+
+**Context.** The owner asked what the new releases change and what the project could use. Installed: 2.1.301 (`claude --version`). The hub's watcher lists 2.1.295 → 2.1.301 fleet-wide; this project checked up to 2.1.300 on 15.10, so only 2.1.301 is new here.
+
+**Gate on 2.1.301.** Line 58/58 (`bash tests/run.sh`), mod 101/101 (`claude plugin test`), `tsc` clean (`bunx -p typescript tsc --noEmit -p .`) on types "Written by Claude Code 2.1.301" (regenerated 16.10 07:21), `claude plugin validate --strict` clean for the mod.
+
+**What touches us, and does not break.**
+- A mod hook's `.catch` now runs only when the hook throws or times out. The mod has no hook-level `.catch`; its one `.catch` is on a promise (`$.session.id()` in the `Pane` render).
+- `$.env.set` resolves differently: the mod does not call it.
+- `fable`/`best` now retry once on the previous Fable model when the newest is not available. The line compares families only (`family()` in `statusline.sh`), so such a retry shows no drift; `best` names no family and is not compared. The owner's settings say `opus[1m]`: no effect today. A drop to an older generation of the same family stays invisible to the line; noted, not taken.
+- Dim text fixed again on the dark ANSI theme and 16-colour terminals (faint inside filled boxes): `/pace`'s dim labels may look a little different there.
+- A switch to a model with a smaller window is now summarised by the previous model first: the line reads the new window from the payload, nothing to do.
+- Not ours: `Input` with `rows`, the tree above the question dialog (Markdown, 48 rows outside the terminal), `$.model.fork`, OpenTelemetry fields, `CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS` (unattended runs; a fleet matter for the hub, not this project).
+
+**Ideas.** None new from 2.1.301. The ideas of 2.1.295–2.1.300 still wait for the owner (RESUME, "Loose ends").
+
 ## 2026-10-16 — released during the directory review
 
 **Context.** The plugin has been with Anthropic's reviewer since 03.10 with no decision. On 16.10 the owner lifted the hold on pushes: "учитывая сколько прошло времени и все нет прогресса в статус лини на антропике — делай выкат".
