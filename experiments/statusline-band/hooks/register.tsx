@@ -21,6 +21,8 @@ import type { Lang, Words } from './words'
 //   spent the 5-hour window, by what it spent in the last hour, and whose cache
 //   went cold; the agents the last turn started, each opening its transcript
 //   on a press; and the context by category, as /context counts it;
+// - a quiet word at the end of the hint line under the prompt for a window
+//   spent ahead of its time or running out early: softer than the band;
 // - a native notification, once per window and reset, when a limit window
 //   starts to run out before its reset: the band, carried outside the terminal;
 // - a warning when an agent starts on a smaller model than its definition
@@ -344,6 +346,15 @@ async function openPane($: EngineInterface, columns: number) {
   await update($, paneOpen, () => true)
 }
 
+// The hint line's word for one window: when it runs out, for one that runs out
+// before its reset; how far ahead and how much is used by the reset, for one
+// spent ahead of its time that still lasts; nothing for the rest.
+function hintOf(f: Forecast, t: number, w: Words) {
+  if (runsOutEarly(f)) return w.hintOut(labelOf(f, w), fmtClock(f.runsOutAt, t, w))
+  if (f.ahead >= 1) return w.hintAhead(labelOf(f, w), fmtPct(f.ahead), f.atReset === undefined ? undefined : fmtPct(f.atReset))
+  return undefined
+}
+
 function forecasts(windows: readonly LimitWindow[], t: number) {
   return Object.keys(WINDOWS)
     .map(kind => windows.find(w => w.kind === kind))
@@ -599,6 +610,22 @@ export const register: Register = (on, options) => {
         {contextRows}
       </Box>
     )
+  })
+
+  // The quiet layer: dim at the end of the hint line (`? for shortcuts`), drawn
+  // by the terminal only. The band stays for what needs action; this one says
+  // what the line's ⇡ says, with the forecast, and where to look.
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
+    const t = await $.clock.now()
+    const w = await wordsFor($, options.language)
+    const parts = forecasts(await read($, limits), t)
+      .map(f => hintOf(f, t, w))
+      .filter((p): p is string => p !== undefined)
+    if (parts.length === 0) return next(e)
+    const mine = `${parts.join(' · ')} · /pace`
+    // Another mod's word stays first.
+    const tail = e.props.tail === undefined || e.props.tail === '' ? mine : `${e.props.tail} · ${mine}`
+    return next({ ...e, props: { ...e.props, tail } })
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

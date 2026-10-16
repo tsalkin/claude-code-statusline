@@ -380,3 +380,55 @@ describe('pace notification', () => {
     expect(await texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS }))).toContain('5h ⇡+12')
   })
 })
+
+// The hint line under the prompt: the engine's line, with the mod's word as its tail.
+describe('pace hint line', () => {
+  const HINT = { isDraft: false, isWorking: false, hint: '? for shortcuts' }
+  function hinted(on: On, more: Record<string, unknown> = {}) {
+    mock.clock(on, { now: NOW })
+    mock.store(on, {
+      'pace:five_hour': { kind: 'five_hour', used: 30, resetsAt: NOW + 3 * HOUR, points: [{ t: NOW - HOUR, used: 30 }] },
+      ...more,
+    })
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    // Draws the line as the engine would: the hint, then the tail it was handed.
+    on('ui.render', ($, e) => {
+      const p = e.props as { hint?: string; tail?: string }
+      return $.ui.resolve(e).Text({ children: [p.tail === undefined ? `${p.hint}` : `${p.hint} ${p.tail}`] })
+    })
+  }
+  const line = async ($: Engine, props: Record<string, unknown> = HINT) =>
+    texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'PromptHint', props: props as typeof HINT }))
+
+  test('a window running out before its reset: when, and where to look', async ($, on) => {
+    hinted(on)
+    await $.session.measure(reading(52, 30))
+    expect(await line($)).toBe(`? for shortcuts 5h out ${fmtClock(OUT, NOW)} · /pace`)
+  })
+
+  test('ahead of its time but lasting: how far ahead, and the reset', async ($, on) => {
+    hinted(on)
+    // 30 → 46 in the hour: 6 points ahead, lasts to the reset at ~94 %.
+    await $.session.measure(reading(46, 30))
+    expect(await line($)).toBe('? for shortcuts 5h ⇡6 · ~94% at reset · /pace')
+  })
+
+  test('on pace or in reserve: the line as the engine draws it', async ($, on) => {
+    hinted(on)
+    await $.session.measure(reading(40, 50))
+    expect(await line($)).toBe('? for shortcuts')
+  })
+
+  test("another mod's tail stays first", async ($, on) => {
+    hinted(on)
+    await $.session.measure(reading(52, 30))
+    expect(await line($, { ...HINT, tail: 'notes 3' })).toBe(`? for shortcuts notes 3 · 5h out ${fmtClock(OUT, NOW)} · /pace`)
+  })
+
+  test('in Russian with the language set so', { options: { language: 'ru' } }, async ($, on) => {
+    hinted(on)
+    await $.session.measure(reading(46, 30))
+    expect(await line($)).toBe('? for shortcuts 5ч ⇡6 · к сбросу ~94% · /pace')
+  })
+})
+

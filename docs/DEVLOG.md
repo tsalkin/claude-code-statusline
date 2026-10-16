@@ -2,6 +2,14 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-17 — pace-band 0.11.0: the quiet hint, under the prompt instead of in it
+
+**Context.** Of the three ideas stopped on a fact, the first: `virtualText` is not drawn in the empty prompt box, so the hint goes where it can be drawn. The owner: "делай Дописывать в конец строки подсказок под полем".
+
+**What.** A `ui.render` hook on `PromptHint` sets its `tail` (`next({ ...e, props: { ...e.props, tail } })`): the terminal keeps its own line, pills and all, and draws the tail dim at its end. One word per window that is spent ahead of its time (`5h ⇡6 · ~94% at reset`) or runs out before its reset (`5h out 14:20`), then `· /pace`; nothing for a window on pace or in reserve that lasts. Another mod's tail stays first. English and Russian (`5ч ⇡6 · к сбросу ~94%`, `5ч кончится 14:20`). The band is unchanged: it stays for what needs action; the hint line says what the status line's `⇡` says, with the forecast.
+
+**Gate.** Mod 127/127 (5 new in `hooks/pane.test.ts`), `tsc` clean on types written by 2.1.301, `validate --strict` passed, line 58/58. Reverse check: with the hook on another component, the 4 tests that expect a word are red; the "on pace" one green on either.
+
 ## 2026-10-17 — pace-band 0.10.0: five of the eight held ideas; three stopped on a fact
 
 **Context.** The owner, on the eight ideas of Claude Code 2.1.295–2.1.300 held in RESUME: "возьми восемь идей в работу". Each was checked against the types written by Claude Code 2.1.301 (`.claude-plugin/types/claude-code/index.d.ts`) before any code. Five hold as written and are built; three rest on a premise the contract does not bear, and stop there for the owner (below). Work in a worktree on the branch `mod-ideas`; on the owner's word ("включай 0.10.0 Перенеси в main") fast-forwarded into `main` the same night, gate re-run in the main working copy (mod 122/122, `tsc`, `validate --strict`, line 58/58). Live in every session of the owner from then on; not pushed; not yet seen live.

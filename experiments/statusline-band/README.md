@@ -47,6 +47,8 @@ Readings are kept in the mod's store, shared by every session on the machine: th
 
 The warning is one press away from `/pace`: click it, or `p` once the band holds the focus (ctrl+x tab). `×` hides the band for the session.
 
+**A quiet word under the prompt.** At the end of the hint line (`? for shortcuts`), dim, for each window spent ahead of its time or running out before its reset: `5h ⇡6 · ~94% at reset · /pace` when it still lasts, `5h out 14:20 · /pace` when it does not. Terminal only. It asks nothing of you; the band is for what does.
+
 **A notification** goes with the band's warning when a limit window starts to run out before its reset: one native notification per window and reset, through your own notification channel (`preferredNotifChannel`), for a terminal out of sight. Every session on the machine shares it, so two sessions do not say it twice. Turned off with Claude Code's notifications.
 
 **An agent below its definition.** When an agent starts on a smaller model family than its definition names (`~/.claude/agents/`, or the project's `.claude/agents/`, which wins), a toast says so: `agent ispolnitel starts on sonnet, its definition names opus`. The spawn goes on as asked: the mod never changes it. The [pace-statusline](../../README.md) subagent rows show the same while the agent runs.
