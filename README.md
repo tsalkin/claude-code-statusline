@@ -56,6 +56,7 @@ In the terminal every block is colored (green → yellow → red as things get e
 | `▰▰▰▱▱▱ 42% (420K/1000K)` | `context_window.*` | Context used: bar — filled ▰ bright, empty ▱ dim (green <50%, yellow <80%, red ≥80%), percent, tokens used / window size. |
 | `◈95%` / `◈cold 175K` | `prompt_cache.*` | Warm cache and its hit ratio — or a cold cache and how many tokens the next request will re-cache. That number is the price of "continue this session vs start fresh". |
 | `→14:32` | `prompt_cache.expires_at` | When the warm cache goes cold: step away past this time and the next request pays for the whole context again. A clock time, not a countdown — the line is not redrawn while you are away. |
+| `compact ~14:26` | `prompt_cache.ttl`, the context, the settings | Instead of `→`, for a session Claude Code compacts when idle (2.1.290+): 200K tokens or more (`CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`) on a one-hour cache is compacted about six minutes before the cache would go cold, so it never does. Worked out from that rule, hence the `~`: the payload says nothing of it. `"idleCompaction": false` in the settings brings `→` back. |
 | `✗tools` | `prompt_cache.last_miss_cause` | Why the last cache miss happened, for 15 minutes after it: `tools` (the tool list changed — an MCP server came or went), `system` (system prompt changed), `ttl` (the cache expired), `server`. `+1` = one more cause. |
 | `H:70% 2h10m` | `rate_limits.five_hour.*` | 5-hour budget **remaining** and time to reset. |
 | `⇡40%` | `rate_limits.*` | **Pace**: you have used 40 points more of the window than the share of its time that has passed — at this rate the limit runs out before the reset. Shown from 5 points up, in red. Idea from [claude-pace](https://github.com/Astro-Han/claude-pace). |
@@ -177,6 +178,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SHOW_WORKTREE` | `⑂ worktree` |
 | `STATUSLINE_SHOW_PACE` | `⇡` pace on `H:`/`W:` |
 | `STATUSLINE_SHOW_CACHE_EXPIRY` | `→14:32` cache expiry |
+| `STATUSLINE_SHOW_IDLE_COMPACT` | `compact ~14:26` instead, for a session compacted when idle |
 | `STATUSLINE_SHOW_MISS_CAUSE` | `✗tools` cache-miss cause |
 | `STATUSLINE_SHOW_SESSION_NAME` | `✎ session name` |
 | `STATUSLINE_SHOW_PR` | `PR #…` |

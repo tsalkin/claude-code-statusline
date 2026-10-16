@@ -422,6 +422,40 @@ check turn-off "$(render full.json STATUSLINE_SHOW_TURN=0)"
 new_case turn-narrow; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
 check turn-narrow "$(render full.json STATUSLINE_WIDTH=60)"
 
+# 47-52. Idle compaction: a 1M-window session 30% full (300K tokens) on a one-hour
+# cache is compacted about six minutes before the cache would go cold (14:43 → 14:37).
+big='.context_window.context_window_size = 1000000'
+new_case idle-compact; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact "$(render "$CASE_ROOT/payload.json")"
+
+# 48. Russian
+new_case idle-compact-ru; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact-ru "$(render "$CASE_ROOT/payload.json" STATUSLINE_LANG=ru)"
+
+# 49. Turned off in the user's settings, though the project's names other keys: the cache mark
+new_case idle-compact-off; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+echo '{"idleCompaction": false}' > "$CASE_ROOT/home/.claude/settings.json"
+mkdir -p "$WORK/.claude" && echo '{"model": "opus"}' > "$WORK/.claude/settings.json"
+check idle-compact-off "$(render "$CASE_ROOT/payload.json")"
+
+# 50. Below the threshold Claude Code is told to use (CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS)
+new_case idle-compact-min; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact-min "$(render "$CASE_ROOT/payload.json" CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS=400000)"
+
+# 51. A five-minute cache: no idle compaction, the cache mark
+new_case idle-compact-5m; make_git
+jq "$big | .prompt_cache.ttl = \"5m\" | .prompt_cache.expires_at = 1790000200" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact-5m "$(render "$CASE_ROOT/payload.json")"
+
+# 52. STATUSLINE_SHOW_IDLE_COMPACT=0: the cache mark
+new_case idle-compact-hidden; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact-hidden "$(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_IDLE_COMPACT=0)"
+
 # 41. Both word tables: every row has a key, an English and a Russian word, and the
 # keys are unique. A word added in one language only goes red here.
 words_bad=""

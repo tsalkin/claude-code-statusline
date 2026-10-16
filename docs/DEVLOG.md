@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-17 — the line: a compaction mark for sessions compacted when idle
+
+**Context.** The last of the three ideas stopped on a fact: since Claude Code 2.1.290, a conversation of 200K tokens or more left idle about 54 minutes is compacted before its one-hour cache expires, so for such a session `◈ →HH:MM` names an event that never comes. The payload still carries no signal of it. The owner, on waiting for one or working it out from the rule: "считать по правилу".
+
+**What.** In the warm cache block, `→HH:MM` becomes `compact ~HH:MM` (`сжатие ~HH:MM`), six minutes before the cache's `expires_at`, when: the payload's `prompt_cache.ttl` is `1h` (a five-minute cache has no idle compaction, and the payload says which: no guessing at the TTL); the context is at or over the threshold (`context_tokens`, the line's own `used_percentage × context_window_size`, within half a percent of the window; `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`, else 200 000); that time is still ahead; and `idleCompaction` is not `false` in the settings (the project's local, the project's, then the user's: the first that names it wins). `STATUSLINE_SHOW_IDLE_COMPACT=0` keeps `→`. The `~` says it is the rule's time, not the engine's word. If the engine changes the rule, the check of each new Claude Code version (line L1) is where it shows.
+
+**What bit us.** The first draft read the settings with `jq -s '… | .[0] // true' local project user`. Two faults, both caught by trying it before the tests: `jq` stops at a missing file and printed `true` without reading the user's file after it (the owner's `idleCompaction` lives there, the project files usually do not exist), and `false // true` is `true` in jq, so a `false` could never win. Now only existing files go to jq, and the first value is taken with `if length == 0 then true else .[0] end`.
+
+**Gate.** Line 64/64 (6 new: the mark in English and Russian; `→` kept when turned off in the user's settings beside a project file that does not name it, below a raised threshold, on a five-minute cache, and with the block hidden), no other expected output changed. Reverse check: on the old `statusline.sh` the two that expect the mark are red, the four that keep `→` green. Mod 132/132 untouched.
+
 ## 2026-10-17 — pace-band 0.12.0: the agents' share of the turn, in tokens
 
 **Context.** The second idea stopped on a fact: the agents' cost. The engine reports a subagent's turn in tokens (`turn.complete` `usage`: input, output, cache read, cache write, and the model), with no dollars, and `AgentInfo` has no cost. The owner, on tokens or dollars: "В токенах".

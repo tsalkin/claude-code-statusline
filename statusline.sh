@@ -48,6 +48,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_RC:=1}"               # "📡 RC" while the session is under remote control
 : "${STATUSLINE_SHOW_PACE:=1}"             # "⇡12%" when a limit is being used faster than its window runs
 : "${STATUSLINE_SHOW_CACHE_EXPIRY:=1}"     # "→14:32" when the warm prompt cache goes cold
+: "${STATUSLINE_SHOW_IDLE_COMPACT:=1}"     # "compact ~14:26" instead, for a session Claude Code compacts when idle
 : "${STATUSLINE_SHOW_MISS_CAUSE:=1}"       # "✗tools" after a recent cache miss
 : "${STATUSLINE_SHOW_SESSION_NAME:=1}"     # the session's name (--name, /rename, or its AI title)
 : "${STATUSLINE_SHOW_PR:=1}"               # open pull / merge request of the branch
@@ -154,6 +155,7 @@ M|m|м
 HOUR|H:|Ч:
 WEEK|W:|Н:
 COLD|cold|остыл
+COMPACT|compact|сжатие
 TOOLS|tools|инстр
 SYSTEM|system|сист
 TTL|ttl|срок
@@ -194,6 +196,7 @@ rl_week_used=\(.rate_limits.seven_day.used_percentage // "")
 rl_five_reset=\(.rate_limits.five_hour.resets_at // "")
 rl_week_reset=\(.rate_limits.seven_day.resets_at // "")
 cache_expires=\(.prompt_cache.expires_at // "")
+cache_ttl=\(.prompt_cache.ttl // "")
 miss_at=\(.prompt_cache.last_miss_at // "")
 miss_causes=\((try (.prompt_cache.last_miss_cause.causes | map(tostring) | join(" ")) catch "") // "")
 session_name=\(.session_name // "")
@@ -587,8 +590,33 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
             # is not redrawn while you are away, and a countdown would freeze.
             cache_expires=${cache_expires%%.*}
             if [ "$STATUSLINE_SHOW_CACHE_EXPIRY" = "1" ] && [ "$cache_expires" -gt "$NOW" ] 2>/dev/null; then
-                cold_at=$(date -d "@$cache_expires" +%H:%M 2>/dev/null || date -r "$cache_expires" +%H:%M 2>/dev/null)
-                [ -n "$cold_at" ] && cache_part="${cache_part} \033[2m→${cold_at}\033[0m"
+                mark_at=$cache_expires mark="→"
+                # Idle compaction (Claude Code 2.1.290+): a conversation of 200K tokens or
+                # more (CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS) left idle about 54 minutes is
+                # compacted before its one-hour cache expires, so it never goes cold: the
+                # mark says when it is compacted instead, six minutes before. Worked out from
+                # that documented rule, hence the "~": the payload carries no such signal.
+                # `"idleCompaction": false` in the settings turns it off, and the mark back.
+                compact_min=${CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS:-200000}
+                [[ "$compact_min" =~ ^[0-9]+$ ]] || compact_min=200000
+                if [ "$STATUSLINE_SHOW_IDLE_COMPACT" = "1" ] && [ "$cache_ttl" = "1h" ] \
+                        && [ "$context_tokens" -ge "$compact_min" ] 2>/dev/null \
+                        && [ $((cache_expires - 360)) -gt "$NOW" ] 2>/dev/null; then
+                    # The settings as Claude Code layers them, the first that names it wins.
+                    # Only files that exist: jq stops at a missing one.
+                    idle_files=()
+                    for f in "$project_dir/.claude/settings.local.json" "$project_dir/.claude/settings.json" \
+                             "$CLAUDE_DIR/settings.json"; do
+                        [ -f "$f" ] && idle_files+=("$f")
+                    done
+                    idle_on=true
+                    [ "${#idle_files[@]}" -gt 0 ] && idle_on=$(jq -sr \
+                        '[.[] | .idleCompaction? | select(. != null)] | if length == 0 then true else .[0] end' \
+                        "${idle_files[@]}" 2>/dev/null)
+                    [ "$idle_on" != "false" ] && mark_at=$((cache_expires - 360)) mark="${W_COMPACT} ~"
+                fi
+                cold_at=$(date -d "@$mark_at" +%H:%M 2>/dev/null || date -r "$mark_at" +%H:%M 2>/dev/null)
+                [ -n "$cold_at" ] && cache_part="${cache_part} \033[2m${mark}${cold_at}\033[0m"
             fi
         else
             cold_display=""
