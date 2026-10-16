@@ -51,6 +51,7 @@ describe('agent definitions', () => {
 function engine(on: On, files: Record<string, string>, models: Record<string, string> = {}) {
   const toasts: string[] = []
   const viewed: (string | undefined)[] = []
+  const lines: string[] = []
   let next = 0
   mock.clock(on, { now: NOW })
   mock.store(on)
@@ -83,7 +84,15 @@ function engine(on: On, files: Record<string, string>, models: Record<string, st
   })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: ['engine'] }))
-  return { toasts, viewed }
+  // The last turn's file for the bash line, each text written to it in order.
+  on('session.id', () => ({ value: 'sess-1' }))
+  on('fs.write', (_$, e) => {
+    if (e.path === '/tmp/x/pace-band-turn-sess-1.txt') lines.push(e.text.replace(/\n$/, ''))
+    return { value: undefined }
+  })
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('turn.complete', () => ({ text: '' }))
+  return { toasts, viewed, lines }
 }
 
 const USER_DEFS = {
@@ -194,3 +203,82 @@ describe("the turn's agents in /pace", () => {
     })
   }
 })
+
+// A turn's requests: 100 in, 100 out, 300 read from the cache, 100 written: 600.
+const used = (scale = 1) => ({
+  input_tokens: 100 * scale,
+  output_tokens: 100 * scale,
+  cache_read_input_tokens: 300 * scale,
+  cache_creation_input_tokens: 100 * scale,
+  model: 'claude-opus-5-5',
+})
+const ended = (seconds: number, usage: ReturnType<typeof used>, agentId?: string) => ({
+  reason: 'answer' as const,
+  answer: '',
+  durationMs: seconds * 1000,
+  isAborted: false,
+  turnId: agentId === undefined ? 't1' : `turn-${agentId}`,
+  usage,
+  ...(agentId === undefined ? {} : { agentId }),
+})
+const cost = (usd: number) => ({ context: { window: 1_000_000, percent: 10 }, rateLimits: [], cost: { usd }, changed: ['cost' as const] })
+
+describe("the agents' share of the turn, in tokens", () => {
+  test("on the turn line: the agents' tokens against the whole turn's", async ($, on) => {
+    const { lines } = engine(on, USER_DEFS)
+    await start($)
+    await $.session.measure(cost(1))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, 'ispolnitel')
+    await $.turn.complete(ended(30, used(), 'a-1'))
+    await $.turn.complete(ended(40, used(4 / 6)))
+    expect(lines.at(-1)).toBe('last turn 40s · $+0.00 · agents 60% tok')
+  })
+
+  test('an agent that ends after the main loop: the line is written again', async ($, on) => {
+    const { lines } = engine(on, USER_DEFS)
+    await start($)
+    await $.session.measure(cost(1))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, 'ispolnitel')
+    await $.turn.complete(ended(10, used()))
+    expect(lines.at(-1)).toBe('last turn 10s · $+0.00')
+    await $.turn.complete(ended(50, used(3), 'a-1'))
+    expect(lines.at(-1)).toBe('last turn 10s · $+0.00 · agents 75% tok')
+  })
+
+  test("an agent of an earlier turn does not count toward this one", async ($, on) => {
+    const { lines } = engine(on, USER_DEFS)
+    await start($)
+    await $.session.measure(cost(1))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, 'ispolnitel')
+    await $.turn.complete(ended(10, used()))
+    await $.turn.start({ text: 'again', turnId: 't2' })
+    await $.turn.complete(ended(50, used(3), 'a-1'))
+    await $.turn.complete(ended(5, used()))
+    expect(lines.at(-1)).toBe('last turn 5s · $+0.00')
+  })
+
+  test('in /pace: each agent with its own tokens', async ($, on) => {
+    engine(on, USER_DEFS)
+    await start($)
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, 'ispolnitel', 'build the parser')
+    await $.turn.complete(ended(30, used(2), 'a-1'))
+    const ui = await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'Pane', requestId: 'pace', props: PANE_PROPS })
+    expect(await texts(ui)).toContain('ispolnitel · opus · done · 1.2k tok')
+  })
+
+  test('in Russian with the language set so', { options: { language: 'ru' } }, async ($, on) => {
+    const { lines } = engine(on, USER_DEFS)
+    await start($)
+    await $.session.measure(cost(1))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, 'ispolnitel')
+    await $.turn.complete(ended(30, used(), 'a-1'))
+    await $.turn.complete(ended(40, used(4 / 6)))
+    expect(lines.at(-1)).toBe('ход 40с · $+0.00 · агенты 60% токенов')
+  })
+})
+

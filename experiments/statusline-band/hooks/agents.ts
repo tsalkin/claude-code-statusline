@@ -3,6 +3,13 @@
 // to its definition too (subagent-statusline.sh); this is the same rule, said
 // once when the agent starts instead of on every redraw.
 
+// What a turn's requests used, every kind of token together: uncached input,
+// output, and the prompt cache read and written. Tokens, not dollars: the engine
+// reports an agent's turn in tokens, and a price table kept here would drift.
+export function tokensOf(u: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number } | undefined) {
+  return u === undefined ? undefined : u.input_tokens + u.output_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
+}
+
 // A definition's frontmatter, as Claude Code reads it: `name:` (else the file
 // name) and `model:`; anything that is not frontmatter gives nothing.
 export function parseDefinition(text: string, file: string): { name: string; model?: string } | undefined {

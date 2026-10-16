@@ -51,6 +51,9 @@ export type Words = {
   agentStatus: Readonly<Record<string, string>>
   // Said when an agent starts on a smaller model family than its definition names.
   agentBelow: (agent: string, is: string, want: string) => string
+  // The agents' share of the turn's tokens, on the turn line; an agent's own, in /pace.
+  agentsShare: (pct: string) => string
+  tokens: (n: string) => string
   // The quiet word at the end of the hint line under the prompt.
   hintOut: (window: string, at: string) => string
   hintAhead: (window: string, pct: string, atReset?: string) => string
@@ -100,6 +103,8 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     agentsHead: count => `agents of the last turn  ${count}`,
     agentStatus: { pending: 'pending', running: 'running', waiting: 'waiting', idle: 'idle', completed: 'done', failed: 'failed', killed: 'stopped' },
     agentBelow: (agent, is, want) => `agent ${agent} starts on ${is}, its definition names ${want}`,
+    agentsShare: pct => `agents ${pct}% tok`,
+    tokens: n => `${n} tok`,
     hintOut: (window, at) => `${window} out ${at}`,
     hintAhead: (window, pct, atReset) => (atReset === undefined ? `${window} ⇡${pct}` : `${window} ⇡${pct} · ~${atReset}% at reset`),
     ctx: 'ctx',
@@ -154,6 +159,8 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     agentsHead: count => `агенты последнего хода  ${count}`,
     agentStatus: { pending: 'ждёт запуска', running: 'работает', waiting: 'ждёт', idle: 'простаивает', completed: 'готов', failed: 'сбой', killed: 'остановлен' },
     agentBelow: (agent, is, want) => `агент ${agent} запущен на ${is}, а в определении — ${want}`,
+    agentsShare: pct => `агенты ${pct}% токенов`,
+    tokens: n => `${n} токенов`,
     hintOut: (window, at) => `${window} кончится ${at}`,
     hintAhead: (window, pct, atReset) => (atReset === undefined ? `${window} ⇡${pct}` : `${window} ⇡${pct} · к сбросу ~${atReset}%`),
     ctx: 'контекст',

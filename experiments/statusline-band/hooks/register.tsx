@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
 import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
-import { belowDefinition, familyOf, parseDefinition } from './agents'
+import { belowDefinition, familyOf, parseDefinition, tokensOf } from './agents'
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
@@ -40,6 +40,8 @@ const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
 const fleet = atom({ plugin: 'pace-band', key: 'fleet' } as const, null)
 const turnAgents = atom({ plugin: 'pace-band', key: 'turnAgents' } as const, [])
+// The main loop's own tokens in the last turn; its agents' are on each agent.
+const turnTokens = atom({ plugin: 'pace-band', key: 'turnTokens' } as const, null)
 
 const PANE = 'pace'
 
@@ -67,15 +69,25 @@ function minus(a?: number, b?: number) {
 // What the last main-loop turn moved: the latest reading less the one at its
 // start. Worked out while drawing, so a measurement that lands after the turn
 // ended still counts toward it, whichever of the two events came first.
-type TurnCost = { usd?: number; ctx?: number; five?: number; seconds: number }
+type TurnCost = { usd?: number; ctx?: number; five?: number; seconds: number; agentsShare?: number }
 
-function costOf(start: Figures, current: Figures, seconds: number): TurnCost {
+function costOf(start: Figures, current: Figures, seconds: number, agentsShare?: number): TurnCost {
   return {
     usd: minus(current.usd, start.usd),
     ctx: minus(current.ctx, start.ctx),
     five: minus(current.five, start.five),
     seconds,
+    agentsShare,
   }
+}
+
+// The agents' share of the turn's tokens: what the agents the turn started used,
+// against that plus the main loop's own. None until an agent has ended, or while
+// the main loop's own count is missing (an interrupted turn).
+function agentsShareOf(own: number | null, agents: readonly TurnAgent[]) {
+  const theirs = agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0)
+  if (own === null || theirs === 0) return undefined
+  return (theirs / (theirs + own)) * 100
 }
 
 function signed(n: number, digits: number) {
@@ -88,6 +100,7 @@ function describe(t: TurnCost, w: Words) {
   if (t.usd !== undefined) parts.push(`$${signed(t.usd, 2)}`)
   if (t.ctx !== undefined && t.ctx !== 0) parts.push(`${w.ctx} ${signed(t.ctx, 0)}%`)
   if (t.five !== undefined && t.five !== 0) parts.push(`${w.windows.five_hour} ${signed(t.five, Number.isInteger(t.five) ? 0 : 1)}`)
+  if (t.agentsShare !== undefined) parts.push(w.agentsShare(fmtPct(t.agentsShare)))
   return parts.join(' · ')
 }
 
@@ -293,7 +306,8 @@ async function showTurn($: EngineInterface, option: unknown, interactive: boolea
   const path = await turnFile($)
   if (path === undefined) return
   try {
-    await $.fs.write(path, `${describe(costOf(start, current, seconds), await wordsFor($, option))}\n`)
+    const share = agentsShareOf(await read($, turnTokens), await read($, turnAgents))
+    await $.fs.write(path, `${describe(costOf(start, current, seconds, share), await wordsFor($, option))}\n`)
   } catch {
     // A temporary directory that refuses the write: the line just has no turn.
   }
@@ -400,6 +414,7 @@ export const register: Register = (on, options) => {
     await update($, base, () => current)
     await update($, turnSeconds, () => null)
     await update($, turnAgents, () => [])
+    await update($, turnTokens, () => null)
     return next(e)
   })
 
@@ -427,11 +442,22 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   on('turn.complete', async ($, e, next) => {
+    const used = tokensOf(e.usage)
     if (e.agentId === undefined) {
       const seconds = Math.round(e.durationMs / 1000)
       await update($, turnSeconds, () => seconds)
+      await update($, turnTokens, () => used ?? null)
       await showTurn($, options.language, interactive)
       await recordFleet($, interactive)
+    } else if (used !== undefined) {
+      // An agent of this turn ended (a teammate, a turn of its own): its tokens
+      // count toward the turn, also when it ends after the main loop did.
+      const agentId = e.agentId
+      const agents = await read($, turnAgents)
+      if (agents.some(a => a.id === agentId)) {
+        await update($, turnAgents, (prev: TurnAgent[]) => prev.map(a => (a.id === agentId ? { ...a, tokens: (a.tokens ?? 0) + used } : a)))
+        await showTurn($, options.language, interactive)
+      }
     }
     return next(e)
   })
@@ -593,7 +619,7 @@ export const register: Register = (on, options) => {
               const status = statuses.get(a.id)
               return (
                 <Button key={`agent-${a.id}`} plain onPress={() => $.ui.view({ agentId: a.id })}>
-                  <Text>{`${a.type} · ${familyOf(a.model) ?? a.model}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}`}</Text>
+                  <Text>{`${a.type} · ${familyOf(a.model) ?? a.model}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}${a.tokens === undefined ? '' : ` · ${w.tokens(fmtTokens(a.tokens))}`}`}</Text>
                   <Text dimColor>{`  ${a.description}`}</Text>
                 </Button>
               )

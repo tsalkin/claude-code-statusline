@@ -53,7 +53,8 @@ export type FleetLine = { name?: string; warm?: boolean; expiresAt?: number; rec
 export type FleetView = { at: number; windowStart: number; records: FleetRecord[]; lines: Record<string, FleetLine> }
 
 // An agent the last main turn started, as its spawn answered: for /pace.
-export type TurnAgent = { id: string; type: string; description: string; model: string }
+// `tokens`: what its loop's turns used, summed, once one has ended.
+export type TurnAgent = { id: string; type: string; description: string; model: string; tokens?: number }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -61,6 +62,7 @@ declare module 'claude-code' {
       now: Figures | null
       base: Figures | null
       turnSeconds: number | null
+      turnTokens: number | null
       isHidden: boolean
       limits: LimitWindow[]
       context: ContextView | null

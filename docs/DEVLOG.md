@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-17 — pace-band 0.12.0: the agents' share of the turn, in tokens
+
+**Context.** The second idea stopped on a fact: the agents' cost. The engine reports a subagent's turn in tokens (`turn.complete` `usage`: input, output, cache read, cache write, and the model), with no dollars, and `AgentInfo` has no cost. The owner, on tokens or dollars: "В токенах".
+
+**What.** Each agent the turn started keeps the tokens its loop's `turn.complete` events report, summed (a teammate ends more than one turn). The main loop's own tokens come from its `turn.complete`. The turn line gains `agents 60% tok` (`агенты 60% токенов`): the agents' tokens against theirs plus the main loop's, every kind together. An agent that ends after the main loop rewrites the line; an agent of an earlier turn does not count toward the next one (a background agent that outlives its turn is dropped from the share, as from the list). `/pace` shows each agent's own tokens once it has ended (`ispolnitel · opus · done · 1.2k tok`).
+
+**Not checked.** That the main loop's `usage` leaves its agents' requests out. The contract says "its real requests' token counts" and no more. If the main count included them, the share would read low. To see live: a turn with one agent, the agent's tokens in `/pace` against the share on the line.
+
+**Gate.** Mod 132/132 (5 new in `hooks/agents.test.ts`), `tsc` clean, `validate --strict` passed, line 58/58. Reverse check: on 0.11.0's `register.tsx` the 4 tests that expect a share or a count are red; the one for an earlier turn's agent green on either.
+
 ## 2026-10-17 — pace-band 0.11.0: the quiet hint, under the prompt instead of in it
 
 **Context.** Of the three ideas stopped on a fact, the first: `virtualText` is not drawn in the empty prompt box, so the hint goes where it can be drawn. The owner: "делай Дописывать в конец строки подсказок под полем".
