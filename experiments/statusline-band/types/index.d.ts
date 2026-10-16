@@ -52,6 +52,9 @@ export type FleetLine = { name?: string; warm?: boolean; expiresAt?: number; rec
 // The fleet as /pace last read it.
 export type FleetView = { at: number; windowStart: number; records: FleetRecord[]; lines: Record<string, FleetLine> }
 
+// An agent the last main turn started, as its spawn answered: for /pace.
+export type TurnAgent = { id: string; type: string; description: string; model: string }
+
 declare module 'claude-code' {
   interface PluginState {
     'pace-band': {
@@ -64,6 +67,7 @@ declare module 'claude-code' {
       paneOpen: boolean
       claudeLang: 'en' | 'ru' | null
       fleet: FleetView | null
+      turnAgents: TurnAgent[]
     }
   }
 }

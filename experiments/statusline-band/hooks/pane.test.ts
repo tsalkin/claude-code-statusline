@@ -223,6 +223,24 @@ describe('pace pane', () => {
       expect(await texts(await pane($))).toContain('12% ahead')
     })
 
+    test(`${surface}: the band's warning is one press away from /pace`, async ($, on) => {
+      engine(on)
+      const opened: string[] = []
+      on('ui.open', (_, e) => {
+        opened.push(e.id)
+        return { value: { isPlaced: true } }
+      })
+      await $.session.measure(reading(52, 30))
+      const ui = await band($)
+      const row = await ui.find({ key: 'pace' })
+      expect(row?.props.hotkey).toBe('p')
+      await ui.press({ key: 'pace' })
+      expect(opened).toEqual(['pace'])
+      // Open already: a second press leaves it be.
+      await ui.press({ key: 'pace' })
+      expect(opened).toEqual(['pace'])
+    })
+
     test(`${surface}: a pane of another mod is left alone`, async ($, on) => {
       engine(on)
       const other = await $.ui.mount({ plugin: 'pace-band', surface, component: 'Pane', requestId: 'not-ours', props: PANE_PROPS })
@@ -299,5 +317,66 @@ describe('pace command: language', () => {
     expect((await run($, '')).text).toBeUndefined()
     expect(opened).toEqual(['pace'])
     expect(sets).toEqual([])
+  })
+})
+
+// A window that starts to run out before its reset: one native notification per
+// window and reset, for every session on the machine together.
+describe('pace notification', () => {
+  function notifier(on: On) {
+    const sent: { text: string; title?: string }[] = []
+    on('session.start', () => ({ cwd: '/work' }))
+    on('ui.notify', (_, e) => {
+      sent.push({ text: e.text, title: e.title })
+      return { value: { isSent: true, channel: 'ghostty' } }
+    })
+    return sent
+  }
+  const start = ($: Engine, isInteractive = true) => $.session.start({ cwd: '/work', surface: null, isInteractive })
+
+  test('runs out before the reset: said once, with the band\'s words', async ($, on) => {
+    engine(on)
+    const sent = notifier(on)
+    await start($)
+    await $.session.measure(reading(52, 30))
+    expect(sent).toEqual([{ text: `5h ⇡+12 → out ${fmtClock(OUT, NOW)}`, title: 'pace' }])
+    await $.session.measure(reading(53, 30))
+    expect(sent).toHaveLength(1)
+  })
+
+  test('a window that lasts, or a headless run: nothing', async ($, on) => {
+    engine(on)
+    const sent = notifier(on)
+    await start($)
+    await $.session.measure(reading(40, 50))
+    expect(sent).toEqual([])
+    await start($, false)
+    await $.session.measure(reading(52, 30))
+    expect(sent).toEqual([])
+  })
+
+  test('the next reset may say it again', async ($, on) => {
+    engine(on, { 'notified:five_hour': NOW - HOUR })
+    const sent = notifier(on)
+    await start($)
+    await $.session.measure(reading(52, 30))
+    expect(sent).toHaveLength(1)
+  })
+
+  test('in Russian with the language set so', { options: { language: 'ru' } }, async ($, on) => {
+    engine(on)
+    const sent = notifier(on)
+    await start($)
+    await $.session.measure(reading(52, 30))
+    expect(sent[0]?.text).toBe(`5ч ⇡+12 → кончится ${fmtClock(OUT, NOW, WORDS.ru)}`)
+  })
+
+  test('a refused notification breaks nothing', async ($, on) => {
+    engine(on)
+    on('session.start', () => ({ cwd: '/work' }))
+    on('ui.notify', () => ({ deny: 'quiet hours' }))
+    await start($)
+    await $.session.measure(reading(52, 30))
+    expect(await texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS }))).toContain('5h ⇡+12')
   })
 })

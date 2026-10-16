@@ -30,6 +30,7 @@ context  95.7k of 1M · 10%
 - **Two palettes per window, by the fact.** In reserve: the 5-hour bar green to cyan, the weekly one blue to violet, and the stretch up to `┃` tinted: that is the reserve. Short: amber or pink up to `┃`, red beyond it: that is the overshoot.
 - **The forecast.** At the last hour's rate (`1h rate`), or the window's average when there is no reading 10–90 minutes old (`avg rate`). Quiet when the limit lasts to its reset; amber when it runs out while still in reserve; red when it runs out and is already short.
 - **The fleet.** Every session on this machine spends the same 5-hour window. With two or more sessions in the window, `/pace` lists them, the one that spent most in the last hour first: what each spent in the last hour (its share of all of them) and in the window, when it last moved, and its prompt cache (warm until when, or cold and how many tokens its next request re-caches). `▸` is this session; the top spender is red when it took half the hour or more, a cold cache amber. The amounts are the sessions' own costs at list price, as `/cost` counts them, so the split is exact even when sessions run at once; the window's limit points are account-wide and cannot be split. The name and the cache come from the [pace-statusline](../../README.md) line; without it a session shows under its project's folder and with no cache.
+- **The agents of the last turn.** Every agent the last turn started, with the model it runs on and where it stands (`ispolnitel · opus · done  build the parser`). A press on a row opens that agent's transcript in the main view.
 - **The context by category**, as `/context` counts it, estimated locally.
 
 Readings are kept in the mod's store, shared by every session on the machine: they all spend one account's limits, so the forecast counts all of them.
@@ -44,7 +45,11 @@ Readings are kept in the mod's store, shared by every session on the machine: th
 - a `compact` button past 80 % context;
 - a limit window that runs out before its reset at this rate: `5h ⇡+12 → out Mon 02:15` in red when it is already spent ahead of its time, `7d 30% to spare → out Mon 22:52` in yellow when it is still in reserve and only the rate is too fast. A window spent ahead of its time that still lasts to its reset gets no band: the status line's `⇡` already says it.
 
-`×` hides the band for the session.
+The warning is one press away from `/pace`: click it, or `p` once the band holds the focus (ctrl+x tab). `×` hides the band for the session.
+
+**A notification** goes with the band's warning when a limit window starts to run out before its reset: one native notification per window and reset, through your own notification channel (`preferredNotifChannel`), for a terminal out of sight. Every session on the machine shares it, so two sessions do not say it twice. Turned off with Claude Code's notifications.
+
+**An agent below its definition.** When an agent starts on a smaller model family than its definition names (`~/.claude/agents/`, or the project's `.claude/agents/`, which wins), a toast says so: `agent ispolnitel starts on sonnet, its definition names opus`. The spawn goes on as asked: the mod never changes it. The [pace-statusline](../../README.md) subagent rows show the same while the agent runs.
 
 ## Language
 
@@ -57,9 +62,9 @@ English or Russian, for `/pace` and the [pace-statusline](../../README.md) line 
 /plugin install pace-band@tsalkin
 ```
 
-Needs Claude Code 2.1.287 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
+Needs Claude Code 2.1.300 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
 
-Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and writes its own store and two small files per interactive session in the temporary directory: the last turn, for the line, and the session's cost over the last five hours, `pace-band-fleet-<session>.json`, for the fleet. `/pace` reads those of every session, and the line's `pace-band-line-<session>.json` (name and cache). It makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
+Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and the agent definitions (`~/.claude/agents/`, the project's `.claude/agents/`), and writes its own store and two small files per interactive session in the temporary directory: the last turn, for the line, and the session's cost over the last five hours, `pace-band-fleet-<session>.json`, for the fleet. `/pace` reads those of every session, and the line's `pace-band-line-<session>.json` (name and cache). It makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
 
 ## Tests
 

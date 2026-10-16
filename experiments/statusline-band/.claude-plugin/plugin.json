@@ -1,8 +1,8 @@
 {
   "name": "pace-band",
   "displayName": "Pace Band",
-  "version": "0.9.1",
-  "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, the fleet (which sessions of the machine spent the 5-hour window, whose cache went cold) and the context by category. The last turn's cost on the mod's status line; a band above the prompt only to act on: a limit that runs out before its reset, a compact button. A Claude Code mod; companion to pace-statusline.",
+  "version": "0.10.0",
+  "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, the fleet (which sessions of the machine spent the 5-hour window, whose cache went cold), the agents of the last turn (a press opens one's transcript) and the context by category. The last turn's cost on the status line; a band above the prompt only to act on: a limit that runs out before its reset (with a native notification once per reset), a compact button; a warning when an agent starts below its definition. A Claude Code mod; companion to pace-statusline.",
   "author": {
     "name": "Maxim Tsalkin",
     "url": "https://github.com/tsalkin"

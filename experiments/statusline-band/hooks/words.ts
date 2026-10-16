@@ -46,6 +46,11 @@ export type Words = {
   ago: (span: string) => string
   cacheWarm: (until?: string) => string
   cacheCold: (tokens?: string) => string
+  // The agents the last main turn started, in /pace; a press opens one's transcript.
+  agentsHead: (count: string) => string
+  agentStatus: Readonly<Record<string, string>>
+  // Said when an agent starts on a smaller model family than its definition names.
+  agentBelow: (agent: string, is: string, want: string) => string
   ctx: string
   out: string
   compact: string
@@ -89,6 +94,9 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ago: span => `${span} ago`,
     cacheWarm: until => (until === undefined ? 'cache warm' : `cache → ${until}`),
     cacheCold: tokens => (tokens === undefined ? 'cache cold' : `cache cold, ${tokens} to re-cache`),
+    agentsHead: count => `agents of the last turn  ${count}`,
+    agentStatus: { pending: 'pending', running: 'running', waiting: 'waiting', idle: 'idle', completed: 'done', failed: 'failed', killed: 'stopped' },
+    agentBelow: (agent, is, want) => `agent ${agent} starts on ${is}, its definition names ${want}`,
     ctx: 'ctx',
     out: 'out',
     compact: 'compact',
@@ -138,6 +146,9 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ago: span => `${span} назад`,
     cacheWarm: until => (until === undefined ? 'кеш тёплый' : `кеш до ${until}`),
     cacheCold: tokens => (tokens === undefined ? 'кеш остыл' : `кеш остыл, заново ${tokens}`),
+    agentsHead: count => `агенты последнего хода  ${count}`,
+    agentStatus: { pending: 'ждёт запуска', running: 'работает', waiting: 'ждёт', idle: 'простаивает', completed: 'готов', failed: 'сбой', killed: 'остановлен' },
+    agentBelow: (agent, is, want) => `агент ${agent} запущен на ${is}, а в определении — ${want}`,
     ctx: 'контекст',
     out: 'кончится',
     compact: 'сжать',

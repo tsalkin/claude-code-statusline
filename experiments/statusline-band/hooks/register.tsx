@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
-import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow } from '../types'
+import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
+import { belowDefinition, familyOf, parseDefinition } from './agents'
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
@@ -18,7 +19,12 @@ import type { Lang, Words } from './words'
 // - /pace, a pane: each limit window against its time, how far ahead of pace
 //   it is spent, when it runs out at this rate; the fleet, every session that
 //   spent the 5-hour window, by what it spent in the last hour, and whose cache
-//   went cold; and the context by category, as /context counts it.
+//   went cold; the agents the last turn started, each opening its transcript
+//   on a press; and the context by category, as /context counts it;
+// - a native notification, once per window and reset, when a limit window
+//   starts to run out before its reset: the band, carried outside the terminal;
+// - a warning when an agent starts on a smaller model than its definition
+//   names: said, never corrected.
 
 const now = atom({ plugin: 'pace-band', key: 'now' } as const, null)
 const base = atom({ plugin: 'pace-band', key: 'base' } as const, null)
@@ -31,6 +37,7 @@ const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 // until /config changes it; null before the first read.
 const claudeLang = atom({ plugin: 'pace-band', key: 'claudeLang' } as const, null)
 const fleet = atom({ plugin: 'pace-band', key: 'fleet' } as const, null)
+const turnAgents = atom({ plugin: 'pace-band', key: 'turnAgents' } as const, [])
 
 const PANE = 'pace'
 
@@ -290,6 +297,53 @@ async function showTurn($: EngineInterface, option: unknown, interactive: boolea
   }
 }
 
+// A window that starts to run out before its reset gets one native notification
+// per reset, machine-wide (the store is shared): the band's warning for a
+// terminal out of sight. A headless run has nobody to tell, and takes no turn.
+async function notifyEarly($: EngineInterface, option: unknown, interactive: boolean) {
+  if (!interactive) return
+  const t = await $.clock.now()
+  const early = forecasts(await read($, limits), t).filter(runsOutEarly)
+  if (early.length === 0) return
+  const w = await wordsFor($, option)
+  for (const f of early) {
+    const key = `notified:${f.kind}`
+    if ((await $.store.get(key)) === f.resetsAt) continue
+    await $.store.set(key, f.resetsAt)
+    try {
+      await $.ui.notify(warningOf(f, t, w), { title: 'pace' })
+    } catch {
+      // Refused by a hook above, or a failed write: the band still says it.
+    }
+  }
+}
+
+// The model a subagent type's definition names: the user's definitions, then
+// the project's, which win, by `name:` or else the file name (as the line reads them).
+async function definitionModel($: EngineInterface, type: string) {
+  const home = await $.env.get('HOME')
+  const claudeDir = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? (home === undefined ? undefined : `${home}/.claude`)
+  const root = (await $.session.root()).replace(/[\/]+$/, '')
+  let found: { name: string; model?: string } | undefined
+  for (const dir of [claudeDir === undefined ? undefined : `${claudeDir}/agents`, `${root}/.claude/agents`]) {
+    if (dir === undefined || !(await $.fs.exists(dir))) continue
+    for (const e of await $.fs.list(dir)) {
+      if (e.kind !== 'file' || !e.name.endsWith('.md')) continue
+      const d = parseDefinition(await $.fs.read(`${dir}/${e.name}`), e.name)
+      if (d?.name === type) found = d
+    }
+  }
+  return found?.model
+}
+
+async function openPane($: EngineInterface, columns: number) {
+  await loadLimits($)
+  await loadContext($, columns)
+  await loadFleet($)
+  await $.ui.open({ id: PANE, title: 'pace' })
+  await update($, paneOpen, () => true)
+}
+
 function forecasts(windows: readonly LimitWindow[], t: number) {
   return Object.keys(WINDOWS)
     .map(kind => windows.find(w => w.kind === kind))
@@ -334,8 +388,32 @@ export const register: Register = (on, options) => {
     await update($, now, () => current)
     await update($, base, () => current)
     await update($, turnSeconds, () => null)
+    await update($, turnAgents, () => [])
     return next(e)
   })
+
+  // Every agent the turn starts, for /pace; and a warning when one starts on a
+  // smaller model family than its definition names. The spawn itself is left
+  // as it was asked: the person chose it, the mod only says so.
+  on('agent.spawn', async ($, e, next) => {
+    const r = await next(e)
+    if (r.deny !== undefined || r.agentId === undefined) return r
+    const agentId = r.agentId
+    const agent: TurnAgent = { id: agentId, type: e.subagentType, description: e.description, model: r.model }
+    await update($, turnAgents, (prev: TurnAgent[]) => [...prev.filter(a => a.id !== agentId), agent])
+    if (e.fork || e.resume !== undefined || !interactive) return r
+    try {
+      const below = belowDefinition(r.model, await definitionModel($, e.subagentType))
+      if (below !== undefined) {
+        const w = await wordsFor($, options.language)
+        $.ui.toast(w.agentBelow(e.name ?? e.subagentType, below.is, below.want), { timeoutMs: 10_000 })
+      }
+    } catch {
+      // A definition that cannot be read: nothing to hold the agent to.
+    }
+    return r
+    // The mod only watches: whatever fails in it, the spawn goes on as asked.
+  }).catch(($, e, next) => next(e))
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
@@ -351,7 +429,10 @@ export const register: Register = (on, options) => {
   on('session.measure', async ($, e, next) => {
     const current = figuresOf(e)
     await update($, now, () => current)
-    if (e.changed.includes('rateLimits')) await recordLimits($, e.rateLimits)
+    if (e.changed.includes('rateLimits')) {
+      await recordLimits($, e.rateLimits)
+      await notifyEarly($, options.language, interactive)
+    }
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)
     // A measurement after the turn ended still counts toward it.
     await showTurn($, options.language, interactive)
@@ -368,11 +449,7 @@ export const register: Register = (on, options) => {
       await update($, paneOpen, () => false)
       return {}
     }
-    await loadLimits($)
-    await loadContext($, e.presentation.columns ?? 100)
-    await loadFleet($)
-    await $.ui.open({ id: PANE, title: 'pace' })
-    await update($, paneOpen, () => true)
+    await openPane($, e.presentation.columns ?? 100)
     return {}
   })
 
@@ -391,7 +468,7 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
     const t = await $.clock.now()
     const width = Math.max(30, e.props.bodyColumns)
     const fs = forecasts(await read($, limits), t)
@@ -406,14 +483,14 @@ export const register: Register = (on, options) => {
       return (
         <Box key={f.kind} flexDirection="column">
           <Box>
-            <Text bold>{`${labelOf(f, w)} `}</Text>
+            <Text weight="semibold">{`${labelOf(f, w)} `}</Text>
             {limitBar(f, barWidth).map((c, i) => (
               <Text key={`cell-${i}`} color={c.color}>
                 {c.char}
               </Text>
             ))}
             <Text>{`  ${w.usedOfTime(fmtPct(f.used), fmtPct(f.elapsed))}`}</Text>
-            <Text color={paletteOf(f).word} bold>
+            <Text color={paletteOf(f).word} weight="semibold">
               {paceWords(f, w)}
             </Text>
           </Box>
@@ -429,7 +506,7 @@ export const register: Register = (on, options) => {
         ? [<Text key="ctx-none" dimColor>{w.noContext}</Text>]
         : [
             <Box key="ctx-head">
-              <Text bold>{`${w.context}  `}</Text>
+              <Text weight="semibold">{`${w.context}  `}</Text>
               <Text>{w.contextOf(fmtTokens(ctx.total), fmtTokens(ctx.max), `${ctx.percent}`)}</Text>
             </Box>,
             <Box key="ctx-bar">
@@ -451,7 +528,7 @@ export const register: Register = (on, options) => {
                   <Box key={item.name}>
                     {item.color === undefined ? <Text dimColor>■ </Text> : <Text color={item.color}>■ </Text>}
                     <Text>{`${item.name} `}</Text>
-                    <Text bold>{fmtTokens(item.tokens)}</Text>
+                    <Text weight="semibold">{fmtTokens(item.tokens)}</Text>
                     <Text dimColor>{` ${fmtPct((item.tokens / ctx.max) * 100)}%   `}</Text>
                   </Box>
                 ))}
@@ -468,13 +545,13 @@ export const register: Register = (on, options) => {
       fleetLines === undefined
         ? []
         : [
-            <Text key="fleet-head" bold wrap="truncate-end">
+            <Text key="fleet-head" weight="semibold" wrap="truncate-end">
               {fleetLines.head}
             </Text>,
             ...fleetLines.rows.map((r, i) => (
               <Text
                 key={`fleet-${i}`}
-                bold={r.self || r.top}
+                weight={r.self || r.top ? 'semibold' : undefined}
                 color={r.cold ? PACE_COLORS.caution : r.top ? PACE_COLORS.out : undefined}
                 wrap="truncate-end"
               >
@@ -484,11 +561,41 @@ export const register: Register = (on, options) => {
             <Text key="fleet-gap"> </Text>,
           ]
 
+    // The agents the last turn started, each a press away from its transcript.
+    const agents = await read($, turnAgents)
+    let statuses = new Map<string, string>()
+    if (agents.length > 0) {
+      try {
+        statuses = new Map((await $.agent.list()).map(a => [a.id, a.status]))
+      } catch {
+        // No list (a thin client): the rows go without a status.
+      }
+    }
+    const agentRows =
+      agents.length === 0
+        ? []
+        : [
+            <Text key="agents-head" weight="semibold" wrap="truncate-end">
+              {w.agentsHead(`${agents.length}`)}
+            </Text>,
+            ...agents.map(a => {
+              const status = statuses.get(a.id)
+              return (
+                <Button key={`agent-${a.id}`} plain onPress={() => $.ui.view({ agentId: a.id })}>
+                  <Text>{`${a.type} · ${familyOf(a.model) ?? a.model}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}`}</Text>
+                  <Text dimColor>{`  ${a.description}`}</Text>
+                </Button>
+              )
+            }),
+            <Text key="agents-gap"> </Text>,
+          ]
+
     return (
       <Box flexDirection="column">
         {limitRows.length > 0 ? limitRows : [<Text key="no-limits" dimColor>{w.noLimits}</Text>]}
         <Text key="gap"> </Text>
         {fleetRows}
+        {agentRows}
         {contextRows}
       </Box>
     )
@@ -510,11 +617,22 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column">
         <Box>
-          {warnings.map(f => (
-            <Text key={`warn-${f.kind}`} color={toneOf(f)}>
-              {`${warningOf(f, t, w)}  `}
-            </Text>
-          ))}
+          {warnings.length > 0 ? (
+            <Button
+              key="pace"
+              hotkey="p"
+              plain
+              onPress={async () => {
+                if (!(await read($, paneOpen))) await openPane($, e.props.bodyColumns)
+              }}
+            >
+              {warnings.map(f => (
+                <Text key={`warn-${f.kind}`} color={toneOf(f)}>
+                  {`${warningOf(f, t, w)}  `}
+                </Text>
+              ))}
+            </Button>
+          ) : null}
           {needsCompact ? (
             <Button
               key="compact"
