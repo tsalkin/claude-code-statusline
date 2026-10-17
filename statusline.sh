@@ -603,7 +603,7 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
                         && [ "$context_tokens" -ge "$compact_min" ] 2>/dev/null \
                         && [ $((cache_expires - 360)) -gt "$NOW" ] 2>/dev/null; then
                     # The settings as Claude Code layers them, the first that names it wins.
-                    # Only files that exist: jq stops at a missing one.
+                    # Only files that exist: jq reads past a missing one, but exits 2 and complains.
                     idle_files=()
                     for f in "$project_dir/.claude/settings.local.json" "$project_dir/.claude/settings.json" \
                              "$CLAUDE_DIR/settings.json"; do
