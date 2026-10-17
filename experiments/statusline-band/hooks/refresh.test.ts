@@ -32,6 +32,8 @@ type Setup = { list?: ReturnType<typeof rows>; deny?: string }
 function engine(on: On, setup: Setup = {}) {
   const redraws: string[] = []
   const sets: { key: string; value: unknown }[] = []
+  const opened: string[] = []
+  const closed: string[] = []
   const store = new Map<string, unknown>([['pace:five_hour', window5h(30)]])
   const clock = mock.clock(on, { now: NOW })
   mock.env(on, { TMPDIR: '/tmp/claude-501/' })
@@ -45,7 +47,14 @@ function engine(on: On, setup: Setup = {}) {
   on('fs.write', () => ({ value: undefined }))
   on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: ['engine band'] }))
   on('ui.status', () => ({ value: undefined }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true } }
+  })
+  on('ui.close', (_, e) => {
+    closed.push(e.id)
+    return { value: undefined }
+  })
   on('ui.invalidate', (_, e) => {
     redraws.push(e.event)
     return { value: undefined }
@@ -58,7 +67,7 @@ function engine(on: On, setup: Setup = {}) {
   })
   on('session.start', () => ({ cwd: '/work' }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
-  return { redraws, sets, store, clock }
+  return { redraws, sets, opened, closed, store, clock }
 }
 
 const start = ($: Engine, isInteractive = true) => $.session.start({ cwd: '/work', surface: null, isInteractive })
@@ -165,5 +174,24 @@ describe('pace command: refresh', () => {
     expect((await run($, '10')).text).toBe('Refresh not changed: locked by policy')
     await clock.advance(30 * SEC)
     expect(redraws).toHaveLength(1)
+  })
+
+  // The owner, 18.10: /pace with a parameter, the pane closed, opens it too.
+  test('/pace 20 with the pane closed also opens it; open, it stays open', async ($, on) => {
+    const { opened, closed } = engine(on, { list: rows('pace-band.refresh') })
+    await start($)
+    await run($, '20')
+    expect(opened).toEqual(['pace'])
+    await run($, '10')
+    expect(opened).toEqual(['pace'])
+    expect(closed).toEqual([])
+  })
+
+  test('a period out of range or a refused one opens nothing', async ($, on) => {
+    const { opened } = engine(on, { list: rows('pace-band.refresh'), deny: 'locked by policy' })
+    await start($)
+    await run($, '3')
+    await run($, '10')
+    expect(opened).toEqual([])
   })
 })

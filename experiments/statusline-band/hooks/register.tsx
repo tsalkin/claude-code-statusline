@@ -127,14 +127,14 @@ async function wordsFor($: EngineInterface, option: unknown): Promise<Words> {
 // /pace en|ru|auto: the kit's language is this mod's own `language` option, a
 // /config row; the status line reads the same value from settings.json. Set as
 // the person would in /config, which reloads the module with the new option.
-async function setLanguage($: EngineInterface, arg: string, current: unknown): Promise<string> {
-  if (arg !== 'en' && arg !== 'ru' && arg !== 'auto') return (await wordsFor($, current)).languageUsage
+async function setLanguage($: EngineInterface, arg: string, current: unknown): Promise<{ text: string; isSet?: true }> {
+  if (arg !== 'en' && arg !== 'ru' && arg !== 'auto') return { text: (await wordsFor($, current)).languageUsage }
   // The row is `<plugin>.language`, the plugin named as the session loaded it.
   const row = (await $.config.list()).find(r => /^pace-band(@[^.]+)?\.language$/.test(r.key))
   const result = await $.config.set({ key: row?.key ?? 'pace-band.language', value: arg })
-  if (result.deny !== undefined) return (await wordsFor($, current)).languageRefused(result.deny)
+  if (result.deny !== undefined) return { text: (await wordsFor($, current)).languageRefused(result.deny) }
   const w = await wordsFor($, arg)
-  return w.languageSet(w.languageNames[arg])
+  return { text: w.languageSet(w.languageNames[arg]), isSet: true }
 }
 
 // --- Limit history: one key per window kind in $.store, shared by every
@@ -536,19 +536,28 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'pace' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
+    const columns = e.presentation.columns ?? 100
+    // A parameter that took also opens the pane, if closed; it never closes it.
     if (/^\d+$/.test(arg)) {
       const set = await setRefresh($, arg, options.language)
       // Started now; the reload the change brings starts it again the same way.
-      if (set.seconds !== undefined) startRefresh($, set.seconds, interactive)
+      if (set.seconds !== undefined) {
+        startRefresh($, set.seconds, interactive)
+        if (!(await read($, paneOpen))) await openPane($, columns)
+      }
       return { text: set.text }
     }
-    if (arg !== '') return { text: await setLanguage($, arg, options.language) }
+    if (arg !== '') {
+      const set = await setLanguage($, arg, options.language)
+      if (set.isSet && !(await read($, paneOpen))) await openPane($, columns)
+      return { text: set.text }
+    }
     if (await read($, paneOpen)) {
       await $.ui.close({ id: PANE })
       await update($, paneOpen, () => false)
       return {}
     }
-    await openPane($, e.presentation.columns ?? 100)
+    await openPane($, columns)
     return {}
   })
 

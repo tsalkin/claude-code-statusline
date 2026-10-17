@@ -257,15 +257,21 @@ describe('pace command: language', () => {
   const run = ($: Engine, args: string) =>
     $.command.run({ command: 'pace', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
-  // The writer beneath the plugin: keeps what it was asked to set.
+  // The writer beneath the plugin: keeps what it was asked to set, and the
+  // panes it was asked to open.
   function writer(on: On, list: ReturnType<typeof rows>, answer?: { deny: string }) {
     const sets: { key: string; value: unknown }[] = []
+    const opened: string[] = []
     on('config.list', () => ({ value: list }))
     on('config.set', (_, e) => {
       sets.push({ key: e.key, value: e.value })
       return answer ?? { value: e.value }
     })
-    return sets
+    on('ui.open', (_, e) => {
+      opened.push(e.id)
+      return { value: { isPlaced: true } }
+    })
+    return Object.assign(sets, { opened })
   }
 
   test('/pace ru sets the row the session lists, and answers in Russian', async ($, on) => {
@@ -306,16 +312,21 @@ describe('pace command: language', () => {
     expect(sets).toEqual([])
   })
 
+  test('/pace ru with the pane closed also opens it; a word it does not know opens nothing', async ($, on) => {
+    engine(on)
+    on('settings.read', () => ({ value: { language: 'English' } }))
+    const { opened } = writer(on, rows('pace-band.language'))
+    await run($, 'de')
+    expect(opened).toEqual([])
+    expect((await run($, 'ru')).text).toBe('Язык строки статуса и /pace: русский')
+    expect(opened).toEqual(['pace'])
+  })
+
   test('/pace alone still opens the pane, nothing set', async ($, on) => {
     engine(on)
     const sets = writer(on, rows('pace-band.language'))
-    const opened: string[] = []
-    on('ui.open', (_, e) => {
-      opened.push(e.id)
-      return { value: { isPlaced: true } }
-    })
     expect((await run($, '')).text).toBeUndefined()
-    expect(opened).toEqual(['pace'])
+    expect(sets.opened).toEqual(['pace'])
     expect(sets).toEqual([])
   })
 })

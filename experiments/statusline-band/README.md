@@ -4,7 +4,7 @@ A [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/): companion to
 
 ## `/pace`
 
-A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language instead, see [Language](#language); `/pace <seconds>` the refresh, see [Refresh](#refresh)):
+A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language, see [Language](#language); `/pace <seconds>` the refresh, see [Refresh](#refresh); either one, once it is set, opens the pane too when it is closed, and never closes it):
 
 ![The /pace pane: two limit windows against their time, and the context by category](../../docs/screenshots/pace-pane.png)
 

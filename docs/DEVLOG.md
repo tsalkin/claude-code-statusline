@@ -2,6 +2,14 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-18 — pace-band 0.13.1: /pace with a parameter opens the pane too
+
+**What.** The owner ran `/pace 20` live: the answer came ("refresh every 20s"), `refresh: 20` landed in `pluginConfigs.pace-band@inline.options` of `~/.claude/settings.json`, and no pane opened. The owner: "запуск команды /pace в первый раз с параметром - должен запускать мод, сейчас команда просто установила параметр и не запустила мод". Now `/pace <seconds>` and `/pace en|ru|auto`, once the change is set, also open the pane when it is closed; an open pane stays open (a parameter never toggles it shut, as bare `/pace` does). A refused change or a parameter it does not know opens nothing and answers as before. `setLanguage` now says whether it set the language, as `setRefresh` already did.
+
+**Tests.** 146 (3 new): `/pace 20` opens the closed pane and a second `/pace 10` neither opens again nor closes it; out of range or refused opens nothing; `/pace ru` opens, `/pace de` does not. The two that open were red on 0.13.0. The language tests' writer now answers `ui.open`, since a set language opens the pane. Gate in a worktree: mod 146/146, `tsc` clean on types written by 2.1.302, `validate --strict` passed, line 69/69.
+
+**Not seen yet.** Whether the pane opened by the command survives the reload a `/config` change brings: the state keeps `paneOpen`, the pane itself is the engine's. The owner's next `/pace 20` in a session with the pane closed shows it.
+
 ## 2026-10-18 — pace-band 0.13.0: the band and /pace refresh while the session is idle
 
 **What.** The owner asked for a monitor that keeps updating while its session sits idle, then: "делай оба и проверь можно ли включить в командную строку /pace параметр обновления в секундах". Two timers, one per layer:
