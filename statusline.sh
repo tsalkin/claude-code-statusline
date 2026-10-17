@@ -596,22 +596,32 @@ if [ "$STATUSLINE_SHOW_CACHE" = "1" ] && [ -n "$cache_hit" ]; then
                 # compacted before its one-hour cache expires, so it never goes cold: the
                 # mark says when it is compacted instead, six minutes before. Worked out from
                 # that documented rule, hence the "~": the payload carries no such signal.
-                # `"idleCompaction": false` in the settings turns it off, and the mark back.
+                # `"idleCompaction": false` in the settings turns it off, and the mark back;
+                # so does auto-compact off, which idle compaction needs (Claude Code 2.1.302).
                 compact_min=${CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS:-200000}
                 [[ "$compact_min" =~ ^[0-9]+$ ]] || compact_min=200000
-                if [ "$STATUSLINE_SHOW_IDLE_COMPACT" = "1" ] && [ "$cache_ttl" = "1h" ] \
+                [ "$compact_min" -lt 100000 ] && compact_min=100000   # Claude Code's floor
+                no_compact=false
+                for v in "${DISABLE_COMPACT:-}" "${DISABLE_AUTO_COMPACT:-}"; do
+                    case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" in
+                        1|true|yes|on) no_compact=true ;;
+                    esac
+                done
+                if [ "$STATUSLINE_SHOW_IDLE_COMPACT" = "1" ] && [ "$cache_ttl" = "1h" ] && [ "$no_compact" = false ] \
                         && [ "$context_tokens" -ge "$compact_min" ] 2>/dev/null \
                         && [ $((cache_expires - 360)) -gt "$NOW" ] 2>/dev/null; then
-                    # The settings as Claude Code layers them, the first that names it wins.
+                    # The settings as Claude Code layers them, the first that names a key wins;
+                    # auto-compact falls back to the older global config, then to on.
                     # Only files that exist: jq reads past a missing one, but exits 2 and complains.
                     idle_files=()
                     for f in "$project_dir/.claude/settings.local.json" "$project_dir/.claude/settings.json" \
-                             "$CLAUDE_DIR/settings.json"; do
+                             "$CLAUDE_DIR/settings.json" "${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"; do
                         [ -f "$f" ] && idle_files+=("$f")
                     done
                     idle_on=true
                     [ "${#idle_files[@]}" -gt 0 ] && idle_on=$(jq -sr \
-                        '[.[] | .idleCompaction? | select(. != null)] | if length == 0 then true else .[0] end' \
+                        'def named(k): [.[] | .[k]? | select(. != null)] | if length == 0 then true else .[0] end;
+                         named("idleCompaction") != false and named("autoCompactEnabled") != false' \
                         "${idle_files[@]}" 2>/dev/null)
                     [ "$idle_on" != "false" ] && mark_at=$((cache_expires - 360)) mark="${W_COMPACT} ~"
                 fi

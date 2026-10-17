@@ -2,6 +2,23 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-17 — Claude Code 2.1.302 checked; the compaction mark follows auto-compact
+
+**What.** The owner, of the three gaps below: "вариант 1", the documented ones. `compact ~` now also needs auto-compact on: not `DISABLE_COMPACT` or `DISABLE_AUTO_COMPACT` (`1`, `true`, `yes`, `on`, any case, as Claude Code reads them), and no `autoCompactEnabled: false` in the first settings file that names it, the global config (`${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json`) last, as Claude Code falls back to it. A `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` under 100K counts as 100K. The experiment is left alone: the READMEs say the line cannot see it and name `STATUSLINE_SHOW_IDLE_COMPACT=0`.
+
+**Gate.** Line 69/69 (5 new: auto-compact off in the user's settings, in the global config only, on in the settings over off in the global config, `DISABLE_AUTO_COMPACT=True`, the 100K floor), no other expected output changed. Reverse check: on the old `statusline.sh` the 4 that expect `→` are red; the one that expects the mark green on both.
+
+**Gate on 2.1.302, before the change.** Line 64/64, mod 132/132, `tsc` clean on types written by 2.1.302 (`.claude-plugin/types/claude-code/index.d.ts`, 08:24), `validate --strict` passed. No mod API change in the changelog.
+
+**The `Idle compaction` row in `/config`.** It writes `idleCompaction` to the user's `settings.json` (the binary: `P({idleCompaction:e})`, the row shown only when the setting's source is `userSettings` or default), the file the line already reads. Nothing to change for the switch itself.
+
+**Found in the binary, not handled by the line.** Whether a session is compacted when idle hangs on two more things the `compact ~` mark ignores:
+- Auto-compact. The check returns `compaction_off` when auto-compact is off (`DISABLE_COMPACT`, `DISABLE_AUTO_COMPACT`, or `autoCompactEnabled: false`, read from the user's settings or the legacy `~/.claude.json`). With auto-compact off the line still says `compact ~HH:MM`, and the cache goes cold.
+- A server experiment, `tengu_sunny_locket`, with `mode` one of `off`, `log`, `compact`, `compact_on_return` (anything else counts as `off`), plus optional `minTokens` and `fireAtFraction` (0.5–0.95, default 0.9, i.e. the 54 minutes). The owner's cached value is `{"mode": "compact"}`, so the owner's line is right; a user outside the `compact` arms gets a mark for a compaction that never comes. `compact_on_return` was already in 2.1.301.
+- `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` has a floor of 100K in the engine; the line takes a lower value as given.
+
+Taken: the first and the third (above). The experiment is not read: `cachedGrowthBookFeatures` in `~/.claude.json` is an internal cache, not a documented interface. The lasting way is a field in the payload, to ask Anthropic for.
+
 ## 2026-10-17 — the line: a compaction mark for sessions compacted when idle
 
 **Context.** The last of the three ideas stopped on a fact: since Claude Code 2.1.290, a conversation of 200K tokens or more left idle about 54 minutes is compacted before its one-hour cache expires, so for such a session `◈ →HH:MM` names an event that never comes. The payload still carries no signal of it. The owner, on waiting for one or working it out from the rule: "считать по правилу".

@@ -456,6 +456,36 @@ new_case idle-compact-hidden; make_git
 jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
 check idle-compact-hidden "$(render "$CASE_ROOT/payload.json" STATUSLINE_SHOW_IDLE_COMPACT=0)"
 
+# 53-57. Idle compaction needs auto-compact (Claude Code 2.1.302). Turned off in the
+# user's settings: the cache mark
+new_case idle-autocompact-off; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+echo '{"autoCompactEnabled": false}' > "$CASE_ROOT/home/.claude/settings.json"
+check idle-autocompact-off "$(render "$CASE_ROOT/payload.json")"
+
+# 54. Turned off only in the older global config, ~/.claude.json: the cache mark
+new_case idle-autocompact-legacy; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+echo '{"autoCompactEnabled": false, "numStartups": 3}' > "$CASE_ROOT/home/.claude.json"
+check idle-autocompact-legacy "$(render "$CASE_ROOT/payload.json")"
+
+# 55. On in the settings beats off in the global config: the compaction mark
+new_case idle-autocompact-settings-win; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+echo '{"autoCompactEnabled": false}' > "$CASE_ROOT/home/.claude.json"
+echo '{"autoCompactEnabled": true}' > "$CASE_ROOT/home/.claude/settings.json"
+check idle-autocompact-settings-win "$(render "$CASE_ROOT/payload.json")"
+
+# 56. DISABLE_AUTO_COMPACT in the environment: the cache mark
+new_case idle-autocompact-env; make_git
+jq "$big" "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-autocompact-env "$(render "$CASE_ROOT/payload.json" DISABLE_AUTO_COMPACT=True)"
+
+# 57. A threshold under Claude Code's floor of 100K counts as 100K: 90K tokens, the cache mark
+new_case idle-compact-floor; make_git
+jq '.context_window.context_window_size = 300000' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check idle-compact-floor "$(render "$CASE_ROOT/payload.json" CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS=50000)"
+
 # 41. Both word tables: every row has a key, an English and a Russian word, and the
 # keys are unique. A word added in one language only goes red here.
 words_bad=""

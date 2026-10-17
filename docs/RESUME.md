@@ -19,7 +19,7 @@ None of it has been seen live yet.
   - `compact ~` / `сжатие ~` in a session over 200K tokens with a warm one-hour cache.
 - Premise to check: does the main loop's `turn.complete` usage leave out its subagents' tokens? If it includes them, the agents' share reads low. Check it on one live turn with an agent: compare the line's share with the agents' tokens in `/pace`.
 - Owner: the directory submission. Check the Versions tab or press **Check for new commits**. "Uses a credential" on `tests/run.sh` and `plugin.json` will likely come back; it is left for the reviewer (owner, 06.10). Do not press Publish on older versions. After the reviewer decides, switch the tracked branch to a tag.
-- Each new Claude Code version: check against the line and the mod. The last one checked is 2.1.301 (16.10); the mod's types are "Written by Claude Code 2.1.301". If `tsc` goes red on a field from a newer release, read the types file's first line first.
+- Each new Claude Code version: check against the line and the mod. The last one checked is 2.1.302 (17.10: gate green; the `compact ~` mark now follows auto-compact off and the engine's 100K floor, owner: "вариант 1"; the server's idle-compaction experiment stays unseen by the line, DEVLOG 17.10); the mod's types are "Written by Claude Code 2.1.302". If `tsc` goes red on a field from a newer release, read the types file's first line first.
 - Inbox: empty for this project.
 
 **Open decisions, and how far each is closed.**
@@ -46,6 +46,7 @@ None of it has been seen live yet.
 | The quiet hint under the prompt instead of in the empty box (`PromptHint` `tail`, pace-band 0.11.0) | yes (owner, 17.10: "делай Дописывать в конец строки подсказок под полем") | yes, 127 mod tests, 4 of the new red without the hook | pushed 17.10 (`ecc851f`) | not yet: the dim word after `? for shortcuts` |
 | The agents' share of the turn, in tokens, and each agent's tokens in `/pace` (pace-band 0.12.0) | yes (owner, 17.10: "В токенах") | yes, 132 mod tests, 4 of the new red on 0.11.0 | pushed 17.10 (`ecc851f`) | not yet: the share on the line after a turn with an agent |
 | The compaction mark: `compact ~HH:MM` for a session compacted when idle, by the documented rule (no signal in the payload) | yes (owner, 17.10: "считать по правилу") | yes, line 64/64, 2 of the new red on the old line | pushed 17.10 (`ecc851f`) | not yet: a session over 200K left with a warm one-hour cache |
+| The compaction mark follows auto-compact off (`/config`, `DISABLE_AUTO_COMPACT`, `~/.claude.json`) and the 100K floor; the per-account experiment named in the READMEs, not read | yes (owner, 17.10: "вариант 1") | yes, line 69/69, 4 of the new red on the old line | not pushed | not yet |
 | A paid part (paid version, sponsorship, paid support) | no, for now (owner, 15.10: "сейчас нет"); the answer to the hub's payments letter of 13.10 ("не продаём") stands | — | — | — |
 | Move the folder out of `experiments/` | **open** | — | — | moving it means changing `CLAUDE_CODE_PLUGIN_DIRS` in the owner's settings |
 | Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
