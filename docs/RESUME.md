@@ -1,12 +1,12 @@
 # RESUME — where to pick up
 
-Updated 2026-10-17, at a `/restart` after the release. `origin/main` = `ecc851f` (the owner pushed it at `/deploy`, checked by `git ls-remote`); local `main` is one docs commit ahead (`cf19be7`, plus this restart's), not pushed on purpose: every push is a new directory version, so docs ride with the next real change. Gate at this restart: line 64/64, mod 132/132, `tsc` and the mod's `validate --strict` clean. The day's history is in `docs/DEVLOG.md`, entries of 17.10; older days there too.
+Updated 2026-10-17, at a second `/restart`, after the release of the 2.1.302 check. `origin/main` = `d44fcc4` (the owner pushed it at `/deploy`, checked by `git ls-remote`); local `main` is docs commits ahead (`4a45239`, plus this restart's), not pushed on purpose: every push is a new directory version, so docs ride with the next real change. Gate at this restart: line 69/69, mod 132/132, `tsc` and the mod's `validate --strict` clean. The day's history is in `docs/DEVLOG.md`, entries of 17.10; older days there too.
 
 **Where we are.** Two plugins in the `tsalkin` marketplace. `pace-statusline` (the status line) has been in review in Anthropic's plugin directory since 2026-10-03, with no decision; auto-publish is off, so each push waits there as a new version. `pace-band` 0.12.0 (`/pace` and the band, a Claude Code mod in `experiments/statusline-band/`) installs from GitHub and loads into every session of the owner from this working copy. On 17.10 all eight held ideas of Claude Code 2.1.295–2.1.300 went out:
 - pace-band 0.10.0: a notification when a window runs out before its reset; a pressable warning row; `weight`; the turn's agents in `/pace`; a toast when an agent starts below its definition.
 - 0.11.0: the quiet hint at the end of the hint line under the prompt.
 - 0.12.0: the agents' share of the turn, in tokens.
-- The line: `compact ~HH:MM` for a session Claude Code compacts when idle, worked out from the documented rule.
+- The line: `compact ~HH:MM` for a session Claude Code compacts when idle, worked out from the documented rule; since `d44fcc4` it keeps `→` when auto-compact is off (Claude Code 2.1.302 checked, owner: "вариант 1").
 
 None of it has been seen live yet.
 
@@ -16,7 +16,7 @@ None of it has been seen live yet.
   - the toast when an agent starts;
   - the agents and their tokens in `/pace`;
   - the dim word after `? for shortcuts`;
-  - `compact ~` / `сжатие ~` in a session over 200K tokens with a warm one-hour cache.
+  - `compact ~` / `сжатие ~` in a session over 200K tokens with a warm one-hour cache, and `→` there with auto-compact off.
 - Premise to check: does the main loop's `turn.complete` usage leave out its subagents' tokens? If it includes them, the agents' share reads low. Check it on one live turn with an agent: compare the line's share with the agents' tokens in `/pace`.
 - Owner: the directory submission. Check the Versions tab or press **Check for new commits**. "Uses a credential" on `tests/run.sh` and `plugin.json` will likely come back; it is left for the reviewer (owner, 06.10). Do not press Publish on older versions. After the reviewer decides, switch the tracked branch to a tag.
 - Each new Claude Code version: check against the line and the mod. The last one checked is 2.1.302 (17.10: gate green; the `compact ~` mark now follows auto-compact off and the engine's 100K floor, owner: "вариант 1"; the server's idle-compaction experiment stays unseen by the line, DEVLOG 17.10); the mod's types are "Written by Claude Code 2.1.302". If `tsc` goes red on a field from a newer release, read the types file's first line first.
@@ -66,6 +66,7 @@ It speaks English or Russian (`hooks/words.ts`), switched for the mod and the li
 - `version` unset in `plugin.json` (a directory warning): Claude Code tracks the plugin by commit, so there is no version to bump.
 - Weekly runs of the hub's novelty watch (now covering github.com/anthropics) are manual. A schedule is the owner's call; the hub's letter is closed.
 - Ideas from Claude Code 2.1.290–2.1.292, not taken (DEVLOG 07.10): `/pace en|ru|auto` offered as the person types (`prompt.autocomplete`); one install command in the READMEs (`claude plugin install … --marketplace`); `ThemeKey`/`Color` types for the `/pace` palettes. Wait for the owner (the push hold was lifted 16.10).
+- Not taken 17.10 (owner chose option 1 only): ask Anthropic, by a GitHub issue, for an idle-compaction field in the status line payload, the only way the `compact ~` mark sees the per-account experiment (`tengu_sunny_locket`, DEVLOG 17.10). An outward action: show the owner the text first.
 - Pushed 16.10 (`3a6f2b3`): the subagent rows show the agent's type (`agentType`, Claude Code 2.1.293) when it has no name. Still to see: a real agent row in a live session.
 - awesome-claude-code: the submission (#3090) was closed "not planned" by the maintainer on 07.10, no comment; not a rule failure (DEVLOG 08.10). Owner: accept, do not resubmit now. Revisit such lists after the directory's decision and once the project has users or stars.
 - Subagent rows and `autoCompactWindow` (Claude Code 2.1.296, DEVLOG 10.10): the bar counts against the model's window, so an agent set to compact earlier never turns red before it compacts. No fleet agent sets it yet; the payload has no such field. Revisit when it gets one, or when an agent of the fleet takes the setting.
