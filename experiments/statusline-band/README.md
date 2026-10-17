@@ -4,7 +4,7 @@ A [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/): companion to
 
 ## `/pace`
 
-A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language instead, see [Language](#language)):
+A pane, opened and closed by `/pace` (`/pace en|ru|auto` sets the language instead, see [Language](#language); `/pace <seconds>` the refresh, see [Refresh](#refresh)):
 
 ![The /pace pane: two limit windows against their time, and the context by category](../../docs/screenshots/pace-pane.png)
 
@@ -52,6 +52,10 @@ The warning is one press away from `/pace`: click it, or `p` once the band holds
 **A notification** goes with the band's warning when a limit window starts to run out before its reset: one native notification per window and reset, through your own notification channel (`preferredNotifChannel`), for a terminal out of sight. Every session on the machine shares it, so two sessions do not say it twice. Turned off with Claude Code's notifications.
 
 **An agent below its definition.** When an agent starts on a smaller model family than its definition names (`~/.claude/agents/`, or the project's `.claude/agents/`, which wins), a toast says so: `agent ispolnitel starts on sonnet, its definition names opus`. The spawn goes on as asked: the mod never changes it. The [pace-statusline](../../README.md) subagent rows show the same while the agent runs.
+
+## Refresh
+
+Claude Code draws the band, the hint under the prompt and `/pace` again only on its own events: a turn, a measurement, a press. A session left idle would keep a forecast measured against an old time and miss what other sessions spent. So the mod refreshes them on a timer, every 30 seconds by default: it reads the readings every session stored, the fleet when `/pace` is open, and asks for a redraw. `/pace 10` sets the period (5 to 3600 seconds), `/pace 0` turns it off, as does `/config` → `pace-band.refresh`. Only sessions with a screen run the timer. The [pace-statusline](../../README.md) line has its own timer, set in `settings.json` (`"refreshInterval": 30` under `statusLine`): a mod cannot change that file.
 
 ## Language
 

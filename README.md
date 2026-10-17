@@ -231,7 +231,7 @@ A second plugin in the same marketplace, a [Claude Code mod](https://code.claude
 /plugin install pace-band@tsalkin
 ```
 
-In English or Russian, one switch for the plugin and the line together: `/pace ru`, `/pace en` or `/pace auto` (the same as `/config` → `pace-band.language`); on `auto`, Claude Code's own `language` setting. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+In English or Russian, one switch for the plugin and the line together: `/pace ru`, `/pace en` or `/pace auto` (the same as `/config` → `pace-band.language`); on `auto`, Claude Code's own `language` setting. While the session is idle the band and `/pace` refresh every 30 seconds; `/pace 10` sets the period, `/pace 0` turns it off. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
 ## Optional modules
 

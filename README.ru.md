@@ -231,7 +231,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 /plugin install pace-band@tsalkin
 ```
 
-По-русски или по-английски — один переключатель на плагин и строку вместе: `/pace ru`, `/pace en` или `/pace auto` (то же самое — `/config` → `pace-band.language`); на `auto` — по настройке `language` самого Claude Code. Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+По-русски или по-английски — один переключатель на плагин и строку вместе: `/pace ru`, `/pace en` или `/pace auto` (то же самое — `/config` → `pace-band.language`); на `auto` — по настройке `language` самого Claude Code. Пока сессия простаивает, полоса и `/pace` обновляются раз в 30 секунд; `/pace 10` задаёт период, `/pace 0` выключает обновление. Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
 ## Необязательные модули
 

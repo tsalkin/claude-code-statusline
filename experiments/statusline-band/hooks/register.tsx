@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
+import type { EngineInterface, Register, SessionRateLimit, Timer } from 'claude-code'
 
 import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
 import { belowDefinition, familyOf, parseDefinition, tokensOf } from './agents'
@@ -26,7 +26,9 @@ import type { Lang, Words } from './words'
 // - a native notification, once per window and reset, when a limit window
 //   starts to run out before its reset: the band, carried outside the terminal;
 // - a warning when an agent starts on a smaller model than its definition
-//   names: said, never corrected.
+//   names: said, never corrected;
+// - a timer that keeps the band, the hint and /pace current while the session
+//   sits idle: Claude Code draws them again only on its own events.
 
 const now = atom({ plugin: 'pace-band', key: 'now' } as const, null)
 const base = atom({ plugin: 'pace-band', key: 'base' } as const, null)
@@ -352,6 +354,58 @@ async function definitionModel($: EngineInterface, type: string) {
   return found?.model
 }
 
+// --- Refresh: the surfaces of an idle session, on a timer. -------------------
+
+// Seconds between refreshes when the `refresh` option is not set; 0 turns it off.
+const REFRESH_DEFAULT = 30
+const REFRESH_MIN = 5
+const REFRESH_MAX = 3600
+
+// The option as /config or /pace stored it: a number, or digits in a string.
+// Anything else, or a period out of range, is the default.
+function refreshSecondsOf(option: unknown): number {
+  const n = typeof option === 'number' ? option : typeof option === 'string' && /^\d+$/.test(option.trim()) ? Number(option) : NaN
+  if (n === 0) return 0
+  return Number.isInteger(n) && n >= REFRESH_MIN && n <= REFRESH_MAX ? n : REFRESH_DEFAULT
+}
+
+// The running timer; kept by the module, like `interactive`, so a restart
+// cancels the one before it instead of adding a second.
+let refreshTimer: Timer | undefined
+
+// Restarted at session.start and at each main-loop turn: a /clear starts the
+// session's state over with no session.start, and the next turn's `$` is the
+// one that writes to it. A headless run draws nothing and gets no timer.
+function startRefresh($: EngineInterface, seconds: number, interactive: boolean) {
+  refreshTimer?.cancel()
+  refreshTimer = undefined
+  if (!interactive || seconds === 0) return
+  refreshTimer = $.clock.every(seconds * 1000, () => {
+    refreshNow($).catch(() => {
+      // A failed read: the next tick tries again.
+    })
+  })
+}
+
+// What changes while nobody types: the readings other sessions stored, the
+// fleet in an open /pace, and the time every forecast is measured against.
+async function refreshNow($: EngineInterface) {
+  await loadLimits($)
+  if (await read($, paneOpen)) await loadFleet($)
+  $.ui.invalidate('ui.render')
+}
+
+// /pace <seconds>: the mod's own `refresh` row in /config, set as the language is.
+async function setRefresh($: EngineInterface, arg: string, option: unknown): Promise<{ text: string; seconds?: number }> {
+  const w = await wordsFor($, option)
+  const seconds = Number(arg)
+  if (seconds !== 0 && (seconds < REFRESH_MIN || seconds > REFRESH_MAX)) return { text: w.languageUsage }
+  const row = (await $.config.list()).find(r => /^pace-band(@[^.]+)?\.refresh$/.test(r.key))
+  const result = await $.config.set({ key: row?.key ?? 'pace-band.refresh', value: seconds })
+  if (result.deny !== undefined) return { text: w.refreshRefused(result.deny) }
+  return { text: seconds === 0 ? w.refreshOff : w.refreshSet(`${seconds}`), seconds }
+}
+
 async function openPane($: EngineInterface, columns: number) {
   await loadLimits($)
   await loadContext($, columns)
@@ -400,6 +454,7 @@ export const register: Register = (on, options) => {
     await recordLimits($, u.rateLimits)
     // A reload (a new language, say) keeps the state: show the last turn again.
     await showTurn($, options.language, interactive)
+    startRefresh($, refreshSecondsOf(options.refresh), interactive)
     return result
   })
 
@@ -415,6 +470,7 @@ export const register: Register = (on, options) => {
     await update($, turnSeconds, () => null)
     await update($, turnAgents, () => [])
     await update($, turnTokens, () => null)
+    startRefresh($, refreshSecondsOf(options.refresh), interactive)
     return next(e)
   })
 
@@ -480,6 +536,12 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'pace' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
+    if (/^\d+$/.test(arg)) {
+      const set = await setRefresh($, arg, options.language)
+      // Started now; the reload the change brings starts it again the same way.
+      if (set.seconds !== undefined) startRefresh($, set.seconds, interactive)
+      return { text: set.text }
+    }
     if (arg !== '') return { text: await setLanguage($, arg, options.language) }
     if (await read($, paneOpen)) {
       await $.ui.close({ id: PANE })
