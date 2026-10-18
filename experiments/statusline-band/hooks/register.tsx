@@ -127,8 +127,7 @@ async function wordsFor($: EngineInterface, option: unknown): Promise<Words> {
 // /pace en|ru|auto: the kit's language is this mod's own `language` option, a
 // /config row; the status line reads the same value from settings.json. Set as
 // the person would in /config, which reloads the module with the new option.
-async function setLanguage($: EngineInterface, arg: string, current: unknown): Promise<{ text: string; isSet?: true }> {
-  if (arg !== 'en' && arg !== 'ru' && arg !== 'auto') return { text: (await wordsFor($, current)).languageUsage }
+async function setLanguage($: EngineInterface, arg: Lang | 'auto', current: unknown): Promise<{ text: string; isSet?: true }> {
   // The row is `<plugin>.language`, the plugin named as the session loaded it.
   const row = (await $.config.list()).find(r => /^pace-band(@[^.]+)?\.language$/.test(r.key))
   const result = await $.config.set({ key: row?.key ?? 'pace-band.language', value: arg })
@@ -396,14 +395,31 @@ async function refreshNow($: EngineInterface) {
 }
 
 // /pace <seconds>: the mod's own `refresh` row in /config, set as the language is.
-async function setRefresh($: EngineInterface, arg: string, option: unknown): Promise<{ text: string; seconds?: number }> {
+async function setRefresh($: EngineInterface, seconds: number, option: unknown): Promise<{ text: string; seconds?: number }> {
   const w = await wordsFor($, option)
-  const seconds = Number(arg)
-  if (seconds !== 0 && (seconds < REFRESH_MIN || seconds > REFRESH_MAX)) return { text: w.languageUsage }
   const row = (await $.config.list()).find(r => /^pace-band(@[^.]+)?\.refresh$/.test(r.key))
   const result = await $.config.set({ key: row?.key ?? 'pace-band.refresh', value: seconds })
   if (result.deny !== undefined) return { text: w.refreshRefused(result.deny) }
   return { text: seconds === 0 ? w.refreshOff : w.refreshSet(`${seconds}`), seconds }
+}
+
+// /pace's parameters: a language, a number of seconds, or both, in either order
+// (`/pace 20 en`, `/pace en 20`). Undefined for anything else, a second word of
+// a kind or a period out of range: then nothing is set.
+function paceArgs(arg: string): { lang?: Lang | 'auto'; seconds?: number } | undefined {
+  const parsed: { lang?: Lang | 'auto'; seconds?: number } = {}
+  for (const word of arg.split(/\s+/)) {
+    if (/^\d+$/.test(word) && parsed.seconds === undefined) {
+      const seconds = Number(word)
+      if (seconds !== 0 && (seconds < REFRESH_MIN || seconds > REFRESH_MAX)) return undefined
+      parsed.seconds = seconds
+    } else if ((word === 'en' || word === 'ru' || word === 'auto') && parsed.lang === undefined) {
+      parsed.lang = word
+    } else {
+      return undefined
+    }
+  }
+  return parsed
 }
 
 async function openPane($: EngineInterface, columns: number) {
@@ -537,20 +553,33 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'pace' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     const columns = e.presentation.columns ?? 100
-    // A parameter that took also opens the pane, if closed; it never closes it.
-    if (/^\d+$/.test(arg)) {
-      const set = await setRefresh($, arg, options.language)
-      // Started now; the reload the change brings starts it again the same way.
-      if (set.seconds !== undefined) {
-        startRefresh($, set.seconds, interactive)
-        if (!(await read($, paneOpen))) await openPane($, columns)
-      }
-      return { text: set.text }
-    }
     if (arg !== '') {
-      const set = await setLanguage($, arg, options.language)
-      if (set.isSet && !(await read($, paneOpen))) await openPane($, columns)
-      return { text: set.text }
+      const parsed = paceArgs(arg)
+      if (parsed === undefined) return { text: (await wordsFor($, options.language)).languageUsage }
+      const texts: string[] = []
+      let isSet = false
+      // The language first, so the refresh answers in the one just set.
+      let lang: unknown = options.language
+      if (parsed.lang !== undefined) {
+        const set = await setLanguage($, parsed.lang, options.language)
+        texts.push(set.text)
+        if (set.isSet) {
+          isSet = true
+          lang = parsed.lang
+        }
+      }
+      if (parsed.seconds !== undefined) {
+        const set = await setRefresh($, parsed.seconds, lang)
+        texts.push(set.text)
+        // Started now; the reload the change brings starts it again the same way.
+        if (set.seconds !== undefined) {
+          startRefresh($, set.seconds, interactive)
+          isSet = true
+        }
+      }
+      // A parameter that took also opens the pane, if closed; it never closes it.
+      if (isSet && !(await read($, paneOpen))) await openPane($, columns)
+      return { text: texts.join(' · ') }
     }
     if (await read($, paneOpen)) {
       await $.ui.close({ id: PANE })

@@ -115,8 +115,8 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ctx: 'ctx',
     out: 'out',
     compact: 'compact',
-    command: 'Limits forecast and context by category (toggles a pane); en, ru or auto sets the language; a number of seconds, the refresh',
-    commandHint: '[en|ru|auto|seconds]',
+    command: 'Limits forecast and context by category (toggles a pane); en, ru or auto sets the language; a number of seconds, the refresh; both at once in either order',
+    commandHint: '[en|ru|auto] [seconds]',
     languageNames: { auto: 'auto, as Claude Code', en: 'English', ru: 'Russian' },
     languageSet: name => `Language of the status line and /pace: ${name}`,
     languageRefused: reason => `Language not changed: ${reason}`,
@@ -124,7 +124,7 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     refreshOff: 'The band and /pace refresh only on Claude Code\'s events',
     refreshRefused: reason => `Refresh not changed: ${reason}`,
     languageUsage:
-      '/pace opens or closes the pane; /pace en, /pace ru or /pace auto sets the language of the status line and /pace; /pace 5 to /pace 3600 refreshes the band and /pace every so many seconds while the session is idle, /pace 0 turns that off',
+      '/pace opens or closes the pane; /pace en, /pace ru or /pace auto sets the language of the status line and /pace; /pace 5 to /pace 3600 refreshes the band and /pace every so many seconds while the session is idle, /pace 0 turns that off; both at once in either order, as /pace en 20',
   },
   ru: {
     d: 'д',
@@ -175,8 +175,8 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     ctx: 'контекст',
     out: 'кончится',
     compact: 'сжать',
-    command: 'Прогноз лимитов и контекст по категориям (открывает и закрывает панель); en, ru или auto — язык; число секунд — обновление',
-    commandHint: '[en|ru|auto|секунды]',
+    command: 'Прогноз лимитов и контекст по категориям (открывает и закрывает панель); en, ru или auto — язык; число секунд — обновление; оба сразу в любом порядке',
+    commandHint: '[en|ru|auto] [секунды]',
     languageNames: { auto: 'авто, как у Claude Code', en: 'английский', ru: 'русский' },
     languageSet: name => `Язык строки статуса и /pace: ${name}`,
     languageRefused: reason => `Язык не изменён: ${reason}`,
@@ -184,6 +184,6 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     refreshOff: 'Полоса и /pace обновляются только по событиям Claude Code',
     refreshRefused: reason => `Обновление не изменено: ${reason}`,
     languageUsage:
-      '/pace открывает и закрывает панель; /pace en, /pace ru или /pace auto задаёт язык строки статуса и /pace; /pace 5…3600 — обновлять полосу и /pace каждые столько секунд, пока сессия простаивает, /pace 0 — не обновлять',
+      '/pace открывает и закрывает панель; /pace en, /pace ru или /pace auto задаёт язык строки статуса и /pace; /pace 5…3600 — обновлять полосу и /pace каждые столько секунд, пока сессия простаивает, /pace 0 — не обновлять; оба сразу в любом порядке, как /pace ru 20',
   },
 }

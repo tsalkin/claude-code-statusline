@@ -2,6 +2,14 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-18 — pace-band 0.14.0: the language and the refresh in one /pace
+
+**What.** The owner typed `/pace 20 en`, then `/pace en 20`: both got the usage text, and only a following `/pace 20` took, so the language stayed as it was. The owner: "сделай что бы можно было задавать оба значения одной командой через пробелы в любой последовательности". Now `/pace` takes a language word, a number of seconds, or one of each, split on spaces, in either order. Two of a kind (`en ru`, `20 30`), a word it does not know, or a period out of range sets nothing and answers the usage, so a half-applied command cannot happen on a typo. The language is set first and the refresh answers in it; the two answers are joined with ` · `. Each change is its own `$.config.set`, as before; a set that took opens the pane when it is closed. The usage text and the command hint (`[en|ru|auto] [seconds]`) say it.
+
+**Tests.** 150 (4 new, all red on 0.13.1): both orders set both rows and open the pane once; `0 ru` answers the refresh in Russian; `en ru`, `20 30`, `20 de`, `3 en`, `en 7200`, `en20` set and open nothing; a refused pair says so twice and opens nothing. Gate in a worktree: mod 150/150, `tsc` clean on types written by 2.1.302, `validate --strict` passed. The line is not touched.
+
+**Not seen yet.** Two `/config` changes in one command each reload the module (the types: "a change to them reloads the plugin"); the tests' engine does not reload. 0.13.1 already wrote `/config` and then opened the pane in the same handler, and the owner saw `/pace 20` work, so a call after a set holds; whether the second set lands live is shown by the owner's first `/pace en 20`.
+
 ## 2026-10-18 — pace-band 0.13.1: /pace with a parameter opens the pane too
 
 **What.** The owner ran `/pace 20` live: the answer came ("refresh every 20s"), `refresh: 20` landed in `pluginConfigs.pace-band@inline.options` of `~/.claude/settings.json`, and no pane opened. The owner: "запуск команды /pace в первый раз с параметром - должен запускать мод, сейчас команда просто установила параметр и не запустила мод". Now `/pace <seconds>` and `/pace en|ru|auto`, once the change is set, also open the pane when it is closed; an open pane stays open (a parameter never toggles it shut, as bare `/pace` does). A refused change or a parameter it does not know opens nothing and answers as before. `setLanguage` now says whether it set the language, as `setRefresh` already did.

@@ -195,3 +195,48 @@ describe('pace command: refresh', () => {
     expect(opened).toEqual([])
   })
 })
+
+// The owner, 18.10: the language and the refresh in one /pace, either order.
+describe('pace command: language and refresh together', () => {
+  const both = () => rows('pace-band@tsalkin.language', 'pace-band@tsalkin.refresh')
+
+  test('/pace 20 en and /pace en 20 set both, answer both, open the pane once', async ($, on) => {
+    const { redraws, sets, opened, clock } = engine(on, { list: both() })
+    await start($)
+    const answer = 'Language of the status line and /pace: English · The band and /pace refresh every 20s while the session is idle'
+    expect((await run($, '20 en')).text).toBe(answer)
+    expect((await run($, ' EN   20 ')).text).toBe(answer)
+    expect(sets).toEqual([
+      { key: 'pace-band@tsalkin.language', value: 'en' },
+      { key: 'pace-band@tsalkin.refresh', value: 20 },
+      { key: 'pace-band@tsalkin.language', value: 'en' },
+      { key: 'pace-band@tsalkin.refresh', value: 20 },
+    ])
+    expect(opened).toEqual(['pace'])
+    await clock.advance(40 * SEC)
+    expect(redraws).toHaveLength(2)
+  })
+
+  test('the refresh answers in the language just set', async ($, on) => {
+    engine(on, { list: both() })
+    await start($)
+    expect((await run($, '0 ru')).text).toBe('Язык строки статуса и /pace: русский · Полоса и /pace обновляются только по событиям Claude Code')
+  })
+
+  test('two of a kind, a word it does not know or a period out of range: how to use it, nothing set', async ($, on) => {
+    const { sets, opened } = engine(on, { list: both() })
+    await start($)
+    for (const args of ['en ru', '20 30', '20 de', '3 en', 'en 7200', 'en20']) {
+      expect((await run($, args)).text).toContain('both at once in either order, as /pace en 20')
+    }
+    expect(sets).toEqual([])
+    expect(opened).toEqual([])
+  })
+
+  test('refused: both say so, nothing opens', async ($, on) => {
+    const { opened } = engine(on, { list: both(), deny: 'locked by policy' })
+    await start($)
+    expect((await run($, 'ru 20')).text).toBe('Language not changed: locked by policy · Refresh not changed: locked by policy')
+    expect(opened).toEqual([])
+  })
+})
