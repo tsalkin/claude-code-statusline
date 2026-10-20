@@ -2,6 +2,35 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-20 — Claude Code 2.1.304: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.304; checked here up to 2.1.303 (19.10), so only 2.1.304 is new.
+
+**Gate on 2.1.304.** Line 69/69 (`bash tests/run.sh`), mod 150/150 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`) on types "Written by Claude Code 2.1.304", `claude plugin validate --strict` passed.
+
+**Read against the code.**
+- `CLAUDE_CODE_AUTO_COMPACT_WINDOW` now takes `k`/`M` suffixes. The line does not read that variable. The one it reads, `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`, is parsed the same in 2.1.303 and 2.1.304 (`strings` of both: `a.CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS??e?.minTokens`, a finite number or the default, floor kept), so the line's plain-digits check still matches the engine.
+- Mod buttons with the same label and no `key` lost clicks: every `Button` in `register.tsx` has a `key`, so the mod was not hit.
+- `settings.read` hooks now get each settings layer: the mod registers no such hook; it only calls `$.settings.read()`, and `tsc` is clean on the new types.
+- A failed mod reload no longer removes the tools and commands of the version that stays loaded: a broken edit in this working copy now leaves running sessions on the old `/pace`. New sessions still load the broken code, so the worktree rule stands.
+- A transcript line now names a plugin that, running first, skips one of the mod's hooks: a ready sign if the mod is ever loaded twice (working copy and an installed `pace-band@tsalkin`).
+- Pro/Max get a warning when resuming an idle conversation would cost a noticeable share of the 5-hour window. The fleet in `/pace` already shows whose cache went cold and how many tokens a re-read costs, for every session and before anyone resumes; the engine's warning comes at the resume itself. They overlap, they do not replace each other.
+- `tool.check` gets `decider: "person"` and `e.isReadOnly`; the mod checks no tools.
+
+**Ideas.** None to build from 2.1.304.
+
+## 2026-10-19 — Claude Code 2.1.303: nothing to change
+
+**Context.** The owner asked what the new releases change and what the project could use. Installed: 2.1.303 (`claude --version`). The hub's watcher lists 2.1.295 → 2.1.303 fleet-wide; this project checked up to 2.1.302 on 17.10, so only 2.1.303 is new here. Its changelog entry reads "Bug fixes and reliability improvements", nothing more.
+
+**Gate on 2.1.303.** Line 69/69 (`bash tests/run.sh`), mod 150/150 (`claude plugin test`), `tsc` clean on types "Written by Claude Code 2.1.303" (regenerated 19.10 06:56), `claude plugin validate --strict` passed.
+
+**The binary, 2.1.302 against 2.1.303.** The places the line rests on, compared by `strings` with short names masked: the status line payload's `rate_limits` builder (`five_hour`, `seven_day`, `spend_limit` behind a gateway only), `used_percentage`, `prompt_cache`, `refreshInterval`, `idleCompaction`, `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`, `autoCompactEnabled` and the idle-compaction timer (`fireAtFraction`, 0.9). Same code in both; only the bundle's chunk names differ.
+
+**Seen on the way, not new.** The payload's `rate_limits` still carries only the five-hour and weekly windows. The per-model weekly windows (`seven_day_sonnet`, `model_scoped` such as "Fable") live in Claude Code's own usage schema and `/usage`, not in what the status line gets; the line cannot show them until the payload does. Already so in 2.1.302.
+
+**Ideas.** None from 2.1.303.
+
 ## 2026-10-18 — pace-band 0.14.0: the language and the refresh in one /pace
 
 **What.** The owner typed `/pace 20 en`, then `/pace en 20`: both got the usage text, and only a following `/pace 20` took, so the language stayed as it was. The owner: "сделай что бы можно было задавать оба значения одной командой через пробелы в любой последовательности". Now `/pace` takes a language word, a number of seconds, or one of each, split on spaces, in either order. Two of a kind (`en ru`, `20 30`), a word it does not know, or a period out of range sets nothing and answers the usage, so a half-applied command cannot happen on a typo. The language is set first and the refresh answers in it; the two answers are joined with ` · `. Each change is its own `$.config.set`, as before; a set that took opens the pane when it is closed. The usage text and the command hint (`[en|ru|auto] [seconds]`) say it.
