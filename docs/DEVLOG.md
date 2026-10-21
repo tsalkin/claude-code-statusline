@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-21 — Claude Code 2.1.305 and 2.1.306: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.306 (`claude --version`); checked here up to 2.1.304 (20.10), so 2.1.305 and 2.1.306 are new.
+
+**Gate on 2.1.306.** Line 69/69 (`bash tests/run.sh`), mod 150/150 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.306" (regenerated 21.10 18:34), `claude plugin validate --strict` passed.
+
+**Read against the code.**
+- A mod's docked pane now stays within 45% of the terminal's width. `/pace` lays itself out from `e.props.bodyColumns` (`register.tsx`, the `Pane` render: `width = max(30, bodyColumns)`, bar `min(40, max(10, width − 48))`), so it follows the narrower pane; the band beside it gets the rest of the row (`bodyColumns` is the transcript's column beside a docked `Pane`, per the types). The floor of 30 now bites sooner: below about 67 columns the pane is under 30 cells and the tree is laid out wider than it, left to the engine to wrap or cut. Not seen; the owner's terminals are wider.
+- `/effort` and `/autocompact` now apply when the model name differs from a `modelOverrides` value by case or a `[1m]` tag. The line's profile check reads `effortLevel` and `model` from the settings, not `modelOverrides`, and the owner's settings have no `modelOverrides` (`grep` of `~/.claude/settings.json`, 21.10): nothing to follow.
+- Claude no longer names the wrong model for a subagent that fell back to another one. That is what Claude is told; the mod's toast for an agent below its definition reads the agent's own events, and the subagent rows read the payload.
+- A mod's `Image` now draws in iTerm2 3.5+: the mod draws no `Image`.
+- 2.1.306: no needless compaction in sessions with many MCP tools. Fewer surprise compactions; the line's `compact ~` mark is worked out from the idle rule and does not depend on it.
+
+**Ideas.** None to build from 2.1.305 or 2.1.306.
+
 ## 2026-10-20 — Claude Code 2.1.304: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.304; checked here up to 2.1.303 (19.10), so only 2.1.304 is new.
