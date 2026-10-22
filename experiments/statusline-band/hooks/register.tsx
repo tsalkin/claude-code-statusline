@@ -613,8 +613,12 @@ export const register: Register = (on, options) => {
     const ctx = await read($, context)
     const fleetView = await read($, fleet)
     const selfId = fleetView === null ? undefined : await $.session.id().catch(() => undefined)
-    const barWidth = Math.min(40, Math.max(10, width - 48))
     const w = await wordsFor($, options.language)
+    // The bar takes what the longest row's words leave, so no row wraps: a
+    // wrapped row squeezes cells out of the bar (23.10: the weekly ┃ and a
+    // lone · on a line of their own).
+    const rowText = (f: Forecast) => `${labelOf(f, w)}   ${w.usedOfTime(fmtPct(f.used, w), fmtPct(f.elapsed, w))}${paceWords(f, w)}`.length
+    const barWidth = Math.min(40, Math.max(10, width - Math.max(0, ...fs.map(rowText)) - 1))
 
     const limitRows = fs.map(f => {
       const forecastTone = forecastColor(f)

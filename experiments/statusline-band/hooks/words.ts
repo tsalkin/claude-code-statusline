@@ -141,7 +141,7 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     decimal: ',',
     days: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
     windows: { five_hour: '5ч', seven_day: '7д' },
-    usedOfTime: (used, elapsed) => `потрачено ${used}% · прошло ${elapsed}% · `,
+    usedOfTime: (used, elapsed) => `расход ${used}% · прошло ${elapsed}% · `,
     toSpare: pct => `ниже графика на ${pct}%`,
     ahead: pct => `выше графика на ${pct}%`,
     onPace: 'по графику',

@@ -38,13 +38,15 @@ export type Forecast = {
   atReset?: number
 }
 
-// When each value was first seen: the history's first reading, each change,
-// and the current value at `now` if no reading holds it yet.
+// When each value was first seen: the history's first reading, each rise,
+// and the current value at `now` if no reading holds it yet. A reading below
+// one before it is stale (see withReading) and skipped.
 function firstSightings(w: LimitWindow, now: number): Point[] {
   const seen: Point[] = []
   for (const p of w.points) {
     if (p.used > w.used) continue
-    if (seen[seen.length - 1]?.used !== p.used) seen.push(p)
+    const last = seen[seen.length - 1]
+    if (last === undefined || p.used > last.used) seen.push(p)
   }
   if (seen[seen.length - 1]?.used !== w.used) seen.push({ t: now, used: w.used })
   return seen
@@ -99,9 +101,12 @@ export function forecastOf(w: LimitWindow, now: number): Forecast | undefined {
 }
 
 // Adds a reading to a window's history. A different reset time is a new
-// window: its history starts over.
+// window: its history starts over. Within a window use only grows, so a lower
+// reading is stale: an idle session's last answer, refreshed on its timer into
+// the store every session shares (23.10: 4, 5 and 1 among the 6s of the week).
 export function withReading(saved: LimitWindow | undefined, kind: string, used: number, resetsAt: number, now: number): LimitWindow {
   const same = saved !== undefined && Math.abs(saved.resetsAt - resetsAt) < MINUTE
+  if (same && used < saved.used) return saved
   const points = same ? saved.points : []
   const last = points[points.length - 1]
   const keep = last === undefined || last.used !== used || now - last.t >= 5 * MINUTE

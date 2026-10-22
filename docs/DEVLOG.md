@@ -2,12 +2,24 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-23 — pace-band 0.15.1: stale readings, a bar that gives way, «расход»
+
+**Context.** Twenty minutes after 0.15.0 the owner's `/pace` read `7д … ниже графика на 17%` over `→ при 10%/ч (за 16м) кончится 10:56, на 5д 1ч раньше сброса`; each row's last words had wrapped (`ниже графика на` / `45%`, a lone `·` on a line of its own) and the weekly bar had lost its `┃`. The owner asked for «расход» in place of «потрачено» and to check the formatting.
+
+**Root cause, the rate.** The limit history is one store for every session of the machine. Idle sessions, refreshed on their `/pace <seconds>` timer, write their last answer's figures into it: at 01:33 and 01:44 the weekly history took 4, 5 and 1 among the live 6s (`~/.claude/plugins/store/pace-band_inline-6be894aecb28.json`). Each fall and rise read as a change of value, two points in 12 minutes. The same pollution fed the old 10–90-minute rate too. Within a window use only grows, so `withReading` keeps the saved window when a reading is below it, and the first sightings follow the rise only, skipping what is already stored.
+
+**Root cause, the layout.** The bar was `width − 48`, sized for the old words. The new Russian row is 50 characters of words; the row overflowed and the engine squeezed single cells and words out of it. The bar now takes what the longest row's words leave (`width − label − words − 1`, 10 to 40).
+
+**Also.** `потрачено 6%` → `расход 6%` (owner). `notified:seven_day` is already set for this week's reset: the once-per-reset notification most likely went to a false alarm, and a real shortage this week would get the band but no notification. Left as it is: the store is written by live sessions.
+
+**Gate.** Mod 158/158 (4 new: a lower reading not stored, the stale history of 23.10 makes one point an hour, a 70-column pane in Russian keeps every row within 70 and its `┃`, both surfaces), `tsc` clean. Reverse check: on the old `pace.ts` and `register.tsx` the 4 new tests fail.
+
 ## 2026-10-23 — pace-band 0.15.0: each figure named, the forecast's condition first
 
 **Context.** After the rate fix the owner found the two lines ambiguous as worded and chose the proposed variant A, asking for it shorter, spans without minutes past two hours, and both languages checked. The ambiguities: `запас 16%` read as 16 % of the limit left (94 % was); `кончится Ср 05:13` stood as a fact, with no subject, against the reserve beside it; the basis (`темп за час`) came last, after a `·`, with no figure; `22% времени` named no time.
 
 **Decision** (owner: "Бери А"). Before → after, on the readings of 23.10:
-- `6% лимита · 22% времени · запас 16%` → `потрачено 6% · прошло 22% · ниже графика на 16%`; `6% used · 22% elapsed · 16% under schedule`. Ahead: `выше графика на 12%`, `12% over schedule`; even: `по графику`, `on schedule`.
+- `6% лимита · 22% времени · запас 16%` → `потрачено 6% · прошло 22% · ниже графика на 16%` (`расход` in 0.15.1); `6% used · 22% elapsed · 16% under schedule`. Ahead: `выше графика на 12%`, `12% over schedule`; even: `по графику`, `on schedule`.
 - `→ кончится Ср 05:13 (через 5д 3ч), за 6ч 47м до сброса · темп за час` → `→ при 0,77%/ч (за 1ч 30м) кончится Ср 05:13, на 7ч раньше сброса`; `at 0.77%/h (last 1h 30m) runs out Wed 05:13, 7h before reset`. The `через …` span is dropped: the clock time says it, and `на 7ч раньше сброса` no longer collides with a second `за`.
 - `→ хватит до сброса Ср 12:00 (~19% лимита) · …` → `при 0,12%/ч (за 9ч) хватит до сброса Ср 12:00, будет ~22%`; `at 0.12%/h (last 9h) lasts to reset Wed 12:00, ~22% used by then`. The window's average reads `(среднее)`, `(average)`.
 - The band's warning takes the same words: `7д ниже графика на 30% → кончится Пн 12:00`; `⇡+12` stays for a window over its time.

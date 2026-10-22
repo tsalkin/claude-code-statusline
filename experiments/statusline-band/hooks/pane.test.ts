@@ -167,12 +167,26 @@ describe('pace pane', () => {
       expect(await texts(await band($))).toContain(`7д ниже графика на 30% → кончится ${fmtClock(NOW + 40 * HOUR, NOW, WORDS.ru)}`)
     })
 
+    test(`${surface}: a narrow pane: the bar gives way, no row wider than the pane`, { options: { language: 'ru' } }, async ($, on) => {
+      // 23.10: the words outgrew a bar sized for the old ones, the row wrapped
+      // and the weekly ┃ and a lone · fell out of it.
+      engine(on)
+      await $.session.measure(reading(52, 30))
+      const items = (await texts(await $.ui.mount({ plugin: 'pace-band', surface, component: 'Pane', requestId: 'pace', props: { ...PANE_PROPS, bodyColumns: 70 } }))).split('|')
+      for (const label of ['5ч ', '7д ']) {
+        const start = items.indexOf(label)
+        const end = items.findIndex((x, i) => i > start && x.startsWith('   →'))
+        expect(items.slice(start, end).join('').length).toBeLessThanOrEqual(70)
+        expect(items.slice(start, end)).toContain('┃')
+      }
+    })
+
     test(`${surface}: language ru pinned: the pane and the band in Russian`, { options: { language: 'ru' } }, async ($, on) => {
       engine(on)
       await $.session.measure(reading(52, 30))
       const shown = await texts(await pane($))
       expect(shown).toContain('5ч ')
-      expect(shown).toContain('потрачено 52% · прошло 40% · ')
+      expect(shown).toContain('расход 52% · прошло 40% · ')
       expect(shown).toContain('выше графика на 12%')
       expect(shown).toContain(`при 22%/ч (за 1ч) кончится ${fmtClock(OUT, NOW, WORDS.ru)}, на 49м раньше сброса`)
       expect(shown).toContain('ниже графика на 20%')

@@ -105,6 +105,25 @@ describe('history', () => {
     expect(withReading(old, 'five_hour', 4, NOW + 5 * HOUR, NOW).points).toEqual([{ t: NOW, used: 4 }])
   })
 
+  test('a reading below the last is stale and not stored', () => {
+    // An idle session's last answer, refreshed into the shared store.
+    const saved = five(6, [{ t: NOW - MIN, used: 6 }])
+    expect(withReading(saved, 'five_hour', 4, NOW + 3 * HOUR, NOW)).toBe(saved)
+  })
+
+  test('stale readings already stored do not make a rate', () => {
+    // The owner's weekly history of 23.10 01:33–01:45, the 6s of live sessions
+    // among the 4s, 5s and 1s of idle ones; 6 % first seen at 01:33:31.
+    // Minutes and seconds past 01:00, with now at 01:50; 5 % first seen at 00:33.
+    const at = (m: number, sec: number) => NOW - 50 * MIN + m * MIN + sec * 1000
+    const points = [[-27, 0, 5], [33, 25, 4], [33, 30, 5], [33, 30, 4], [33, 31, 6], [33, 38, 5], [33, 48, 1], [33, 56, 6], [40, 31, 6], [44, 19, 1], [44, 23, 6], [44, 28, 4], [44, 32, 6], [44, 39, 5], [45, 4, 6]]
+      .map(([m, sec, used]) => ({ t: at(m!, sec!), used: used! }))
+    const f = forecastOf({ kind: 'seven_day', used: 6, resetsAt: NOW + 130 * HOUR, points }, NOW)!
+    // From 5 first seen to 6 first seen: one point in an hour, not 10 an hour.
+    expect(Math.round(f.ratePerHour! * 10)).toBe(10)
+    expect(f.rateSince).toBe(at(-27, 0))
+  })
+
   test('the same value within five minutes is not stored again', () => {
     const w = withReading(five(52, [{ t: NOW - MIN, used: 52 }]), 'five_hour', 52, NOW + 3 * HOUR, NOW)
     expect(w.points.length).toBe(1)
