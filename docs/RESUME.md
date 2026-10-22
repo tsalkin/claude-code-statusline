@@ -1,19 +1,21 @@
 # RESUME — where to pick up
 
-Updated 2026-10-19, after the release of pace-band 0.14.0 (`/pace en 20` sets both, either order). `origin/main` = `e0a1691` (the owner pushed it at `/deploy`, checked by `git ls-remote`); local `main` may be docs commits ahead, not pushed on purpose: every push is a new directory version, so docs ride with the next real change. Gate at 0.14.0 in the main working copy: mod 150/150, `tsc` and `validate --strict` clean (line not touched; 69/69 at 0.13.1). Gate at 0.13.1: line 69/69, mod 146/146, `tsc` and the mod's `validate --strict` clean. The day's history is in `docs/DEVLOG.md`, entry of 18.10; older days there too.
+Updated 2026-10-23, after pace-band 0.15.1 (the weekly rate, the words of `/pace`). `origin/main` = `17396d0` (the owner pushed it 23.10, checked by `git ls-remote`). Gate at 0.15.1 in the main working copy: line 69/69, mod 158/158, `tsc` and `validate --strict` clean. The day's history is in `docs/DEVLOG.md`, three entries of 23.10; older days there too.
 
-**Where we are.** Two plugins in the `tsalkin` marketplace. `pace-statusline` (the status line) has been in review in Anthropic's plugin directory since 2026-10-03, with no decision; auto-publish is off, so each push waits there as a new version. `pace-band` 0.14.0 (`/pace` and the band, a Claude Code mod in `experiments/statusline-band/`) installs from GitHub and loads into every session of the owner from this working copy. On 17.10 all eight held ideas of Claude Code 2.1.295–2.1.300 went out:
+**Where we are.** Two plugins in the `tsalkin` marketplace. `pace-statusline` (the status line) has been in review in Anthropic's plugin directory since 2026-10-03, with no decision; auto-publish is off, so each push waits there as a new version. `pace-band` 0.15.1 (`/pace` and the band, a Claude Code mod in `experiments/statusline-band/`) installs from GitHub and loads into every session of the owner from this working copy. On 17.10 all eight held ideas of Claude Code 2.1.295–2.1.300 went out:
 - pace-band 0.10.0: a notification when a window runs out before its reset; a pressable warning row; `weight`; the turn's agents in `/pace`; a toast when an agent starts below its definition.
 - 0.11.0: the quiet hint at the end of the hint line under the prompt.
 - 0.12.0: the agents' share of the turn, in tokens.
 - 0.13.0 (18.10, pushed `f494a9c`): the band, the hint and `/pace` refresh on a timer while the session is idle, every 30 s; `/pace <seconds>` sets it, `/pace 0` turns it off (option `refresh`). The owner's `statusLine` got `"refreshInterval": 30` the same day.
 - 0.13.1 (18.10, pushed `4f8a98d`): `/pace <seconds>` and `/pace en|ru|auto`, once set, also open the pane when it is closed (owner: "запуск команды /pace в первый раз с параметром - должен запускать мод").
 - 0.14.0 (18.10, pushed `e0a1691` at `/deploy` 19.10, checked by `git ls-remote`): a language and seconds in one `/pace`, either order; two of a kind, an unknown word or a period out of range sets nothing. Not seen live yet: whether the second `/config` set lands after the reload the first brings — the owner's first `/pace en 20` in a new session shows it (both answers joined by ` · `, and `/config` shows both).
+- 0.15.0–0.15.1 (23.10, pushed `17396d0`): the weekly forecast's rate runs from one change of the whole percent to the next, not over the last 90 minutes (owner: "вариант 1"); readings below the window's last are stale and dropped (idle sessions refresh their old figures into the shared store); the words name each figure and put the forecast's condition first, `расход 6% · прошло 22% · ниже графика на 16%` / `→ при 0,12%/ч (за 9ч) хватит до сброса Ср 12:00, будет ~22%` (owner: "Бери А", «расход»); spans keep minutes only under two hours; Russian decimal comma; the bar gives way to the words so no row wraps.
 - The line: `compact ~HH:MM` for a session Claude Code compacts when idle, worked out from the documented rule; since `d44fcc4` it keeps `→` when auto-compact is off (Claude Code 2.1.302 checked, owner: "вариант 1").
 
 None of it has been seen live yet.
 
 **Next step.**
+- First of all, the owner opens `/pace` in a new session (0.15.1 loads only there). Two checks, each with what tells it apart: (1) the rows: if the bar gives way, each limit row is one line with its `┃`; if not, `ниже графика на` / `NN%` wrap again and a `·` stands alone. (2) the weekly rate: if stale readings are dropped, the forecast reads a rate near 0.1–0.2 %/h measured over hours (`за 9ч` or so); if they still get in, a rate of several %/h measured over minutes (`за 16м`). 23.10 01:33 and 01:44 were the polluted moments; a pane width under about 70 columns was not seen.
 - First, live checks by the owner (each one a row in the table below, column "Seen by the owner"):
   - the notification;
   - the toast when an agent starts;
@@ -54,6 +56,8 @@ None of it has been seen live yet.
 | The band, the hint and `/pace` refresh on a timer while idle; `/pace <seconds>`, option `refresh` (pace-band 0.13.0); the line's `refreshInterval: 30` in the owner's settings | yes (owner, 18.10: "делай оба и проверь можно ли включить в командную строку /pace параметр обновления в секундах") | yes, 143 mod tests, 11 new, reverse-checked; `/pace` cannot set the line's `refreshInterval` (`$.settings` reads only) | pushed 18.10 (`f494a9c`, by `git ls-remote`) | `/pace 20` run by the owner 18.10: the reply "refresh every 20s", and `refresh: 20` landed in `pluginConfigs.pace-band@inline.options` of `~/.claude/settings.json`; the band and `/pace` moving while idle not seen yet |
 | `/pace` with a parameter also opens the pane when closed, never closes it (pace-band 0.13.1) | yes (owner, 18.10: "запуск команды /pace в первый раз с параметром - должен запускать мод") | yes, 146 mod tests, 2 of the 3 new red on 0.13.0 | pushed 18.10 (`4f8a98d`, by `git ls-remote`) | not yet: `/pace 20` with the pane closed; does the pane outlive the reload the change brings |
 | A paid part (paid version, sponsorship, paid support) | no, for now (owner, 15.10: "сейчас нет"); the answer to the hub's payments letter of 13.10 ("не продаём") stands | — | — | — |
+| Weekly forecast rate from change to change, stale readings dropped (pace-band 0.15.0–0.15.1) | yes (owner, 23.10: "вариант 1") | yes, 158 mod tests, 4+3 new red on the old code | pushed 23.10 (`17396d0`, by `git ls-remote`) | the false `кончится` seen by the owner 23.10 (two screenshots); the fix not seen yet |
+| The words of `/pace`: each figure named, the condition first, `расход`, spans rounded past two hours (pace-band 0.15.0–0.15.1) | yes (owner, 23.10: "Бери А", «расход», минуты только до 2 часов) | yes, both languages, decimal comma in Russian | pushed 23.10 (`17396d0`) | 0.15.0 seen by the owner 23.10 with rows wrapping (fixed in 0.15.1); 0.15.1 not seen yet |
 | Move the folder out of `experiments/` | **open** | — | — | moving it means changing `CLAUDE_CODE_PLUGIN_DIRS` in the owner's settings |
 | Weekly schedule for the hub's novelty watch | **open** (owner) | — | — | — |
 
@@ -63,9 +67,12 @@ None of it has been seen live yet.
 - `/pace` is a pane with each limit window's forecast, the context by category, the fleet, and the turn's agents (press one to view it).
 - A notification and a quiet hint under the prompt.
 
-It speaks English or Russian (`hooks/words.ts`), switched for the mod and the line by `/pace en|ru|auto`. 132 tests. Every new session of the owner loads it (`env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`; remove the variable to unload), so a broken edit in `experiments/statusline-band/` reaches all of them. Work in a worktree, and fast-forward `main` only on a green gate. If the owner installs `pace-band@tsalkin` as well, the mod loads twice; keep one of the two.
+It speaks English or Russian (`hooks/words.ts`), switched for the mod and the line by `/pace en|ru|auto`. 158 tests. Every new session of the owner loads it (`env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`; remove the variable to unload), so a broken edit in `experiments/statusline-band/` reaches all of them. Work in a worktree, and fast-forward `main` only on a green gate. If the owner installs `pace-band@tsalkin` as well, the mod loads twice; keep one of the two.
 
 **Loose ends.**
+- `notified:seven_day` in the mod's store is set for the reset of Wed 28.10 12:00, most likely by the false alarm of 23.10: a real weekly shortage before then gets the band but no notification. Left alone (live sessions write the store); it clears itself at the reset.
+- An idle session's own status line still shows its last answer's limit figures (stale); only the shared history drops them now. Not taken up.
+- `docs/screenshots/pace-pane.png` shows the words before 0.15.0.
 - Linux (Ubuntu 24.04) and Windows 11 Git Bash: the suite has not run there since 2026-09-28.
 - Not seen by eye: the PR link (OSC 8) in Ghostty and Windows Terminal; fitting to width in a narrow window.
 - Screenshots in `docs/screenshots/` predate the newer blocks.
