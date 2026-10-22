@@ -62,6 +62,41 @@ describe('forecast', () => {
     expect(Math.round(f.ahead)).toBe(-20)
     expect(f.runsOutAt).toBeUndefined()
   })
+
+  // The owner's weekly readings of 23.10, in minutes before now, whole percents:
+  // 5 % first seen 525 minutes ago, 6 % 18 minutes ago, 130.6 hours to the reset.
+  const week23 = (): LimitWindow => ({
+    kind: 'seven_day',
+    used: 6,
+    resetsAt: NOW + 130.6 * HOUR,
+    points: [[1064, 4], [525, 4], [525, 5], [453, 5], [213, 5], [103, 5], [80, 5], [40, 5], [22, 5], [18, 6], [13, 6], [1, 6]].map(([m, used]) => ({ t: NOW - m! * MIN, used: used! })),
+  })
+
+  test('a whole-percent tick inside the lookback is not a point an hour', () => {
+    // Read from 80 minutes ago this was 0.75 an hour and ran out with 16 in
+    // reserve; from tick to tick it is one point in 507 minutes.
+    const f = forecastOf(week23(), NOW)!
+    expect(f.rateFrom).toBe('recent')
+    expect(f.rateSince).toBe(NOW - 525 * MIN)
+    expect(Math.round(f.ratePerHour! * 1000)).toBe(Math.round((60 / 507) * 1000))
+    expect(f.runsOutAt).toBeUndefined()
+    expect(Math.round(f.atReset!)).toBe(21)
+  })
+
+  test('since the last tick, no faster than one point in the time gone', () => {
+    // Ten hours on without a new tick: under a point in those ten hours.
+    const w = week23()
+    const later = NOW + 10 * HOUR
+    const f = forecastOf(w, later)!
+    expect(Math.round(f.ratePerHour! * 1000)).toBe(Math.round((60 / (10 * 60 + 18)) * 1000))
+  })
+
+  test('a fresh tick reaches the lookback when the steps are many', () => {
+    // 5-hour readings with tenths: from 30 an hour ago, as before.
+    const f = forecastOf(five(52, [{ t: NOW - 2 * HOUR, used: 24 }, { t: NOW - HOUR, used: 30 }, { t: NOW - 30 * MIN, used: 41 }]), NOW)!
+    expect(f.rateSince).toBe(NOW - HOUR)
+    expect(Math.round(f.ratePerHour!)).toBe(22)
+  })
 })
 
 describe('history', () => {

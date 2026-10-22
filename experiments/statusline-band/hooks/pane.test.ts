@@ -80,7 +80,7 @@ describe('pace pane', () => {
       const shown = await texts(await pane($))
       expect(shown).toContain('52% used · 40% of time · ')
       expect(shown).toContain('12% ahead')
-      expect(shown).toContain(`runs out ${fmtClock(OUT, NOW)} (in 2h 11m), 49m before reset · 1h rate`)
+      expect(shown).toContain(`runs out ${fmtClock(OUT, NOW)} (in 2h 11m), 49m before reset · 1h 00m rate`)
       // Both bars are lines, each with its time mark.
       expect(shown.split('┃')).toHaveLength(3)
     })
@@ -174,7 +174,7 @@ describe('pace pane', () => {
       expect(shown).toContain('5ч ')
       expect(shown).toContain('52% лимита · 40% времени · ')
       expect(shown).toContain('опережение 12%')
-      expect(shown).toContain(`кончится ${fmtClock(OUT, NOW, WORDS.ru)} (через 2ч 11м), за 49м до сброса · темп за час`)
+      expect(shown).toContain(`кончится ${fmtClock(OUT, NOW, WORDS.ru)} (через 2ч 11м), за 49м до сброса · темп за 1ч 00м`)
       expect(shown).toContain('запас 20%')
       expect(shown).toContain(`хватит до сброса ${fmtClock(NOW + 84 * HOUR, NOW, WORDS.ru)} (~60% лимита) · средний темп`)
       for (const english of ['used', 'of time', 'runs out', 'lasts', 'rate', 'ahead', 'to spare']) expect(shown).not.toContain(english)

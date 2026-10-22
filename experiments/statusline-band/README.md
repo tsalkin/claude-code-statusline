@@ -12,9 +12,9 @@ The same as text:
 
 ```
 5h ━━━━━━━━┃━━━━━━━━━━━━━━━━━━━━━━━━━━━━  12% used · 72% of time · 60% to spare
-   → lasts to reset Sun 00:40 (~19% used) · 1h rate
+   → lasts to reset Sun 00:40 (~19% used) · 8h 43m rate
 7d ━━━━━━━━━━━━━━━━━━━━┃━━━━━━━━━━━━━━━━━  19% used · 50% of time · 31% to spare
-   → runs out Tue 21:06 (in 2d 21h), 14h 54m before reset · 1h rate
+   → runs out Tue 21:06 (in 2d 21h), 14h 54m before reset · 1h 30m rate
 
 fleet  3 sessions · last hour $9.50 · 5h window $10.50
   tsalkin-ai              $7.00 74%     $7.00   now   cache cold, 175k to re-cache
@@ -28,7 +28,7 @@ context  95.7k of 1M · 10%
 
 - **Each limit window against its time.** The bar's fill is the share of the limit used, the `┃` is the share of the window's time gone. `to spare` means the limit is spent slower than its time, by that many percent of the limit; `ahead` means faster.
 - **Two palettes per window, by the fact.** In reserve: the 5-hour bar green to cyan, the weekly one blue to violet, and the stretch up to `┃` tinted: that is the reserve. Short: amber or pink up to `┃`, red beyond it: that is the overshoot.
-- **The forecast.** At the last hour's rate (`1h rate`), or the window's average when there is no reading 10–90 minutes old (`avg rate`). Quiet when the limit lasts to its reset; amber when it runs out while still in reserve; red when it runs out and is already short.
+- **The forecast.** At the recent rate, from the change in the last 10–90 minutes or, when the readings in whole percents did not move there, from the last change before it (`8h 43m rate`); or the window's average when there is nothing to measure yet (`avg rate`). Quiet when the limit lasts to its reset; amber when it runs out while still in reserve; red when it runs out and is already short.
 - **The fleet.** Every session on this machine spends the same 5-hour window. With two or more sessions in the window, `/pace` lists them, the one that spent most in the last hour first: what each spent in the last hour (its share of all of them) and in the window, when it last moved, and its prompt cache (warm until when, or cold and how many tokens its next request re-caches). `▸` is this session; the top spender is red when it took half the hour or more, a cold cache amber. The amounts are the sessions' own costs at list price, as `/cost` counts them, so the split is exact even when sessions run at once; the window's limit points are account-wide and cannot be split. The name and the cache come from the [pace-statusline](../../README.md) line; without it a session shows under its project's folder and with no cache.
 - **The agents of the last turn.** Every agent the last turn started, with the model it runs on, where it stands and, once it has ended, the tokens it used (`ispolnitel · opus · done · 1.2M tok  build the parser`). A press on a row opens that agent's transcript in the main view.
 - **The context by category**, as `/context` counts it, estimated locally.
@@ -59,7 +59,7 @@ Claude Code draws the band, the hint under the prompt and `/pace` again only on 
 
 ## Language
 
-English or Russian, for `/pace` and the [pace-statusline](../../README.md) line together, independent of the language Claude answers in. `/pace en`, `/pace ru` or `/pace auto` sets it, as does `/config` → `pace-band.language`, the plugin's `language` option: `auto` (the default) follows Claude Code's own `language` setting. The status line reads the same option from `settings.json`; its own `STATUSLINE_LANG=en|ru` still pins the line alone. In Russian the forecast reads `кончится Вт 21:06 (через 2д 21ч), за 14ч 54м до сброса · темп за час`.
+English or Russian, for `/pace` and the [pace-statusline](../../README.md) line together, independent of the language Claude answers in. `/pace en`, `/pace ru` or `/pace auto` sets it, as does `/config` → `pace-band.language`, the plugin's `language` option: `auto` (the default) follows Claude Code's own `language` setting. The status line reads the same option from `settings.json`; its own `STATUSLINE_LANG=en|ru` still pins the line alone. In Russian the forecast reads `кончится Вт 21:06 (через 2д 21ч), за 14ч 54м до сброса · темп за 1ч 30м`.
 
 ## Install
 

@@ -13,8 +13,8 @@ export const WINDOWS: Readonly<Record<string, { ms: number; label: string }>> = 
   seven_day: { ms: 7 * 24 * HOUR, label: '7d' },
 }
 
-// A recent rate needs a reading at least this old, and no older than the
-// lookback; otherwise the rate is the window's own average.
+// A recent rate is measured over at least this long, from as far back as the
+// lookback when the readings allow; otherwise the rate is the window's own average.
 const RECENT_MIN = 10 * MINUTE
 const RECENT_LOOKBACK = 90 * MINUTE
 
@@ -30,17 +30,41 @@ export type Forecast = {
   // Points per hour, and where that figure comes from.
   ratePerHour?: number
   rateFrom?: 'recent' | 'window'
+  // Where a recent rate is measured from.
+  rateSince?: number
   // When the limit runs out at this rate, if that comes before the reset.
   runsOutAt?: number
   // Projected use at the reset, when the limit lasts that long.
   atReset?: number
 }
 
-function rateOf(w: LimitWindow, now: number): { perMs: number; from: 'recent' | 'window' } | undefined {
-  // Oldest reading inside the lookback that is old enough to measure against.
-  const candidates = w.points.filter(p => now - p.t >= RECENT_MIN && now - p.t <= RECENT_LOOKBACK && p.used <= w.used)
-  const anchor = candidates.reduce<Point | undefined>((a, p) => (a === undefined || p.t < a.t ? p : a), undefined)
-  if (anchor !== undefined) return { perMs: (w.used - anchor.used) / (now - anchor.t), from: 'recent' }
+// When each value was first seen: the history's first reading, each change,
+// and the current value at `now` if no reading holds it yet.
+function firstSightings(w: LimitWindow, now: number): Point[] {
+  const seen: Point[] = []
+  for (const p of w.points) {
+    if (p.used > w.used) continue
+    if (seen[seen.length - 1]?.used !== p.used) seen.push(p)
+  }
+  if (seen[seen.length - 1]?.used !== w.used) seen.push({ t: now, used: w.used })
+  return seen
+}
+
+// The weekly window comes in whole percents: one tick inside the last hour
+// would read as a point an hour, several times the real rate (23.10: 5 → 6
+// after 8.5 hours read as 0.77 an hour, "runs out" with 16 in reserve). So the
+// rate runs from first sighting to first sighting, the moments a value changed,
+// reaching back past the lookback to the tick before when nothing changed in
+// it; and since the last change it is no faster than one point in that time.
+function rateOf(w: LimitWindow, now: number): { perMs: number; from: 'recent' | 'window'; since?: number } | undefined {
+  const seen = firstSightings(w, now)
+  const end = seen[seen.length - 1]!
+  const before = seen.filter(p => end.t - p.t >= RECENT_MIN && p.used < end.used)
+  const anchor = before.find(p => now - p.t <= RECENT_LOOKBACK) ?? before[before.length - 1]
+  if (anchor !== undefined) {
+    const perMs = (end.used - anchor.used) / (end.t - anchor.t)
+    return { perMs: now > end.t ? Math.min(perMs, 1 / (now - end.t)) : perMs, from: 'recent', since: anchor.t }
+  }
 
   const span = WINDOWS[w.kind]?.ms
   if (span === undefined) return undefined
@@ -66,7 +90,7 @@ export function forecastOf(w: LimitWindow, now: number): Forecast | undefined {
 
   const rate = rateOf(w, now)
   if (rate === undefined) return base
-  const withRate = { ...base, ratePerHour: rate.perMs * HOUR, rateFrom: rate.from }
+  const withRate = { ...base, ratePerHour: rate.perMs * HOUR, rateFrom: rate.from, rateSince: rate.since }
   if (rate.perMs <= 0) return { ...withRate, atReset: w.used }
 
   const runsOutAt = now + (100 - w.used) / rate.perMs

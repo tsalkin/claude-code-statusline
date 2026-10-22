@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-23 — The weekly forecast: rate from tick to tick
+
+**Context.** The owner's `/pace` read `7д 6% лимита · 22% времени · запас 16%` over `→ кончится Ср 05:13 (через 5д 3ч), за 6ч 47м до сброса · темп за час`, and asked whether that is a mistake. It was. The weekly window comes in whole percents. The stored readings (`~/.claude/plugins/store/pace-band_inline-6be894aecb28.json`) had 5 % first seen Thu 16:42 and 6 % at Fri 01:09: one point in 8.5 hours, about 0.12 an hour. The rate took the oldest reading 10–90 minutes back (5 % at 00:07), so the one tick inside it read as 0.77 an hour, six times the real one, and that ran out before the reset. Not a chance case: early in a week any tick in the last 90 minutes is at least 0.67 an hour, over 130 hours more than the limit; with no tick the rate is 0 and the forecast says the limit lasts at today's use. It jumped between two wrong answers.
+
+**Decision** (owner: "вариант 1"). The rate runs between first sightings, the moments a value changed: from the earliest one in the lookback to the latest one, and when nothing changed in the lookback, from the change before. Since the latest change it is no faster than one point in the time gone without one. For the owner's readings: one point in 507 minutes, the limit lasts, about 21 % at the reset. The 5-hour readings, in tenths, change at almost every reading, so they keep their old rate. The words for a recent rate name how far back it is measured (`темп за 8ч 43м`, `8h 43m rate`), since it is no longer an hour.
+
+**Gate.** Mod 153/153 (3 new in `pace.test.ts`, the readings of 23.10 among them), `tsc` clean, `validate --strict` passed, line 69/69. Reverse check: on the old `pace.ts` the 3 new tests fail, and so do 4 pane tests that now expect the span.
+
+**Open.** The owner finds the two lines ambiguous as worded; a rewording is proposed, not yet chosen.
+
 ## 2026-10-23 — Claude Code 2.1.307 and 2.1.308: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.308 (`claude --version`); checked here up to 2.1.306 (21.10), so 2.1.307 and 2.1.308 are new. 2.1.308 says only "bug fixes and reliability improvements".

@@ -190,7 +190,7 @@ function paceWords(f: Forecast, w: Words) {
 function forecastWords(f: Forecast, t: number, w: Words) {
   if (f.runsOutAt !== undefined && f.runsOutAt <= t) return w.limitReached
   if (f.ratePerHour === undefined) return w.noForecast
-  const from = f.rateFrom === 'recent' ? w.rateRecent : w.rateWindow
+  const from = f.rateFrom === 'recent' ? w.rateRecent(fmtSpan(t - (f.rateSince ?? t), w)) : w.rateWindow
   if (f.runsOutAt !== undefined) {
     return w.runsOut(fmtClock(f.runsOutAt, t, w), fmtSpan(f.runsOutAt - t, w), fmtSpan(f.resetsAt - f.runsOutAt, w), from)
   }

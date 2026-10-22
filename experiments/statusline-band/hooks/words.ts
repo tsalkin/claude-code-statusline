@@ -26,7 +26,8 @@ export type Words = {
   onPace: string
   limitReached: string
   noForecast: string
-  rateRecent: string
+  // A recent rate, with how far back it is measured.
+  rateRecent: (span: string) => string
   rateWindow: string
   runsOut: (at: string, within: string, before: string, from: string) => string
   lasts: (at: string, pct: string, from: string) => string
@@ -88,7 +89,7 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     onPace: 'on pace',
     limitReached: 'limit reached',
     noForecast: 'no forecast yet: too few readings',
-    rateRecent: '1h rate',
+    rateRecent: span => `${span} rate`,
     rateWindow: 'avg rate',
     runsOut: (at, within, before, from) => `runs out ${at} (in ${within}), ${before} before reset · ${from}`,
     lasts: (at, pct, from) => `lasts to reset ${at} (~${pct}% used) · ${from}`,
@@ -139,7 +140,7 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     onPace: 'по графику',
     limitReached: 'лимит исчерпан',
     noForecast: 'прогноза пока нет: мало замеров',
-    rateRecent: 'темп за час',
+    rateRecent: span => `темп за ${span}`,
     rateWindow: 'средний темп',
     runsOut: (at, within, before, from) => `кончится ${at} (через ${within}), за ${before} до сброса · ${from}`,
     lasts: (at, pct, from) => `хватит до сброса ${at} (~${pct}% лимита) · ${from}`,
