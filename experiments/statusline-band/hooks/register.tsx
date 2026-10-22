@@ -4,7 +4,7 @@ import type { EngineInterface, Register, SessionRateLimit, Timer } from 'claude-
 import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
 import { belowDefinition, familyOf, parseDefinition, tokensOf } from './agents'
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
-import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
+import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
@@ -182,8 +182,8 @@ async function loadContext($: EngineInterface, columns: number) {
 // --- Words for a forecast ---------------------------------------------------
 
 function paceWords(f: Forecast, w: Words) {
-  if (f.ahead >= 1) return w.ahead(fmtPct(f.ahead))
-  if (f.ahead <= -1) return w.toSpare(fmtPct(-f.ahead))
+  if (f.ahead >= 1) return w.ahead(fmtPct(f.ahead, w))
+  if (f.ahead <= -1) return w.toSpare(fmtPct(-f.ahead, w))
   return w.onPace
 }
 
@@ -191,10 +191,11 @@ function forecastWords(f: Forecast, t: number, w: Words) {
   if (f.runsOutAt !== undefined && f.runsOutAt <= t) return w.limitReached
   if (f.ratePerHour === undefined) return w.noForecast
   const from = f.rateFrom === 'recent' ? w.rateRecent(fmtSpan(t - (f.rateSince ?? t), w)) : w.rateWindow
+  const rate = fmtRate(f.ratePerHour, w)
   if (f.runsOutAt !== undefined) {
-    return w.runsOut(fmtClock(f.runsOutAt, t, w), fmtSpan(f.runsOutAt - t, w), fmtSpan(f.resetsAt - f.runsOutAt, w), from)
+    return w.runsOut(rate, from, fmtClock(f.runsOutAt, t, w), fmtSpan(f.resetsAt - f.runsOutAt, w))
   }
-  return w.lasts(fmtClock(f.resetsAt, t, w), fmtPct(f.atReset ?? f.used), from)
+  return w.lasts(rate, from, fmtClock(f.resetsAt, t, w), fmtPct(f.atReset ?? f.used, w))
 }
 
 function labelOf(f: Forecast, w: Words) {
@@ -220,7 +221,7 @@ function toneOf(f: Forecast) {
 }
 
 function warningOf(f: Forecast & { runsOutAt: number }, t: number, w: Words) {
-  const standing = f.ahead >= 1 ? `⇡+${fmtPct(f.ahead)}` : f.ahead <= -1 ? w.toSpare(fmtPct(-f.ahead)) : w.onPace
+  const standing = f.ahead >= 1 ? `⇡+${fmtPct(f.ahead, w)}` : f.ahead <= -1 ? w.toSpare(fmtPct(-f.ahead, w)) : w.onPace
   return `${labelOf(f, w)} ${standing} → ${w.out} ${fmtClock(f.runsOutAt, t, w)}`
 }
 
@@ -435,7 +436,7 @@ async function openPane($: EngineInterface, columns: number) {
 // spent ahead of its time that still lasts; nothing for the rest.
 function hintOf(f: Forecast, t: number, w: Words) {
   if (runsOutEarly(f)) return w.hintOut(labelOf(f, w), fmtClock(f.runsOutAt, t, w))
-  if (f.ahead >= 1) return w.hintAhead(labelOf(f, w), fmtPct(f.ahead), f.atReset === undefined ? undefined : fmtPct(f.atReset))
+  if (f.ahead >= 1) return w.hintAhead(labelOf(f, w), fmtPct(f.ahead, w), f.atReset === undefined ? undefined : fmtPct(f.atReset, w))
   return undefined
 }
 
@@ -626,7 +627,7 @@ export const register: Register = (on, options) => {
                 {c.char}
               </Text>
             ))}
-            <Text>{`  ${w.usedOfTime(fmtPct(f.used), fmtPct(f.elapsed))}`}</Text>
+            <Text>{`  ${w.usedOfTime(fmtPct(f.used, w), fmtPct(f.elapsed, w))}`}</Text>
             <Text color={paletteOf(f).word} weight="semibold">
               {paceWords(f, w)}
             </Text>
@@ -666,7 +667,7 @@ export const register: Register = (on, options) => {
                     {item.color === undefined ? <Text dimColor>■ </Text> : <Text color={item.color}>■ </Text>}
                     <Text>{`${item.name} `}</Text>
                     <Text weight="semibold">{fmtTokens(item.tokens)}</Text>
-                    <Text dimColor>{` ${fmtPct((item.tokens / ctx.max) * 100)}%   `}</Text>
+                    <Text dimColor>{` ${fmtPct((item.tokens / ctx.max) * 100, w)}%   `}</Text>
                   </Box>
                 ))}
               </Box>

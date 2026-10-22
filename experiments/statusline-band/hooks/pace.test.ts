@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import type { ContextSlice, LimitWindow } from '../types'
 import { WORDS, langFrom } from './words'
-import { PACE_COLORS, fmtClock, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, paletteOf, withReading } from './pace'
+import { PACE_COLORS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, paletteOf, withReading } from './pace'
 
 const MIN = 60_000
 const HOUR = 60 * MIN
@@ -117,9 +117,16 @@ describe('formatting', () => {
   })
 
   test('spans', () => {
-    const spans = [45 * MIN, 131 * MIN, 50 * HOUR]
-    expect(spans.map(ms => fmtSpan(ms))).toEqual(['45m', '2h 11m', '2d 2h'])
-    expect(spans.map(ms => fmtSpan(ms, WORDS.ru))).toEqual(['45м', '2ч 11м', '2д 2ч'])
+    // Minutes only under two hours; then to the nearest hour.
+    const spans = [45 * MIN, 60 * MIN, 90 * MIN, 119 * MIN, 131 * MIN, 407 * MIN, 50 * HOUR, 48 * HOUR + 20 * MIN, 123 * HOUR + 40 * MIN]
+    expect(spans.map(ms => fmtSpan(ms))).toEqual(['45m', '1h', '1h 30m', '1h 59m', '2h', '7h', '2d 2h', '2d', '5d 4h'])
+    expect(spans.map(ms => fmtSpan(ms, WORDS.ru))).toEqual(['45м', '1ч', '1ч 30м', '1ч 59м', '2ч', '7ч', '2д 2ч', '2д', '5д 4ч'])
+  })
+
+  test('decimals: a comma in Russian', () => {
+    expect([fmtPct(6.46), fmtPct(6.46, WORDS.ru), fmtPct(16)]).toEqual(['6.5', '6,5', '16'])
+    expect([0.1183, 0.766, 2.14, 22.4].map(n => fmtRate(n))).toEqual(['0.12', '0.77', '2.1', '22'])
+    expect(fmtRate(0.1183, WORDS.ru)).toBe('0,12')
   })
 
   test('a clock time carries the weekday once it is not today', () => {

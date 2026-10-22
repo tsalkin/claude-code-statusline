@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-23 — pace-band 0.15.0: each figure named, the forecast's condition first
+
+**Context.** After the rate fix the owner found the two lines ambiguous as worded and chose the proposed variant A, asking for it shorter, spans without minutes past two hours, and both languages checked. The ambiguities: `запас 16%` read as 16 % of the limit left (94 % was); `кончится Ср 05:13` stood as a fact, with no subject, against the reserve beside it; the basis (`темп за час`) came last, after a `·`, with no figure; `22% времени` named no time.
+
+**Decision** (owner: "Бери А"). Before → after, on the readings of 23.10:
+- `6% лимита · 22% времени · запас 16%` → `потрачено 6% · прошло 22% · ниже графика на 16%`; `6% used · 22% elapsed · 16% under schedule`. Ahead: `выше графика на 12%`, `12% over schedule`; even: `по графику`, `on schedule`.
+- `→ кончится Ср 05:13 (через 5д 3ч), за 6ч 47м до сброса · темп за час` → `→ при 0,77%/ч (за 1ч 30м) кончится Ср 05:13, на 7ч раньше сброса`; `at 0.77%/h (last 1h 30m) runs out Wed 05:13, 7h before reset`. The `через …` span is dropped: the clock time says it, and `на 7ч раньше сброса` no longer collides with a second `за`.
+- `→ хватит до сброса Ср 12:00 (~19% лимита) · …` → `при 0,12%/ч (за 9ч) хватит до сброса Ср 12:00, будет ~22%`; `at 0.12%/h (last 9h) lasts to reset Wed 12:00, ~22% used by then`. The window's average reads `(среднее)`, `(average)`.
+- The band's warning takes the same words: `7д ниже графика на 30% → кончится Пн 12:00`; `⇡+12` stays for a window over its time.
+- Spans (`fmtSpan`, used only by the forecast): minutes under two hours (`45м`, `1ч 30м`); past that, to the nearest hour (`7ч`, `5д 4ч`, `2д`).
+- Russian writes a decimal comma in /pace (`0,12`, `6,5%`; `fmtPct` and the new `fmtRate` take the words). The turn line keeps its dot: it sits beside the status line's `$+0.63`.
+
+**Gate.** Mod 154/154 (`pace.test.ts`: spans, decimals; the pane tests carry the new words in both languages and check that no English word is left in Russian), `tsc` clean, `validate --strict` passed, line 69/69. Version 0.15.0 (0.14.0 before); both READMEs and the mod's README follow the words. The screenshot `docs/screenshots/pace-pane.png` still shows the old words.
+
 ## 2026-10-23 — The weekly forecast: rate from tick to tick
 
 **Context.** The owner's `/pace` read `7д 6% лимита · 22% времени · запас 16%` over `→ кончится Ср 05:13 (через 5д 3ч), за 6ч 47м до сброса · темп за час`, and asked whether that is a mistake. It was. The weekly window comes in whole percents. The stored readings (`~/.claude/plugins/store/pace-band_inline-6be894aecb28.json`) had 5 % first seen Thu 16:42 and 6 % at Fri 01:09: one point in 8.5 hours, about 0.12 an hour. The rate took the oldest reading 10–90 minutes back (5 % at 00:07), so the one tick inside it read as 0.77 an hour, six times the real one, and that ran out before the reset. Not a chance case: early in a week any tick in the last 90 minutes is at least 0.67 an hour, over 130 hours more than the limit; with no tick the rate is 0 and the forecast says the limit lasts at today's use. It jumped between two wrong answers.
@@ -10,7 +24,7 @@ Engineering log: what changed, why, and what bit us. Newest first.
 
 **Gate.** Mod 153/153 (3 new in `pace.test.ts`, the readings of 23.10 among them), `tsc` clean, `validate --strict` passed, line 69/69. Reverse check: on the old `pace.ts` the 3 new tests fail, and so do 4 pane tests that now expect the span.
 
-**Open.** The owner finds the two lines ambiguous as worded; a rewording is proposed, not yet chosen.
+**Open.** The owner found the two lines ambiguous as worded: reworded in 0.15.0, above.
 
 ## 2026-10-23 — Claude Code 2.1.307 and 2.1.308: nothing to change
 

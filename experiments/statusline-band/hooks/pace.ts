@@ -116,19 +116,27 @@ export function fmtTokens(n: number) {
   return `${n}`
 }
 
-export function fmtPct(n: number) {
+// Russian writes a decimal comma.
+export function fmtPct(n: number, w: Pick<Words, 'decimal'> = WORDS.en) {
   const r = Math.round(n * 10) / 10
-  return Number.isInteger(r) || Math.abs(r) >= 10 ? `${Math.round(r)}` : r.toFixed(1)
+  return (Number.isInteger(r) || Math.abs(r) >= 10 ? `${Math.round(r)}` : r.toFixed(1)).replace('.', w.decimal)
 }
 
+// Points an hour: two decimals under one, one under ten, whole above.
+export function fmtRate(n: number, w: Pick<Words, 'decimal'> = WORDS.en) {
+  const digits = n < 1 ? 2 : n < 10 ? 1 : 0
+  return `${+n.toFixed(digits)}`.replace('.', w.decimal)
+}
+
+// Minutes only under two hours; longer spans round to the hour.
 export function fmtSpan(ms: number, w: Pick<Words, 'd' | 'h' | 'm'> = WORDS.en) {
   const m = Math.max(0, Math.round(ms / MINUTE))
-  const d = Math.floor(m / 1440)
-  const h = Math.floor((m % 1440) / 60)
-  const mm = m % 60
-  if (d > 0) return `${d}${w.d} ${h}${w.h}`
-  if (h > 0) return `${h}${w.h} ${String(mm).padStart(2, '0')}${w.m}`
-  return `${mm}${w.m}`
+  if (m < 120) return m >= 60 ? `1${w.h}${m > 60 ? ` ${m - 60}${w.m}` : ''}` : `${m}${w.m}`
+  const hours = Math.round(m / 60)
+  const d = Math.floor(hours / 24)
+  const h = hours % 24
+  if (d === 0) return `${h}${w.h}`
+  return h === 0 ? `${d}${w.d}` : `${d}${w.d} ${h}${w.h}`
 }
 
 // Local clock time; with the weekday once it is not today.

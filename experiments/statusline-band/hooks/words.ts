@@ -17,20 +17,25 @@ export type Words = {
   h: string
   m: string
   s: string
+  // The decimal mark.
+  decimal: string
   days: readonly string[]
   // Limit windows by the kind the engine names them.
   windows: Readonly<Record<string, string>>
+  // A window against its time: used, the share of its time gone, and how far
+  // the use is under or over that share, the ┃ on the bar.
   usedOfTime: (used: string, elapsed: string) => string
   toSpare: (pct: string) => string
   ahead: (pct: string) => string
   onPace: string
   limitReached: string
   noForecast: string
-  // A recent rate, with how far back it is measured.
+  // The forecast puts its condition first: at this rate (measured over the
+  // last span, or the window's average), runs out or lasts.
   rateRecent: (span: string) => string
   rateWindow: string
-  runsOut: (at: string, within: string, before: string, from: string) => string
-  lasts: (at: string, pct: string, from: string) => string
+  runsOut: (rate: string, from: string, at: string, before: string) => string
+  lasts: (rate: string, from: string, at: string, pct: string) => string
   noLimits: string
   context: string
   contextOf: (total: string, max: string, pct: string) => string
@@ -81,18 +86,19 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     h: 'h',
     m: 'm',
     s: 's',
+    decimal: '.',
     days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     windows: { five_hour: '5h', seven_day: '7d' },
-    usedOfTime: (used, elapsed) => `${used}% used · ${elapsed}% of time · `,
-    toSpare: pct => `${pct}% to spare`,
-    ahead: pct => `${pct}% ahead`,
-    onPace: 'on pace',
+    usedOfTime: (used, elapsed) => `${used}% used · ${elapsed}% elapsed · `,
+    toSpare: pct => `${pct}% under schedule`,
+    ahead: pct => `${pct}% over schedule`,
+    onPace: 'on schedule',
     limitReached: 'limit reached',
     noForecast: 'no forecast yet: too few readings',
-    rateRecent: span => `${span} rate`,
-    rateWindow: 'avg rate',
-    runsOut: (at, within, before, from) => `runs out ${at} (in ${within}), ${before} before reset · ${from}`,
-    lasts: (at, pct, from) => `lasts to reset ${at} (~${pct}% used) · ${from}`,
+    rateRecent: span => `last ${span}`,
+    rateWindow: 'average',
+    runsOut: (rate, from, at, before) => `at ${rate}%/h (${from}) runs out ${at}, ${before} before reset`,
+    lasts: (rate, from, at, pct) => `at ${rate}%/h (${from}) lasts to reset ${at}, ~${pct}% used by then`,
     noLimits: 'limits: no data yet (subscription plans only)',
     context: 'context',
     contextOf: (total, max, pct) => `${total} of ${max} · ${pct}%`,
@@ -132,18 +138,19 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     h: 'ч',
     m: 'м',
     s: 'с',
+    decimal: ',',
     days: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
     windows: { five_hour: '5ч', seven_day: '7д' },
-    usedOfTime: (used, elapsed) => `${used}% лимита · ${elapsed}% времени · `,
-    toSpare: pct => `запас ${pct}%`,
-    ahead: pct => `опережение ${pct}%`,
+    usedOfTime: (used, elapsed) => `потрачено ${used}% · прошло ${elapsed}% · `,
+    toSpare: pct => `ниже графика на ${pct}%`,
+    ahead: pct => `выше графика на ${pct}%`,
     onPace: 'по графику',
     limitReached: 'лимит исчерпан',
     noForecast: 'прогноза пока нет: мало замеров',
-    rateRecent: span => `темп за ${span}`,
-    rateWindow: 'средний темп',
-    runsOut: (at, within, before, from) => `кончится ${at} (через ${within}), за ${before} до сброса · ${from}`,
-    lasts: (at, pct, from) => `хватит до сброса ${at} (~${pct}% лимита) · ${from}`,
+    rateRecent: span => `за ${span}`,
+    rateWindow: 'среднее',
+    runsOut: (rate, from, at, before) => `при ${rate}%/ч (${from}) кончится ${at}, на ${before} раньше сброса`,
+    lasts: (rate, from, at, pct) => `при ${rate}%/ч (${from}) хватит до сброса ${at}, будет ~${pct}%`,
     noLimits: 'лимиты: данных пока нет (только при подписке)',
     context: 'контекст',
     contextOf: (total, max, pct) => `${total} из ${max} · ${pct}%`,

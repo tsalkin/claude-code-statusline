@@ -78,9 +78,9 @@ describe('pace pane', () => {
       engine(on)
       await $.session.measure(reading(52, 30))
       const shown = await texts(await pane($))
-      expect(shown).toContain('52% used · 40% of time · ')
-      expect(shown).toContain('12% ahead')
-      expect(shown).toContain(`runs out ${fmtClock(OUT, NOW)} (in 2h 11m), 49m before reset · 1h 00m rate`)
+      expect(shown).toContain('52% used · 40% elapsed · ')
+      expect(shown).toContain('12% over schedule')
+      expect(shown).toContain(`at 22%/h (last 1h) runs out ${fmtClock(OUT, NOW)}, 49m before reset`)
       // Both bars are lines, each with its time mark.
       expect(shown.split('┃')).toHaveLength(3)
     })
@@ -91,9 +91,9 @@ describe('pace pane', () => {
       const ui = await pane($)
       const fiveShort = paletteOf(forecastOf({ kind: 'five_hour', used: 52, resetsAt: NOW + 3 * HOUR, points: [] }, NOW)!)
       const weekSpare = paletteOf(forecastOf({ kind: 'seven_day', used: 30, resetsAt: NOW + 84 * HOUR, points: [] }, NOW)!)
-      expect(await colorOf(ui, '12% ahead')).toBe(fiveShort.word)
+      expect(await colorOf(ui, '12% over schedule')).toBe(fiveShort.word)
       expect(await colorOf(ui, /runs out/)).toBe(PACE_COLORS.out)
-      expect(await colorOf(ui, '20% to spare')).toBe(weekSpare.word)
+      expect(await colorOf(ui, '20% under schedule')).toBe(weekSpare.word)
       // The weekly limit lasts: its forecast stays quiet.
       expect(await colorOf(ui, /lasts to reset/)).toBeUndefined()
     })
@@ -106,7 +106,7 @@ describe('pace pane', () => {
       })
       await $.session.measure(reading(30, 30))
       const ui = await pane($)
-      expect(await colorOf(ui, /runs out .*\(in 3h 30m\)/)).toBe(PACE_COLORS.caution)
+      expect(await colorOf(ui, /at 20%\/h \(last 1h\) runs out/)).toBe(PACE_COLORS.caution)
     })
 
     test(`${surface}: the weekly limit behind pace lasts to its reset`, async ($, on) => {
@@ -114,8 +114,8 @@ describe('pace pane', () => {
       await $.session.measure(reading(52, 30))
       const shown = await texts(await pane($))
       expect(shown).toContain('7d ')
-      expect(shown).toContain('20% to spare')
-      expect(shown).toContain(`lasts to reset ${fmtClock(NOW + 84 * HOUR, NOW)} (~60% used) · avg rate`)
+      expect(shown).toContain('20% under schedule')
+      expect(shown).toContain(`at 0.36%/h (average) lasts to reset ${fmtClock(NOW + 84 * HOUR, NOW)}, ~60% used by then`)
       expect(shown).not.toContain('at this pace')
     })
 
@@ -155,7 +155,7 @@ describe('pace pane', () => {
       await $.session.measure(reading(40, 20))
       const ui = await band($)
       const shown = await texts(ui)
-      expect(shown).toContain(`7d 30% to spare → out ${fmtClock(NOW + 40 * HOUR, NOW)}`)
+      expect(shown).toContain(`7d 30% under schedule → out ${fmtClock(NOW + 40 * HOUR, NOW)}`)
       expect(shown).not.toContain('⇡')
       expect(shown).not.toContain('5h')
       expect(await colorOf(ui, /^7d /)).toBe('yellow')
@@ -164,7 +164,7 @@ describe('pace pane', () => {
     test(`${surface}: the same in Russian`, { options: { language: 'ru' } }, async ($, on) => {
       engine(on, weekInReserve)
       await $.session.measure(reading(40, 20))
-      expect(await texts(await band($))).toContain(`7д запас 30% → кончится ${fmtClock(NOW + 40 * HOUR, NOW, WORDS.ru)}`)
+      expect(await texts(await band($))).toContain(`7д ниже графика на 30% → кончится ${fmtClock(NOW + 40 * HOUR, NOW, WORDS.ru)}`)
     })
 
     test(`${surface}: language ru pinned: the pane and the band in Russian`, { options: { language: 'ru' } }, async ($, on) => {
@@ -172,12 +172,12 @@ describe('pace pane', () => {
       await $.session.measure(reading(52, 30))
       const shown = await texts(await pane($))
       expect(shown).toContain('5ч ')
-      expect(shown).toContain('52% лимита · 40% времени · ')
-      expect(shown).toContain('опережение 12%')
-      expect(shown).toContain(`кончится ${fmtClock(OUT, NOW, WORDS.ru)} (через 2ч 11м), за 49м до сброса · темп за 1ч 00м`)
-      expect(shown).toContain('запас 20%')
-      expect(shown).toContain(`хватит до сброса ${fmtClock(NOW + 84 * HOUR, NOW, WORDS.ru)} (~60% лимита) · средний темп`)
-      for (const english of ['used', 'of time', 'runs out', 'lasts', 'rate', 'ahead', 'to spare']) expect(shown).not.toContain(english)
+      expect(shown).toContain('потрачено 52% · прошло 40% · ')
+      expect(shown).toContain('выше графика на 12%')
+      expect(shown).toContain(`при 22%/ч (за 1ч) кончится ${fmtClock(OUT, NOW, WORDS.ru)}, на 49м раньше сброса`)
+      expect(shown).toContain('ниже графика на 20%')
+      expect(shown).toContain(`при 0,36%/ч (среднее) хватит до сброса ${fmtClock(NOW + 84 * HOUR, NOW, WORDS.ru)}, будет ~60%`)
+      for (const english of ['used', 'elapsed', 'runs out', 'lasts', 'average', 'over schedule', 'under schedule']) expect(shown).not.toContain(english)
       expect(await texts(await band($))).toContain(`5ч ⇡+12 → кончится ${fmtClock(OUT, NOW, WORDS.ru)}`)
     })
 
@@ -185,21 +185,21 @@ describe('pace pane', () => {
       engine(on)
       on('settings.read', () => ({ value: { language: 'Russian' } }))
       await $.session.measure(reading(52, 30))
-      expect(await texts(await pane($))).toContain('опережение 12%')
+      expect(await texts(await pane($))).toContain('выше графика на 12%')
     })
 
     test(`${surface}: auto with no language set is English`, async ($, on) => {
       engine(on)
       on('settings.read', () => ({ value: {} }))
       await $.session.measure(reading(52, 30))
-      expect(await texts(await pane($))).toContain('12% ahead')
+      expect(await texts(await pane($))).toContain('12% over schedule')
     })
 
     test(`${surface}: en pinned wins over a Russian Claude Code`, { options: { language: 'en' } }, async ($, on) => {
       engine(on)
       on('settings.read', () => ({ value: { language: 'ru' } }))
       await $.session.measure(reading(52, 30))
-      expect(await texts(await pane($))).toContain('12% ahead')
+      expect(await texts(await pane($))).toContain('12% over schedule')
     })
 
     test(`${surface}: auto: Claude Code's language changed in /config, the open pane follows`, async ($, on) => {
@@ -208,9 +208,9 @@ describe('pace pane', () => {
       on('config.set', (_, e) => ({ value: e.value }))
       await $.session.measure(reading(52, 30))
       const open = await pane($)
-      expect(await texts(open)).toContain('12% ahead')
+      expect(await texts(open)).toContain('12% over schedule')
       expect(await $.config.set(TO_RUSSIAN)).toEqual({ value: 'Russian' })
-      expect(await texts(open)).toContain('опережение 12%')
+      expect(await texts(open)).toContain('выше графика на 12%')
       expect(await texts(await band($))).toContain(`5ч ⇡+12 → кончится ${fmtClock(OUT, NOW, WORDS.ru)}`)
     })
 
@@ -220,7 +220,7 @@ describe('pace pane', () => {
       on('config.set', () => ({ deny: 'locked' }))
       await $.session.measure(reading(52, 30))
       await $.config.set(TO_RUSSIAN)
-      expect(await texts(await pane($))).toContain('12% ahead')
+      expect(await texts(await pane($))).toContain('12% over schedule')
     })
 
     test(`${surface}: the band's warning is one press away from /pace`, async ($, on) => {

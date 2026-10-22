@@ -1,7 +1,7 @@
 {
   "name": "pace-band",
   "displayName": "Pace Band",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, the fleet (which sessions of the machine spent the 5-hour window, whose cache went cold), the agents of the last turn with their tokens (a press opens one's transcript) and the context by category. The last turn's cost on the status line, with the agents' share of its tokens; a band above the prompt only to act on: a limit that runs out before its reset (with a native notification once per reset), a compact button; a quiet word at the end of the hint line under the prompt for a window ahead of its time; a warning when an agent starts below its definition. The band and /pace refresh on a timer while the session is idle (/pace <seconds>). A Claude Code mod; companion to pace-statusline.",
   "author": {
     "name": "Maxim Tsalkin",
