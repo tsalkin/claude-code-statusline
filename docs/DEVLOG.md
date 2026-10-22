@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-23 — Claude Code 2.1.307 and 2.1.308: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.308 (`claude --version`); checked here up to 2.1.306 (21.10), so 2.1.307 and 2.1.308 are new. 2.1.308 says only "bug fixes and reliability improvements".
+
+**Gate on 2.1.308.** Line 69/69 (`bash tests/run.sh`), mod 150/150 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.308" (regenerated 23.10 01:14), `claude plugin validate --strict` passed.
+
+**Read against the code.**
+- Subagent transcripts no longer record placeholder token usage and an empty stop reason for streamed responses. Seen in the files: the agents' transcripts of 15–16.10 (2.1.296) carry `stop_reason: null` and `output_tokens` of 2, 3, 8 or 16 on every assistant line. Nothing here reads them: the line takes the session's `transcript_path` only for its birth time (`statusline.sh`, session time), `subagent-statusline.sh` reads no transcript, and the mod's agents' share takes `e.usage` from `turn.complete` (`register.tsx`, the `turn.complete` hook), an event, not the file. Whether that event carried the same placeholder before 2.1.307 is not known; the 18.10 reading (`agents 3.2% tok` against an agent of 43.8K tokens by its task notification) does not look like one. The open premise in RESUME stands as written.
+- With `CLAUDE_CODE_DISABLE_1M_CONTEXT` set, a `[1m]` alias no longer fails as model-not-found. The owner's settings and environment do not set it (`grep` of `~/.claude/settings.json`, `env`, 23.10); the line only shortens a `[1m]` tag for display (`subagent-statusline.sh`, `short_model`).
+- Fork subagents launched together are told which launch is their own; tool calls that do not parse are retried up to twice; the `claude_code.safety_event` OpenTelemetry event. None reaches the line or the mod: no OpenTelemetry here, and the mod hears agents by their events, not by how they were launched.
+- Fewer "Autocompact is thrashing" errors in turns heavy with PDFs and images. The `compact ~` mark is worked out from the idle rule and does not depend on it.
+
+**Ideas.** None to build from 2.1.307 or 2.1.308.
+
 ## 2026-10-21 — Claude Code 2.1.305 and 2.1.306: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.306 (`claude --version`); checked here up to 2.1.304 (20.10), so 2.1.305 and 2.1.306 are new.
