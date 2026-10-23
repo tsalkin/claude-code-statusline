@@ -2,6 +2,23 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-23 — Claude Code 2.1.309: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.309 (`claude --version`); checked here up to 2.1.308 (earlier today), so only 2.1.309 is new. A long entry, almost all of it sandbox, permission, VS Code, cloud and Slack fixes.
+
+**Gate on 2.1.309.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, no output) on types "Written by Claude Code 2.1.309" (regenerated 23.10 14:53), `claude plugin validate --strict` passed.
+
+**Read against the code.**
+- A mod's `turn.step` hook that names a model by alias no longer fails every request. The mod has no `turn.step` hook (`grep` of `hooks/`); it reads models only from agent definitions (`agents.ts`, `parseDefinition`) to compare families.
+- Worktrees and checkouts that Claude Code creates now ignore git replace refs. The line already does so for its branch (`statusline.sh`, `git -c core.useReplaceRefs=false … branch --show-current`); Claude Code came to the same rule.
+- `claude remote-control`'s own status line showed `HEAD` outside a git repository. Not this line: `branch --show-current` gives nothing there and `git:()` is not drawn.
+- Long tool output previews no longer cut through an emoji and break `jq` on the transcript. The line reads the transcript only for its birth time (`stat`), never parses it.
+- `/rename` names reach other sessions after a VS Code reload or a non-interactive `--resume`. The fleet in `/pace` takes its names from the payload's `session_name` written by the line (`fleet.ts`, the line's file), not from that channel.
+- A mod's "From the … plugin" label drawn over the menus in VS Code; a clearer error for a hooks module nested too deep. Neither seen here: the owner runs the terminal, and the module loads.
+- `sed -i` now runs as an ordinary Bash command and is not restored by `/rewind`. A habit for edits, not the code.
+
+**Ideas.** None to build from 2.1.309.
+
 ## 2026-10-23 — pace-band 0.15.1: stale readings, a bar that gives way, «расход»
 
 **Context.** Twenty minutes after 0.15.0 the owner's `/pace` read `7д … ниже графика на 17%` over `→ при 10%/ч (за 16м) кончится 10:56, на 5д 1ч раньше сброса`; each row's last words had wrapped (`ниже графика на` / `45%`, a lone `·` on a line of its own) and the weekly bar had lost its `┃`. The owner asked for «расход» in place of «потрачено» and to check the formatting.
