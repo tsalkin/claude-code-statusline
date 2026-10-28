@@ -2,6 +2,52 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-28 — Claude Code 2.1.312: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.312 (`claude --version`); 2.1.311 was checked here on 27.10, so only 2.1.312 is new. Mostly gateway, VS Code, cloud, Slack and agent-view fixes.
+
+**Gate on 2.1.312.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.312", `claude plugin validate --strict` passed for the mod.
+
+**Read against the code.**
+- The status line payload is built as in 2.1.311: the same fields in the same order, `effort:{level:LH(model, effort)}`, `rate_limits` when `five_hour`, `seven_day` or `spend_limit` is there (`strings | grep -F 'effort:{level:'` over both binaries, minified names aside).
+- The spinner, OpenTelemetry and transcripts now name the effort level in force, not one picked mid-task before the model applied it. The status line is not named in that fix, and its payload code did not change, so whether `⚡` shows a level picked mid-task before it applies is not checked; the profile check `(≠…)` compares against the settings, which a mid-task `/effort` changes at once either way.
+- Usage-limit messages call the 5-hour window the "5-hour limit", not the "session limit". The project already says "5-hour" (README, mod comments) and `5h`/`5ч` in the words; "session limit" appears nowhere (`grep -i`, DEVLOG aside).
+- A subagent's `autoCompactWindow` now lowers `CLAUDE_CODE_AUTO_COMPACT_WINDOW`. The line reads neither (`grep`: nothing); `compact ~` is the main session's, from `context_window.context_window_size`, and `subagent-statusline.sh` draws no compaction mark.
+- Prompt and agent hooks now run at most 24 at a time per session. The mod is a module (`hooks/hooks.json`: `{ "modules": ["./register.tsx"] }`), not prompt or agent hooks.
+
+**Ideas.** None to build from 2.1.312.
+
+## 2026-10-27 — Claude Code 2.1.311: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.311 (`claude --version`); 2.1.310 was checked here on 24.10, so only 2.1.311 is new. A long entry, mostly background sessions, MCP, Remote Control, VS Code and cloud fixes.
+
+**Gate on 2.1.311.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.311" (regenerated 27.10 08:14), `claude plugin validate --strict` passed for the mod. The root passes only without `--strict`, on two old warnings: `version` unset on purpose (the directory tracks commits) and a `.DS_Store` on disk, git-ignored and not in the repo; 2.1.310 flags it the same way.
+
+**Read against the code.**
+- `ultrathink` now runs its turn at xhigh effort. The line will not see it: the payload's `effort.level` is built from the model and the session's setting (`effort:{level:IH(model, effort)}` in the 2.1.311 binary), while the boost is a local of the one request (`"xhigh"` → `ultrathink_boost`). So an ultrathink turn reads `⚡high`, with no `(≠…)`: the check shows only a shortfall, and this is a raise.
+- Model ids drop the `[1m]` suffix where it has no effect. The profile check compares families (`haiku|sonnet|opus|fable`), so `"model": "opus[1m]"` in the owner's settings against `claude-opus-5-5` stays quiet. `subagent-statusline.sh` turns `[1m]` into ` 1M` only when it is there, and `belowDefinition` in the mod ranks families too; at worst an agent's label loses its ` 1M`.
+- `DISABLE_COMPACT` in settings files and a mod's `$.env.set` can now only turn compaction off. The line already reads it that way (any truthy `DISABLE_COMPACT` or `DISABLE_AUTO_COMPACT` drops `compact ~`); the mod sets no env (`git grep DISABLE_COMPACT -- experiments`: nothing).
+- Standard-context sessions over 200K now compact instead of stopping on "Usage credits required for 1M context". The line reads the window from `context_window.context_window_size` and the share from `used_percentage`; the fix changes neither.
+- Status line links stay links in background sessions opened from a terminal that supports them. The PR number is an OSC 8 link (`STATUSLINE_LINKS=1`); it now works there too, with nothing to change.
+- `SubagentStop` hooks fired about twice a minute per running agent. Nothing here hooks it (`hooks/hooks.json`); the mod hears agents through turn events.
+
+**Ideas.** None to build from 2.1.311. A mark for a turn raised by `ultrathink` would need a signal the payload does not carry; held.
+
+## 2026-10-24 — Claude Code 2.1.310: nothing to change
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.310 (`claude --version`); 2.1.306–2.1.309 were checked here on 21–23.10, so only 2.1.310 is new. Mostly gateway, sandbox, VS Code, cloud and Slack fixes.
+
+**Gate on 2.1.310.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.310" (regenerated 24.10 10:34), `claude plugin validate --strict` passed.
+
+**Read against the code.**
+- A mod's `Image` now draws inside tmux and in kitty, Ghostty and iTerm2 3.5+ with fullscreen rendering, where it showed only its `alt` text. The mod draws no `Image` (`git grep -w Image` over `hooks/`: nothing); `/pace` is text bars.
+- Background cleanup deleted some recent files when `cleanupPeriodDays` was very large. The owner's settings set no `cleanupPeriodDays` (`grep -c`: 0 in `settings.json` and `settings.local.json`); the line's own file under the config dir is a cache it rebuilds (`.effort-check.json`), and the bridge file lives in `$TMPDIR`.
+- Retry without the `effort-2025-11-24` beta behind gateways that reject it. A request header; the line reads effort from the payload (`.effort.level`), not from it.
+- Compaction after "Prompt is too long" keeping too much dense text; less memory for non-interactive sessions during compaction. Neither changes the payload the line reads or the mod's turn events.
+- Monitor tool on Bedrock, Vertex, Foundry and with telemetry off. The owner runs the first-party API; nothing here waits on a condition.
+
+**Ideas.** None to build from 2.1.310. `Image` now drawing in Ghostty opens a picture in `/pace` (a chart of the week's pace instead of bars) — held, not proposed: the bars already read in a glance, and it would be a new feature, not a fix.
+
 ## 2026-10-23 — Claude Code 2.1.309: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.309 (`claude --version`); checked here up to 2.1.308 (earlier today), so only 2.1.309 is new. A long entry, almost all of it sandbox, permission, VS Code, cloud and Slack fixes.
