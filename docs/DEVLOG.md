@@ -2,6 +2,24 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-30 — Claude Code 2.1.314: idle compaction for everyone, README only
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.314 (`claude --version`); 2.1.312 was checked here on 28.10 and there is no 2.1.313, so only 2.1.314 is new. Mostly gateway, cloud, VS Code, Slack, vim and auto-mode fixes.
+
+**Gate on 2.1.314.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.314", `claude plugin validate --strict` passed for the mod.
+
+**Read against the code.**
+- The status line payload is built as in 2.1.312: around `effort:{level:` the two binaries differ only in version, build time and commit (`strings | grep -F`, minified names masked).
+- **Idle compaction is no longer gated per account for a one-hour cache.** In 2.1.312 the `one_hour` kind took its mode, `minTokens` and `fireAtFraction` (0.5–0.95) from the remote flag `tengu_sunny_locket`, off unless the flag said `compact`. In 2.1.314 it is `rollout:()=>"on"`, the fraction a constant `0.9`, the threshold `max(1e5, CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS ?? 200000)`; only the `keepalive` kind still waits on a flag (`tengu_bubbly_canyon`). The changelog's "also run for subscribers with telemetry turned off" is this: with telemetry off the flag was never fetched. So `compact ~` (expiry − 360 s, 200K, floor 100K, `idleCompaction` and `autoCompactEnabled` off by settings, `DISABLE_COMPACT`/`DISABLE_AUTO_COMPACT`) now matches the rule for every terminal session on a one-hour cache; no code to change. The README's caveat "not on for every account" now holds only before 2.1.314; reworded in both READMEs.
+- The same gate (`i5o`) refuses with `near_limit` when the quota status is not `allowed` (`ki()` = `currentLimits`, e.g. `allowed_warning`); 2.1.312 had it too. The payload's `rate_limits` carries `used_percentage` and `resets_at`, not that status, so near a limit `compact ~` can promise a compaction that will not come. Said in the README; not drawn.
+- VS Code and Desktop now summarize while idle and use the summary on return if the cache has gone cold. Neither draws the status line.
+- `/rename`'s name no longer vanishes during a permission or plan prompt. The line shows `session_name`; nothing to change.
+- `FORCE_HYPERLINK=false` now turns hyperlinks off. The line's PR link is its own `STATUSLINE_LINKS`; it reads no `FORCE_HYPERLINK` (`git grep`: nothing).
+- The Bash tool's shell drops inherited `which` functions; hook `if` on `Monitor(...)` matches like `Bash(...)`; Bash hooks now see Monitor's commands. The line uses no `which`, the mod is a module with no `if` hooks.
+- `permissions.blockWritesOutsideWorkingDirectories` stops Write/Edit/NotebookEdit outside the working directories. The mod's bridge file in `$TMPDIR` is written by its own code, not by those tools.
+
+**Ideas.** None to build. `near_limit` could be guessed from `rate_limits.*.used_percentage`, but the warning threshold is the server's (`surpassedThreshold`), not in the payload; a guess would trade one wrong mark for another. Held.
+
 ## 2026-10-28 — Claude Code 2.1.312: nothing to change
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.312 (`claude --version`); 2.1.311 was checked here on 27.10, so only 2.1.312 is new. Mostly gateway, VS Code, cloud, Slack and agent-view fixes.
