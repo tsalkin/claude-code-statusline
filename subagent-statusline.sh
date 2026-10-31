@@ -14,9 +14,10 @@
 # the project's `.claude/agents/`) names a model and an effort is held to them. A
 # model of another family than the definition's gets "(≠opus)", red when smaller
 # (haiku < sonnet < opus); an effort below the definition's a red "(≠high)". With no
-# effort in the definition, the effort is held to `effortLevel` in settings.json, as
-# in the main status line. No effort in the row data means the subagent inherits the
-# session's level ("⚡inh").
+# effort in the definition, the effort is held to CLAUDE_CODE_SUBAGENT_EFFORT when it
+# is set (Claude Code 2.1.316: the level such an agent runs at), else to `effortLevel`
+# in settings.json, as in the main status line. No effort in the row data means the
+# subagent inherits the session's level ("⚡inh").
 #
 # Requires: bash, jq 1.6+. Settings: the same config file and variables as statusline.sh.
 #
@@ -43,16 +44,20 @@ NOW="${STATUSLINE_NOW:-$(date +%s)}"
 
 # One jq for the settings this script reads: the configured effort, Claude Code's
 # language and the kit's (the pace-band mod's `language` option, as in statusline.sh).
-effort_want="" cc_language="" kit_language=""
+# The agents' default effort comes last: a free-form value, it cannot shift the others.
+effort_want="" cc_language="" kit_language="" agent_effort=""
 if [ -f "$CLAUDE_DIR/settings.json" ]; then
-    IFS='|' read -r effort_want cc_language kit_language < <(jq -r \
+    IFS='|' read -r effort_want cc_language kit_language agent_effort < <(jq -r \
         '[.effortLevel, .language,
           ([.pluginConfigs | objects | to_entries[] | select(.key | test("^pace-band(@|$)"))
-            | .value | objects | .options | objects | .language | strings][0] // "")]
+            | .value | objects | .options | objects | .language | strings][0] // ""),
+          ((.env | objects | .CLAUDE_CODE_SUBAGENT_EFFORT) // null)]
          | map(if type == "string" then . else "" end) | join("|")' \
         "$CLAUDE_DIR/settings.json" 2>/dev/null)
 fi
 [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || effort_want=""
+# The environment wins: a value there is the one Claude Code itself holds.
+agent_effort="${CLAUDE_CODE_SUBAGENT_EFFORT-$agent_effort}"
 
 # The subagent definitions' model and effort, by type: the user's, then the
 # project's, which win (as Claude Code picks them). A file without `name:` goes by
@@ -102,6 +107,7 @@ WORDS
 printf '%s' "$input" | jq -c \
     --argjson now "$NOW" \
     --arg want "$effort_want" \
+    --arg agent_effort "$agent_effort" \
     --argjson defs "$agent_defs" \
     --arg effort_check "$STATUSLINE_SHOW_EFFORT_CHECK" \
     --arg model_check "$STATUSLINE_SHOW_MODEL_CHECK" \
@@ -143,7 +149,12 @@ def effort_color:
     if . == "low" then "32" elif . == "medium" then "36" elif . == "high" then "33"
     elif . == "xhigh" or . == "max" then "35" else "0" end;
 
-(.columns // 0) as $cols
+# As Claude Code reads CLAUDE_CODE_SUBAGENT_EFFORT: any case, spaces around, `med` for
+# medium. `inherit` or an unknown word is no level, and `rank` below drops it.
+($agent_effort | ascii_downcase | gsub("^[ \t\r\n]+|[ \t\r\n]+$"; "")
+ | if . == "med" then "medium" else . end) as $agent_default
+
+| (.columns // 0) as $cols
 | .tasks[]?
 | select((.model // "") != "")
 | . as $t
@@ -180,8 +191,11 @@ def effort_color:
 | (if $e == null then sgr("2") + "⚡" + $inh + off
    elif ($e | type) == "number" then sgr("36") + "⚡" + ($e | kilo) + off
    else sgr($e | clean | effort_color) + "⚡" + ($e | clean) + off end) as $eff
-# held to the effort of the definition when it names one, else to effortLevel
-| (if rank($def.effort // "") != null then $def.effort else $want end) as $ewant
+# held to the effort of the definition when it names one, else to the default for
+# agents when one is set, else to effortLevel
+| (if rank($def.effort // "") != null then $def.effort
+   elif rank($agent_default) != null then $agent_default
+   else $want end) as $ewant
 | (if $effort_check == "1" and ($e | type) == "string" and rank($e) != null and rank($ewant) != null
        and rank($e) < rank($ewant)
    then sgr("31") + "(≠" + $ewant + ")" + off else "" end) as $check

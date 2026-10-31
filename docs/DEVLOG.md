@@ -2,6 +2,31 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-10-31 — Claude Code 2.1.316: the agent rows follow `CLAUDE_CODE_SUBAGENT_EFFORT`
+
+**Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.316 (`claude --version`); 2.1.314 was checked here on 30.10, and there is no 2.1.315 in the changelog, so only 2.1.316 is new. The hub's digest counts eight versions from its own fleet-wide mark, not from this project's. The API and apps notes of 21–30.10 (Usage and Cost Analytics API, API version `2026-10-21`, fast mode for Opus 4.8 going away, Claude Duet) touch nothing here: the line makes no network call (guard test `no-network`), and it reads no fast-mode field.
+
+**Gate on 2.1.316.** Line 69/69 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.316", `claude plugin validate --strict` passed for the mod.
+
+**Read against the code.**
+- The status line payload is built as in 2.1.314: 4300 characters around `effort:{level:`, minified names masked, differ only in version, build time and commit.
+- **`CLAUDE_CODE_SUBAGENT_EFFORT` makes a false red in the agent rows, for whoever sets it.** It applies when the definition names no effort, no permission layer does, and the agent is not a fork (`ePo` in `yzn`); the level is merged into the definition, and the task takes it (`effort:w.effort`), so the row's `effort` carries it. `subagent-statusline.sh:184` holds such an agent to `effortLevel`, and it does not read the variable. Reproduced on the real script: row `effort: "medium"`, `effortLevel: high`, variable set: `⚡medium(≠high)` in red, the same with and without it. The owner's settings do not set it (`jq` over `env`), so nothing shows today. Fixed the same day, below.
+- `tengu_harmonic_riddle` lowers an agent's effort by a remote flag when nothing names one. Not new, in 2.1.314 too; `null` in the owner's `cachedGrowthBookFeatures`. A row lowered that way would read `(≠high)`, which there is true.
+- **Idle compaction's code moved; the rule did not.** `rollout:()=>"on"` is gone from the binary, which looked like a change to the rule under `compact ~`. It is the `keepalive` kind and its flag `tengu_bubbly_canyon` being removed: one rule remains, with the same `200000`, floor `1e5`, fraction `0.9`, `lastActivityAt+(expiresAt-lastActivityAt)*0.9`, `ttl === "1h"`, and the same `near_limit` refusal. `compact ~` stands as it is.
+- The mod's types and the long form of the plugin-authoring skill, unpacked from both binaries (`.txt.zst` in the program; Node's `zlib.createZstdDecompress` scanning for the zstd magic; `claude plugin test` does not write the types, so an old binary in a copy of the mod gives none). Types: wording only, nothing to take. New in the guide, section "What a thread has sent is fixed": a changed `tool.describe` or `prompt.section` answer loses the thinking and the prompt cache. The mod invalidates only `ui.render` (`register.tsx:395`) and has neither hook; nothing to change.
+- `$.prompt.media` no longer needs a managed install. The mod reads no media.
+- A sub-agent that inherited its parent sub-agent's model no longer moves to the main model when woken. The rows read the model from the task, so a false `(≠model)` of that kind goes away by itself; it was not seen here.
+- `CLAUDE_CODE_DISABLE_ULTRATHINK`: the line never saw `ultrathink` (DEVLOG 27.10), nothing to change.
+- `/model <id>` now warns that an unknown model gets a 200K window. The line reads `context_window.context_window_size`; nothing to change.
+
+**The fix** (owner: "А"). An agent with no effort in its definition is held to the variable when it names a level, else to `effortLevel`; the definition still wins (`subagent-statusline.sh`, `$ewant`). The value comes from the environment, else from `env` in `settings.json`, read last in the script's one jq so a free-form value cannot shift the language fields. It is spelled as Claude Code takes it (`HD`: trimmed, any case, `med` for medium); `inherit`, an unknown word or an empty value are no level and leave `effortLevel`, as they leave the engine inheriting. The row's own `⚡` shows the level as before. In a worktree; line 70/70, the 69 goldens that were there unchanged, `tests/expected/subagents-agent-default.txt` read row by row, and the new case red on the old script (`STATUSLINE_SUB_SCRIPT`). The mod is untouched, its gate stands from the check above. Not pushed: a push is a new version in the directory, so it waits for the next release.
+
+**Not settled.** Whether the variable reaches this script's environment: the command gets `{...$o(), …}` with `extendEnv: false`, and `$o` is not resolved in the minified code. Reading `settings.json` too covers the usual place. Set only in the shell, and if `$o` does not pass it, the false red stays.
+
+**What bit us.** A `'` in a comment inside the jq program closes bash's quote (`the agents' default`): the script printed nothing, and `tests/run.sh --update` wrote that nothing into five goldens at once. Restored from git. `--update` overwrites without judging: after a code change run the plain tests first, and use `--update` only for a new case's golden, with `git status tests/expected` showing nothing else moved.
+
+**Ideas.** As a fleet setting the variable would give every agent without a level one default, but the fleet picks the level by who checks the result (global `CLAUDE.md`), and today such an agent inherits the base, so it is the hub's question, not this project's.
+
 ## 2026-10-30 — Claude Code 2.1.314: idle compaction for everyone, README only
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.314 (`claude --version`); 2.1.312 was checked here on 28.10 and there is no 2.1.313, so only 2.1.314 is new. Mostly gateway, cloud, VS Code, Slack, vim and auto-mode fixes.

@@ -536,6 +536,33 @@ jq '.tasks += [{"id": "a8", "type": "local_agent", "agentType": "ispolnitel", "s
 check subagents-profile "$(render_sub "$CASE_ROOT/payload.json")
 $(render_sub "$CASE_ROOT/payload.json" STATUSLINE_SHOW_MODEL_CHECK=0 STATUSLINE_SHOW_EFFORT_CHECK=0)"
 
+# CLAUDE_CODE_SUBAGENT_EFFORT (Claude Code 2.1.316) is what an agent with no effort
+# in its definition runs at, so it replaces effortLevel as that agent's measure: from
+# the environment, else from `env` in the settings; spelled as Claude Code takes it;
+# `inherit` or an unknown word leave effortLevel. The definition's effort still wins,
+# and an agent below the new level stays red. Settings: xhigh. a2 runs low, a5 high.
+new_case subagents-agent-default; make_settings
+mkdir -p "$CASE_ROOT/home/.claude/agents"
+printf -- '---\nname: mekhanik\neffort: high\n---\n' > "$CASE_ROOT/home/.claude/agents/mekhanik.md"
+jq '.tasks |= map(select(.id == "a2" or .id == "a5"))' "$FIX/subagents.json" > "$CASE_ROOT/payload.json"
+agent_rows() {
+    render_sub "$CASE_ROOT/payload.json" "$@" | jq -r '.content | gsub("\u001b\\[[0-9;]*m"; "")' \
+        | awk -F' · ' '{ printf "%s%s", (NR > 1 ? " | " : ""), $2 }'
+}
+out="plain: $(agent_rows)"
+for v in medium max ' HIGH ' med inherit nonsense ''; do
+    out="$out
+env [$v]: $(agent_rows "CLAUDE_CODE_SUBAGENT_EFFORT=$v")"
+done
+jq '.env.CLAUDE_CODE_SUBAGENT_EFFORT = "high"' "$FIX/settings.json" > "$CASE_ROOT/home/.claude/settings.json"
+out="$out
+settings [high]: $(agent_rows)
+settings [high], env [medium]: $(agent_rows CLAUDE_CODE_SUBAGENT_EFFORT=medium)"
+jq '.env = "not an object"' "$FIX/settings.json" > "$CASE_ROOT/home/.claude/settings.json"
+out="$out
+settings env broken: $(agent_rows)"
+check subagents-agent-default "$out"
+
 # Fleet: with the mod's turn file there, the line writes this session's name and
 # prompt cache for /pace, as JSON that stays valid with a quote, a backslash and a
 # tab in the name; no turn file, or STATUSLINE_SHARE_FLEET=0: nothing written.

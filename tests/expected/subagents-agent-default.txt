@@ -1,0 +1,11 @@
+plain: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠xhigh)
+env [medium]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high
+env [max]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠max)
+env [ HIGH ]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high
+env [med]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high
+env [inherit]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠xhigh)
+env [nonsense]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠xhigh)
+env []: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠xhigh)
+settings [high]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high
+settings [high], env [medium]: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high
+settings env broken: sonnet-5 ⚡low(≠high) | opus-5-5 1M ⚡high(≠xhigh)
