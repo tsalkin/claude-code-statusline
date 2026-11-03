@@ -15,8 +15,11 @@
 # model of another family than the definition's gets "(≠opus)", red when smaller
 # (haiku < sonnet < opus); an effort below the definition's a red "(≠high)". With no
 # effort in the definition, the effort is held to CLAUDE_CODE_SUBAGENT_EFFORT when it
-# is set (Claude Code 2.1.316: the level such an agent runs at), else to `effortLevel`
-# in settings.json, as in the main status line. No effort in the row data means the
+# is set (Claude Code 2.1.316: the level such an agent runs at), else to the level
+# saved for the agent's model (`modelSettings.<model>.effortLevel` in settings.json;
+# Claude Code 2.1.317 runs such an agent at it), else, for the older models that still
+# take it, to `effortLevel`. A current model with no saved level runs at its own
+# default, which the rows do not know: no check. No effort in the row data means the
 # subagent inherits the session's level ("⚡inh").
 #
 # Requires: bash, jq 1.6+. Settings: the same config file and variables as statusline.sh.
@@ -58,6 +61,15 @@ fi
 [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || effort_want=""
 # The environment wins: a value there is the one Claude Code itself holds.
 agent_effort="${CLAUDE_CODE_SUBAGENT_EFFORT-$agent_effort}"
+# The level saved for each model, by model id ({"claude-opus-5-5": "high"}).
+model_efforts='{}'
+if [ -f "$CLAUDE_DIR/settings.json" ]; then
+    model_efforts=$(jq -c '[.modelSettings | objects | to_entries[]
+        | {key: (.key | ascii_downcase | sub("\\[1m\\]$"; "") | sub("-[0-9]{8}$"; "")),
+           value: (.value | objects | .effortLevel | strings)}] | from_entries' \
+        "$CLAUDE_DIR/settings.json" 2>/dev/null) || model_efforts='{}'
+    [ -n "$model_efforts" ] || model_efforts='{}'
+fi
 
 # The subagent definitions' model and effort, by type: the user's, then the
 # project's, which win (as Claude Code picks them). A file without `name:` goes by
@@ -108,6 +120,7 @@ printf '%s' "$input" | jq -c \
     --argjson now "$NOW" \
     --arg want "$effort_want" \
     --arg agent_effort "$agent_effort" \
+    --argjson model_efforts "$model_efforts" \
     --argjson defs "$agent_defs" \
     --arg effort_check "$STATUSLINE_SHOW_EFFORT_CHECK" \
     --arg model_check "$STATUSLINE_SHOW_MODEL_CHECK" \
@@ -125,6 +138,15 @@ def rank(x): [range(0; 5) | select(scale[.] == x)] | .[0];
 def clean: tostring | gsub("[\u0001-\u001f\u007f]+"; " ");
 
 # "claude-haiku-4-5-20251001" → "haiku-4-5", "claude-opus-5-5[1m]" → "opus-5-5 1M"
+# "claude-opus-5-5[1m]" → "claude-opus-5-5": the id `modelSettings` is keyed by
+def model_key: ascii_downcase | sub("\\[1m\\]$"; "") | sub("-[0-9]{8}$"; "");
+# The models Claude Code 2.1.317 still holds to the top-level `effortLevel` of the
+# user settings (its legacy list); a newer one takes its own saved level or default.
+def legacy_effort_models: ["claude-3-5-haiku", "claude-3-5-sonnet", "claude-3-7-sonnet",
+    "claude-haiku-4-5", "claude-sonnet-4-0", "claude-sonnet-4-5", "claude-sonnet-4-6",
+    "claude-sonnet-5", "claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-5",
+    "claude-opus-4-6", "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5",
+    "claude-fable-5", "claude-fable-5-1", "claude-mythos-5", "claude-mythos-5-1"];
 def short_model: clean | sub("^claude-"; "") | sub("-[0-9]{8}$"; "") | sub("\\[1m\\]$"; " 1M");
 def kilo: if . >= 1000000 then "\((. / 100000 | floor) / 10)M"
           elif . >= 1000 then "\(. / 1000 | floor)K" else tostring end;
@@ -192,10 +214,14 @@ def effort_color:
    elif ($e | type) == "number" then sgr("36") + "⚡" + ($e | kilo) + off
    else sgr($e | clean | effort_color) + "⚡" + ($e | clean) + off end) as $eff
 # held to the effort of the definition when it names one, else to the default for
-# agents when one is set, else to effortLevel
+# agents when one is set, else to the level saved for the model of the agent, else, for
+# an older model, to effortLevel; else to nothing (the own default of the model)
+| ($t.model | model_key) as $mkey
 | (if rank($def.effort // "") != null then $def.effort
    elif rank($agent_default) != null then $agent_default
-   else $want end) as $ewant
+   elif rank($model_efforts[$mkey] // "") != null then $model_efforts[$mkey]
+   elif (legacy_effort_models | index($mkey)) != null then $want
+   else "" end) as $ewant
 | (if $effort_check == "1" and ($e | type) == "string" and rank($e) != null and rank($ewant) != null
        and rank($e) < rank($ewant)
    then sgr("31") + "(≠" + $ewant + ")" + off else "" end) as $check

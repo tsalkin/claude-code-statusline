@@ -1,0 +1,3 @@
+saved: sonnet-5-5 ⚡medium(≠high) | sonnet-5-5 ⚡high | opus-5-5 1M ⚡high(≠xhigh) | haiku-5-5 ⚡low | fable-5-1 ⚡medium(≠high) | opus-4-8 ⚡medium(≠high) | mystery-9 ⚡low | sonnet-5-5 ⚡medium(≠high)
+env [low]: sonnet-5-5 ⚡medium | sonnet-5-5 ⚡high | opus-5-5 1M ⚡high | haiku-5-5 ⚡low | fable-5-1 ⚡medium | opus-4-8 ⚡medium | mystery-9 ⚡low | sonnet-5-5 ⚡medium(≠high)
+broken: sonnet-5-5 ⚡medium | sonnet-5-5 ⚡high | opus-5-5 1M ⚡high | haiku-5-5 ⚡low | fable-5-1 ⚡medium(≠high) | opus-4-8 ⚡medium(≠high) | mystery-9 ⚡low | sonnet-5-5 ⚡medium(≠high)

@@ -563,6 +563,38 @@ out="$out
 settings env broken: $(agent_rows)"
 check subagents-agent-default "$out"
 
+# Claude Code 2.1.317: an agent with no effort of its own runs at the level saved for
+# its model (`modelSettings`), else, on an older model, at the top-level effortLevel,
+# else at the default of its model, which the rows do not know: no check. The
+# definition and CLAUDE_CODE_SUBAGENT_EFFORT still come first.
+new_case subagents-model-level
+mkdir -p "$CASE_ROOT/home/.claude/agents"
+printf -- '---\nname: ispolnitel\neffort: high\n---\n' > "$CASE_ROOT/home/.claude/agents/ispolnitel.md"
+jq '.effortLevel = "high" | .modelSettings = {"claude-sonnet-5-5": {"effortLevel": "high"},
+      "Claude-Opus-5-5[1m]": {"effortLevel": "xhigh"}, "claude-haiku-5-5": {"effortLevel": "turbo"},
+      "claude-fable-5-1": "not an object"}' "$FIX/settings.json" > "$CASE_ROOT/home/.claude/settings.json"
+row() { printf '{"id":"m","type":"local_agent","status":"running","name":"%s","model":"%s","effort":"%s","contextWindowSize":200000,"tokenCount":1000}' "$1" "$2" "$3"; }
+printf '{"columns":200,"tasks":[%s,%s,%s,%s,%s,%s,%s,%s]}' \
+    "$(row general-purpose claude-sonnet-5-5 medium)" \
+    "$(row general-purpose claude-sonnet-5-5-20261001 high)" \
+    "$(row general-purpose 'claude-opus-5-5[1m]' high)" \
+    "$(row general-purpose claude-haiku-5-5 low)" \
+    "$(row general-purpose claude-fable-5-1 medium)" \
+    "$(row general-purpose claude-opus-4-8 medium)" \
+    "$(row general-purpose claude-mystery-9 low)" \
+    "$(row ispolnitel claude-sonnet-5-5 medium)" > "$CASE_ROOT/payload.json"
+model_rows() {
+    render_sub "$CASE_ROOT/payload.json" "$@" | jq -r '.content | gsub("\u001b\\[[0-9;]*m"; "")' \
+        | awk -F' · ' '{ printf "%s%s", (NR > 1 ? " | " : ""), $2 }'
+}
+out="saved: $(model_rows)
+env [low]: $(model_rows CLAUDE_CODE_SUBAGENT_EFFORT=low)"
+jq '.modelSettings = "broken"' "$CASE_ROOT/home/.claude/settings.json" > "$CASE_ROOT/s.json" \
+    && mv "$CASE_ROOT/s.json" "$CASE_ROOT/home/.claude/settings.json"
+out="$out
+broken: $(model_rows)"
+check subagents-model-level "$out"
+
 # Fleet: with the mod's turn file there, the line writes this session's name and
 # prompt cache for /pace, as JSON that stays valid with a quote, a backslash and a
 # tab in the name; no turn file, or STATUSLINE_SHARE_FLEET=0: nothing written.
