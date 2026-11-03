@@ -2,6 +2,23 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-03 — Claude Code 2.1.317: an agent on another model runs at that model's level
+
+**Context.** The owner asked again what the new releases change, what the project could use, and to pass anything urgent for other projects to the hub. Installed: 2.1.317 (`claude --version`); 2.1.316 was checked here on 31.10, so only 2.1.317 is new. The platform note of 02.11 (message threads, beta) touches nothing here: the line makes no network call.
+
+**Gate on 2.1.317.** Line 70/70 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean, `claude plugin validate --strict` passed. The status line payload is built as in 2.1.316 (around `effort:{level:`, minified names masked: only version, build time and commit differ).
+
+**Read against the code.**
+- **The agent rows go red on an agent Claude Code lowers on purpose.** Changelog: subagents on a different model from the main conversation use that model's saved effort level or its default, not the session's. In the code (`Gqn`, `odt`): when the session's effort is an explicit level (`/effort`, `/model` with a level, `--effort`) and the agent's model id differs from the session's (full id, not family), the session level is dropped to `inherit`, and the per-model table decides (`t9e`, `Nro`): `modelSettings.<model>.effortLevel`, else the model's default. The user-settings `effortLevel` is the table's `legacyUserEffort` and applies only to older models (the `Ie` list: `claude-opus-4-*`, `claude-sonnet-5`, `claude-fable-5`, `claude-fable-5-1`…), not to `claude-sonnet-5-5` or `claude-haiku-5-5`. For sessions that inherit their level from settings this was already so in 2.1.316 (`il(o,n)` with the agent's model). Catalog defaults in 2.1.317: Haiku 5.5 medium, Sonnet 5.5 medium, Opus 5.5 medium, Fable 5.1 high. The owner's `modelSettings` pins Opus 5 and 5.5 to high, Fable 5 and 5.1 to xhigh, nothing for Sonnet 5.5 or Haiku 5.5. So a `general-purpose` agent on Sonnet 5.5 with no level anywhere runs at medium, and `subagent-statusline.sh` holds it to `effortLevel`: reproduced on the real script, `general-purpose · sonnet-5-5 ⚡medium(≠high)` in red. A Fable agent runs at xhigh and reads fine (only lower is red). `ispolnitel` and `mekhanik` name their level; `Explore` and `Plan` run on the session's model (`model:"inherit"`); neither is touched. Not fixed: the owner's decision (below).
+- The account-email check (flag `tengu_wise_newt`) looks at a Bash, Monitor, WebFetch or WebSearch call's input for the account's address next to a network word. The line and the mod send nothing; the fleet's `mirror-to-drive.sh` holds the address inside the script, not in the call.
+- The Read tool no longer stubs an unchanged file. The mod reads no files through tools.
+- `Changed exit to skip the "Background work is running" prompt for plugin monitors`: the mod has no monitor.
+- A project's `effortLevel` ignored by sessions an app starts ahead (desktop Code tab): the line reads the payload's `effort.level`, not the setting, for what the session runs at.
+
+**Passed to the hub** (letter `2026-11-03__claude-code-statusline__to__hub__cc-2-1-317-uroven-agentov-po-modeli.md`, `asks: decision`, knocked): ad-hoc agents on Sonnet or Haiku now run at medium, against the fleet's "high when the result goes to the owner"; four options for the fleet; the email check, SendMessage arriving earlier, Ctrl+C no longer stopping background agents, Read without the stub and message threads as information. The hub's `cc-watch.py --mark` not touched.
+
+**Not settled.** No live agent was started to see the row: the launch gate needs the owner. Whether `Fas` (the legacy test) also covers a model missing from the catalog was not read through (its helpers' minified names collide).
+
 ## 2026-10-31 — Claude Code 2.1.316: the agent rows follow `CLAUDE_CODE_SUBAGENT_EFFORT`
 
 **Context.** The owner asked again what the new releases change and what the project could use. Installed: 2.1.316 (`claude --version`); 2.1.314 was checked here on 30.10, and there is no 2.1.315 in the changelog, so only 2.1.316 is new. The hub's digest counts eight versions from its own fleet-wide mark, not from this project's. The API and apps notes of 21–30.10 (Usage and Cost Analytics API, API version `2026-10-21`, fast mode for Opus 4.8 going away, Claude Duet) touch nothing here: the line makes no network call (guard test `no-network`), and it reads no fast-mode field.
