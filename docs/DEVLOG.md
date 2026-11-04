@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-04 — Claude Code 2.1.318: nothing to change
+
+**Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent for other projects to the hub. Installed: 2.1.318 (`claude --version`, binary dated 04.11 08:04); 2.1.316 and 2.1.317 were checked here on 31.10 and 03.11, so only 2.1.318 is new. The hub's answer to the 03.11 letter has not come.
+
+**Gate on 2.1.318.** Line 71/71 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.318", `claude plugin validate --strict` passed. Plain `npx tsc` fails with "This is not the tsc command you are looking for": the project has no `package.json`, so the `-p typescript` form is the one to use. The status line payload is built as in 2.1.317: 6000 characters around `effort:{level:`, minified names masked, hash equal.
+
+**Read against the code.**
+- **Idle compaction: the rule under `compact ~` did not move.** The changelog fixes "idle compaction replacing a conversation with a reply that was not a summary". The gate's text from `=200000,` to `near_limit` is the same in 2.1.317 and 2.1.318 once short names are masked (741 characters each; only two minified names differ): `200000`, floor `1e5`, fraction `0.9`, the same ten refusals in the same order. The fix is in what happens to the reply, not in when the compaction runs.
+- **Mod API.** `$.model.fork` takes `effort`, `prompt.submit` attachments stay in the user's turn, a `turn.step` hook no longer turns a stopped headless reply into a success, and Claude Code records the answer when it asks to turn on mods it wrote. pace-band uses none of `model.fork`, `prompt.submit` or `turn.step` (grep over `hooks/`), and is loaded by `CLAUDE_CODE_PLUGIN_DIRS`, not written in a session.
+- **Subagents stop instead of switching models** on a flagged message when the setting is "Ask each time". The owner's `switchModelsOnFlag` is `true`, so this does not apply.
+- **Sign-in end date.** `claude auth status` now gives `loginExpiresAt`: the owner's is 2026-12-01T19:03Z (02.12 03:03 GMT+8); `claude -p` text output warns on stderr from 10 days before. The line could show it, but the payload carries no such field and the line runs no commands; not taken up.
+
+**Passed to the hub** (letter `2026-11-04__claude-code-statusline__to__hub__cc-2-1-318-srok-vhoda-i-perezapusk.md`, knocked): the sign-in end date and the `claude -p` warning; 12 of 13 sessions on the machine started before 2.1.318 and miss its macOS fix for sessions stalling while memory grew, under today's memory alarm; background agents' shell commands moved to the background after 3 minutes; a broken `~/.claude.json` now stops `claude -p` instead of being reset; the platform notes (watermark on older models, which the fleet uses only as an eval judge in tsalkin-ai and an option in inbox-triage, `fleet-grep.sh`; message threads). The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-03 — Claude Code 2.1.317: an agent on another model runs at that model's level
 
 **Context.** The owner asked again what the new releases change, what the project could use, and to pass anything urgent for other projects to the hub. Installed: 2.1.317 (`claude --version`); 2.1.316 was checked here on 31.10, so only 2.1.317 is new. The platform note of 02.11 (message threads, beta) touches nothing here: the line makes no network call.
