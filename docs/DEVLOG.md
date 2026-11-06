@@ -2,6 +2,19 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-06 — Claude Code 2.1.319: nothing to change
+
+**Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.319 (`claude --version`, binary dated 06.11 15:40). Its notes are not out yet: the public `CHANGELOG.md` on GitHub, fetched today, still starts at 2.1.318, which was checked here on 04.11. The hub's `cc-watch.py --delta` adds only the apps notes of 05.11 (Enterprise security and admin controls; Personal Finance, US only) and the platform notes of 05.11 (an IP allowlist for the Console organization, in beta; signing an Enterprise member out everywhere through the Admin API).
+
+**Gate on 2.1.319.** Line 71/71 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean (`npx -p typescript tsc -p .`, exit 0) on types "Written by Claude Code 2.1.319", `claude plugin validate --strict` passed.
+
+**Read against the code** (2.1.318 and 2.1.319 binaries side by side, short names masked):
+- **Status line payload.** 6000 characters around `effort:{level:`: one change of meaning. The Claude apps gateway's `spend_limit` now carries `used_usd`/`limit_usd` only when the limit is not null. `statusline.sh` reads no `spend_limit`, `overage` or gateway field (grep), so nothing changes here.
+- **Idle compaction.** The gate from `=200000,` to `near_limit` is the same in both: 701 characters, equal hash. The `compact ~` mark stands.
+- **Mod API.** Not compared: the types file is ignored by git, and running 2.1.318's `plugin test` on a copy of the mod did not write one. `tsc` on 2.1.319's types is clean, so nothing pace-band uses moved.
+
+**For the fleet.** Nothing urgent, so no letter. The IP allowlist would limit a leaked API key; five projects keep `ANTHROPIC_API_KEY` (`fleet-grep.sh`: inbox-triage, mcp-servers, tsalkin-ai, owners-code, Redaktsiya-tsgs). Turning it on is the owner's call: calls from the Mac's changing address would be refused. The hub sees the same notes in its own `--delta`. The letters of 03.11 and 04.11 to the hub are still `status: open`; the second asks for a decision on the claude.ai sign-in that ends 02.12 03:03 (GMT+8). The dashboard slice was behind since 23.10: tests 71/71, `prod_version` `13f3824` (by `git ls-remote`), pace-band 0.15.1, L1's last activity today. The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-04 — Claude Code 2.1.318: nothing to change
 
 **Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent for other projects to the hub. Installed: 2.1.318 (`claude --version`, binary dated 04.11 08:04); 2.1.316 and 2.1.317 were checked here on 31.10 and 03.11, so only 2.1.318 is new. The hub's answer to the 03.11 letter has not come.
