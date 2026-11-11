@@ -34,6 +34,7 @@ const PANE_PROPS = {
 
 const BAND_PROPS = {
   hasSurvey: false,
+  isCollapsed: false,
   isWorking: false,
   maxRows: 6,
   bodyColumns: 160,

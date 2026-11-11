@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-11 — Claude Code 2.1.321–2.1.322: the mod's test props, Fable 5.2 runs at medium
+
+**Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.322 (`claude --version`; binaries 2.1.321 of 10.11 03:19 and 2.1.322 of 11.11 11:40; there is no 2.1.320 in the notes or on disk). 2.1.319's notes are out now and were read too. Every one of the ten `claude` sessions on the Mac started after 11:40 today (`ps`), so all run 2.1.322 with 2.1.321's security fixes.
+
+**Gate on 2.1.322.** Line 71/71 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `claude plugin validate --strict` passed. **`tsc` went red** on types "Written by Claude Code 2.1.322": `AbovePrompt` gained a required read-only `isCollapsed` (the person can now collapse the band with `[-]` or ctrl+x ctrl+a; "a tree still returns, and nothing of it is on screen"; types, line 11241). Only the two test fakes of the band's props lacked it (`hooks/pane.test.ts`, the same constant in `hooks/band.test.ts`); the mod reads none of the band's props by name. Added `isCollapsed: false` to both; `tsc` clean, 158/158. Not in the notes of either version.
+
+**Read against the code** (2.1.319 and 2.1.322 binaries, short names masked):
+- **Status line payload.** 6000 characters around `effort:{level:`: the same but for the minifier's names and the version stamp.
+- **Idle compaction.** The gate from `=200000,` to `near_limit`: the same checks in the same order (607 against 605 characters, only names). The `compact ~` mark stands.
+- **The agent rows and Fable 5.2.** The legacy list (models still held to the top-level `effortLevel`) is the same 19 ids in 2.1.322; `claude-fable-5-2` and `claude-mythos-5-2` are not in it. The catalog gives Fable 5.2 `default_effort:"medium"` (Fable 5.1: high), 1M context, pricing `tier_8_40_cache_read_0_20`. So a Fable 5.2 agent with no level of its own runs at its `modelSettings` level, else medium; `subagent-statusline.sh` already holds it to `modelSettings` and otherwise leaves it unchecked, as for any current model. The main line holds the session to `effortLevel`: a session on Fable 5.2 at medium reads `(≠high)` in red, which is the truth. Nothing to change.
+- **The mod.** Mods Claude writes now turn on without asking in auto mode and do not load in `dontAsk`; a mod's own `$.tool.call`/`$.mcp.call` raise no prompt. pace-band calls neither (grep) and loads through `CLAUDE_CODE_PLUGIN_DIRS`. "Context usage estimates overcounting tool definitions" is fixed: the tools' share in `/pace` may read lower where exact counts are missing.
+- **2.1.319's notes** (MCP tasks moved to the background, `permissions.denyInsteadOfPrompting`, auto mode's server check behind gateways): nothing the line or the mod reads.
+
+**For the fleet.** By letter to the hub: since 2.1.321 the alias `fable` is Fable 5.2, its own default level is medium, and the owner's `modelSettings` hold xhigh only for `claude-fable-5` and `claude-fable-5-1` (`jq`); the canon (`library/models-and-effort-fleet.md:30`) and the `task-profile` skill still say `fable` = 5.1 at $10/$50. The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-06 — Claude Code 2.1.319: nothing to change
 
 **Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.319 (`claude --version`, binary dated 06.11 15:40). Its notes are not out yet: the public `CHANGELOG.md` on GitHub, fetched today, still starts at 2.1.318, which was checked here on 04.11. The hub's `cc-watch.py --delta` adds only the apps notes of 05.11 (Enterprise security and admin controls; Personal Finance, US only) and the platform notes of 05.11 (an IP allowlist for the Console organization, in beta; signing an Enterprise member out everywhere through the Admin API).

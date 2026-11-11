@@ -6,6 +6,7 @@ const SURFACES = ['terminal', 'desktop'] as const
 
 const PROPS = {
   hasSurvey: false,
+  isCollapsed: false,
   isWorking: false,
   maxRows: 6,
   bodyColumns: 160,
