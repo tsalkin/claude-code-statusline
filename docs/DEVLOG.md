@@ -2,6 +2,18 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-11 — For the hub: a mod's own tool calls still go through PreToolUse hooks
+
+**Context.** The hub asked whether 2.1.321's "mods' own tool calls raise no permission prompt" lets a mod slip past the fleet's guards, which are PreToolUse hooks, not deny rules (`deny=0`, `ask=0`, `defaultMode=auto`, checked by `jq`).
+
+**Answer: they do not slip past.** A probe in this session's scratch folder, not in the tree, so no live session loaded it. It had a project PreToolUse hook on `Bash|mcp__.*` that logs every call and denies anything holding `proba`; a UserPromptSubmit hook that blocks the prompt, so no model call (`total_cost_usd: 0`); a local stdio MCP server; and a `--plugin-dir` mod that on `session.start` calls Bash twice, `$.tool.check`, `$.mcp.call` and `$.tool.call` on the MCP tool. Results:
+- The hook saw all four calls.
+- Its `deny` came back to the mod as `{deny}`, and `$.mcp.call` threw `refused:`.
+- Its `ask` came back as "wasn't run: this call needs a person's approval, and a mod's own call can't ask for it."
+- The marker command and the MCP tool never ran; the control command ran with no prompt although `$.tool.check` said `ask`.
+
+So the auto-mode classifier is not asked for a mod's calls (the types say so too: "asks no classifier"). In the build, `$.mcp.call` (`F9n`) goes through the same `tool.call` path (`L3`). The full report is in the hub's letter of 11.11 (`mody-i-strazhi-flota`). Nothing for the line or the mod: pace-band makes no tool calls.
+
 ## 2026-11-11 — Claude Code 2.1.321–2.1.322: the mod's test props, Fable 5.2 runs at medium
 
 **Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.322 (`claude --version`; binaries 2.1.321 of 10.11 03:19 and 2.1.322 of 11.11 11:40; there is no 2.1.320 in the notes or on disk). 2.1.319's notes are out now and were read too. Every one of the ten `claude` sessions on the Mac started after 11:40 today (`ps`), so all run 2.1.322 with 2.1.321's security fixes.
