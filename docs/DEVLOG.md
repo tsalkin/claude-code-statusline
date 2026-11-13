@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-13 — Claude Code 2.1.323: nothing to change; the fleet runs 2.1.322
+
+**Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.323 (`claude --version`; binary of 13.11 06:12). The hub's `cc-watch.py --delta` adds the apps notes of 12.11 (Claude Meetings for Google Meet, Team and Enterprise) and the platform notes of 12.11 (self-hosted Managed Agents).
+
+**Gate on 2.1.323.** Line 71/71 (`bash tests/run.sh`), mod 158/158 (`claude plugin test`), `tsc` clean on types "Written by Claude Code 2.1.323", `claude plugin validate --strict` passed (one directory warning, `ICON_MISSING` on pace-band, which is not in the directory and changes nothing).
+
+**Read against the code** (2.1.322 and 2.1.323 binaries, short names masked):
+- **Status line payload.** 6000 characters around `effort:{level:`: only minifier names, the version stamp and the build time differ.
+- **Idle compaction.** The gate from `=200000,` to `near_limit`: 691 characters in both, equal hash. The `compact ~` mark stands.
+- **The mod.** The pane gains an optional `isPromptCovered` (a dialog, a search or a band field may take the keys). pace-band's hotkeys `p` and `c` are on the band, not the pane, so it needs nothing. "A multi-row status line pushed off screen by a long prompt in fullscreen" is fixed: the owner's two-line line is the case.
+- **`validate --strict` now type-checks the hooks module, tests included.** Reverse check on a scratch copy: a type error in `register.tsx`, and one in `pane.test.ts`, each give exit 1 under `--strict` and exit 0 without it. So the gate's `tsc` step is now doubled by `validate --strict`; both stay, `tsc` is cheap.
+- **`engines["claude-code"]` in `plugin.json`** would keep pace-band off older versions; not taken up: the minimal version is not measured, and any push makes a new directory version of pace-statusline.
+
+**For the fleet.** By letter to the hub (`2026-11-13__claude-code-statusline__to__hub__cc-2-1-323-perezapusk-i-code-mode.md`, knocked): all 9 other sessions run `versions/2.1.322` (`lsof`) and miss about 25 permission and sandbox fixes, the fix for a running session undoing a hand edit of `settings.json` (the 11.11 `modelSettings` are still there, `jq`) and the memory-spike fix, under today's memory alarm; recommended a restart today and a version gate at session start. Code Mode is opt-in and off here (no `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE`); before anyone turns it on, a probe like the 11.11 one should show whether the fleet's PreToolUse guards see calls from its scripts. Bash allow rules with `*` in a variable's value: none in the fleet (`fleet-grep.sh`, 0 of 31, and `~/.claude/settings*.json` by `jq`). The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-11 — For the hub: a mod's own tool calls still go through PreToolUse hooks
 
 **Context.** The hub asked whether 2.1.321's "mods' own tool calls raise no permission prompt" lets a mod slip past the fleet's guards, which are PreToolUse hooks, not deny rules (`deny=0`, `ask=0`, `defaultMode=auto`, checked by `jq`).
