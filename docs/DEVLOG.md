@@ -2,6 +2,21 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-13 — Code Mode probe: kit ready, waiting for the owner
+
+**Context.** The owner said "проведи пробу Code Mode": does a fleet PreToolUse guard see the tool calls a Code Mode script makes? The hub, in its answer on the letter of 13.11, asked for the probe under the launch gate, not urgent.
+
+**What the 2.1.323 code says** (binary, read by offsets, not run):
+- **Not in `claude -p`.** The eligibility check returns `entrypoint` when the session is not interactive (`function he(){return!n().host.launchOptions.isInteractive()}`), and `unattended` for background, teammate and Remote Control sessions. So the probe needs a live terminal session; there is no tmux on the Mac.
+- **Model:** Fable or Mythos 5.2 and up, any other family 5.5 and up (`claude-haiku-5-5` passes).
+- **Turning it on:** `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE` set in the shell or in the settings `env`, plus a consent dialog whose answer goes to `~/.claude.json` (`codeModeCaveatsAcceptedV1`, `codeModeAutoModeCaveatAcceptedV1`). Also refused under OpenTelemetry, a third-party provider or an agent team.
+- **Server flag `tengu_rustling_blossom`:** true in `cachedFeatureFlags`, false in `cachedGrowthBookFeatures` (read by a filtered `python3` over `~/.claude.json`; the secret guard blocks any `grep` that prints from that file). If the server says no, Code Mode refuses at start-up, before any model call: that would be the probe's answer.
+- The docs page named in the changelog (`code.claude.com/docs/en/code-mode`) answers 404.
+
+**The kit** (in this session's scratch folder `cm-probe/`, outside the tree, so no live session loads it): `.claude/settings.json` with PreToolUse and PostToolUse hooks on `.*` that run `.claude/guard.py`. The guard appends every call to `hook-log.jsonl` (event, tool, first 300 characters of the input), denies any input holding `proba-cm-deny` and asks on `proba-cm-ask`. Checked dry by piping two events into it. The owner's own fleet hooks fire there too.
+
+**Waiting:** the owner's choice of who runs it (the owner in a ghostty tab, recommended, so the consent dialog is theirs; or this session through `expect`; or after the fleet restart). Profile: Haiku 5.5, effort medium, 1–3 requests.
+
 ## 2026-11-13 — Claude Code 2.1.323: nothing to change; the fleet runs 2.1.322
 
 **Context.** The owner asked again what the new releases change, what the project could use, and to pass anything important and urgent to the hub. Installed: 2.1.323 (`claude --version`; binary of 13.11 06:12). The hub's `cc-watch.py --delta` adds the apps notes of 12.11 (Claude Meetings for Google Meet, Team and Enterprise) and the platform notes of 12.11 (self-hosted Managed Agents).
