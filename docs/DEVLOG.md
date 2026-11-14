@@ -2,6 +2,36 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-14 — Claude Code 2.1.325: nothing to change; the fleet runs 2.1.323
+
+**Context.** The owner asked what the new release changes, what the project could use, and to pass anything important and urgent to the hub. 2.1.325 is installed (`claude --version`). It was built 13.11 18:52Z. 2.1.324 has no notes in `cc-watch.py --delta`.
+
+**Gate on 2.1.325.** All green:
+- the line, 71/71;
+- the mod, 158/158;
+- `tsc` on types "Written by Claude Code 2.1.325";
+- `claude plugin validate --strict`.
+
+**Read against the code** (2.1.323 and 2.1.325 binaries):
+- **Status line payload.** 6000 characters around `effort:{level:`. Besides minifier names and the version stamp, one thing changed: the model lookup now takes `setting:` (the subagent/`opusplan` fix). The fields sent are the same.
+- **Idle compaction.** The gate from `=200000,` to `near_limit` is 691 characters in both versions. Read side by side, the logic is the same; only the names differ. The `compact ~` mark stands.
+- **The mod.** `$.session.usage()` now counts a mod's `$.model.complete`/`classify` calls. pace-band makes none. No mod in `~/.claude/plugins/cache` does either (grep), so the band's figures do not move.
+
+**For the fleet.** By letter to the hub (`2026-11-14__claude-code-statusline__to__hub__cc-2-1-325-bezopasnost.md`, `9977f9e` in the pool, knocked):
+- **Versions.** The hub and 8 sessions restarted 13.11 at 22:56 on 2.1.323 (`lsof`, `ps -o lstart`), so the 13.11 letter's restart happened. They miss 2.1.325's fixes:
+  - the zstd security fix;
+  - the Bash permission gaps;
+  - relative deny/ask rules after `cd` (one in the fleet: owners-code's `Read(./.entire/metadata/**)`);
+  - lost recent turns on `/resume` after an unclean exit, which matters under today's memory alarm.
+- **Recommendation.** Take 2.1.325 at each session's next natural `/restart`, alongside the memory clean-up. Raise the version gate's floor to 2.1.325.
+- **Checked, not touching the fleet:**
+  - Sandbox prompts: no `sandbox` in `~/.claude/settings.json`.
+  - Scheduled tasks and `/loop` asking before skills with `allowed-tools`/`hooks`: none outside the disabled `gsd-*`, and no launchd job runs `claude -p`.
+  - Read-only git in untrusted repos: `/` is trusted in `~/.claude.json`. That this rule inherits trust from the parent is not checked.
+  - Code Mode: three fixes, still an experiment; the owner's "вариант 3" stands.
+
+The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-14 — pace-band keeps `agent.spawn`; feedback to Anthropic instead
 
 **Context.** The owner asked what Code Mode gives them and whether pace-band can drop `agent.spawn`. From 2.1.323's refusal list: Code Mode does not run with Remote Control (the hub is connected through it), in background jobs or agent teams, and a session started in it resumes only in it; its gain (several tool calls in one step, only the script's result back to the model) was not measured here. The rewrite is possible (`turn.start` with `agentId`, `$.agent.list()`, the agent's first `turn.step` for its model) and changes nothing on screen but a fraction of a second. It would raise the floor to 2.1.318: `turn.start` hears agents' turns only since 2.1.299, and a mod hooking `turn.step` made cut-off replies finish as success in headless runs until 2.1.318 (changelog); pace-band loads into background sessions. `engines["claude-code"]` would not help: only 2.1.323 reads it.
