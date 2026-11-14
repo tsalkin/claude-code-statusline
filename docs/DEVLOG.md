@@ -2,6 +2,33 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-15 — Code Mode measured on two fleet tasks; pace-band 0.16.0 lets it start
+
+**Context.** The hub's task `code-mode-zamer` (amendment №1: the owner's full settings). The owner: "Делай А - замер сейчас", then "возобновляй замер" after a pause. Kit in `docs/drafts/cm-zamer/`, outside git.
+
+**Result.** One run per cell; Opus 5.5, effort high, auto mode.
+
+| Task | Mode | API requests | Total tokens | Turn time | Correct |
+|---|---|---|---|---|---|
+| T1 search, 1182 files | off | 3 | 195 754 | 22 s | 110/110 |
+| T1 | Code Mode | 2 | 89 062 | 161 s | 110/110 |
+| T2 edit, 21 files | off | 5 | 352 199 | 31 s | byte-exact |
+| T2 | Code Mode | 4 | 183 077 | 37 s | byte-exact |
+
+- Code Mode halved the tokens, almost all of it in cache reads.
+- T1 ran 7× slower: its script made 1170 `Read` calls, each passing the fleet's hooks. That cause is not measured.
+
+**Live facts.**
+- With pace-band 0.16.0 and the full user settings, Code Mode starts ("Code Mode (experimental) is on"). Remote Control is skipped in that session.
+- Code Mode only runs in an interactive terminal (2.1.325: "for now it only works in the interactive terminal"). Runs went through a pty driver.
+- A child `claude` launched from a Claude Code session inherits `CLAUDE_CODE_CHILD_SESSION` and saves no transcript. The first T1 run was lost this way; the driver now drops the marker and stops after 90 s without a transcript.
+- In a Code Mode transcript, calls inside the script are written as assistant entries without a `requestId`. Count requests by `requestId`.
+- `--settings '{"env":{"CLAUDE_CODE_PLUGIN_DIRS":""}}'` turns pace-band off for one session: `/pace` → "Unknown command".
+
+**Found for the hub.** `deploy-gate.py prompt` sets the deploy consent mark on any text that starts with `/deploy`, including `source: poll_event` (a background program's output) and `system`. Checked on the installed hook with its state in a scratch folder. Fix proposed: accept only `source` in `(None, "user")`.
+
+**Sent:** `2026-11-15__claude-code-statusline__to__hub__code-mode-zamer.md` (`0c017c5`), knocked.
+
 ## 2026-11-14 (evening) — CANI: a hub knock left unanswered; a Stop guard for the fleet
 
 **What happened.** The hub knocked at 14:16 with a task letter (`code-mode-zamer`) while the pace-band change was in progress. I read the letter and found its premises outdated (В1 "pace-band не трогать" overruled, `--setting-sources` no longer needed, low memory). I told only the owner, and tied the answer to the hub to an unrelated owner decision ("after your answer about the check"). Three turns later the owner asked: "ты получил и решил не делать. Написал ли ты автору стука?" The answer to the hub went at 14:29 (`576d7a2` in the pool). The second knock, at 14:30, got a receipt within 8 seconds.
