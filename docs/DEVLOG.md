@@ -2,6 +2,40 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-14 — pace-band keeps `agent.spawn`; feedback to Anthropic instead
+
+**Context.** The owner asked what Code Mode gives them and whether pace-band can drop `agent.spawn`. From 2.1.323's refusal list: Code Mode does not run with Remote Control (the hub is connected through it), in background jobs or agent teams, and a session started in it resumes only in it; its gain (several tool calls in one step, only the script's result back to the model) was not measured here. The rewrite is possible (`turn.start` with `agentId`, `$.agent.list()`, the agent's first `turn.step` for its model) and changes nothing on screen but a fraction of a second. It would raise the floor to 2.1.318: `turn.start` hears agents' turns only since 2.1.299, and a mod hooking `turn.step` made cut-off replies finish as success in headless runs until 2.1.318 (changelog); pace-band loads into background sessions. `engines["claude-code"]` would not help: only 2.1.323 reads it.
+
+**Decision** (owner, 14.11: "вариант 3"). pace-band stays as it is; a feedback draft for Anthropic (an observe-only `agent.spawn` should not turn Code Mode off; the notice should name the mod) is queued in `/feedback`, sent by the owner. Come back to the rewrite when Code Mode leaves the experiment or its docs page answers. Dashboard slice: D16.
+
+## 2026-11-13 (night) — Code Mode probe: the guards see the script and every call inside it
+
+**Context.** Second and third runs by the owner in a ghostty tab, with `--setting-sources project,local` so `~/.claude/settings.json` (and with it pace-band) stays out; the kit's guard is a project hook, so it stays in. Haiku 5.5, effort medium. The consent dialog appeared and was accepted: `codeModeCaveatsAcceptedV1` and `codeModeAutoModeCaveatAcceptedV1` are now `true` in `~/.claude.json` (they turn nothing on without `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE`).
+
+**Run 2 (markers written in the script).** One PreToolUse line, `tool: "REPL"`, input `{code, description}`: the whole script as text. The guard found `proba-cm-deny` in it and the script was refused before any step ran (`hook-log.run2.jsonl`).
+
+**Run 3 (markers joined at run time, `"proba-cm-" + "deny"`, so the script's text holds neither whole).** `hook-log.jsonl`, in order:
+- PreToolUse `REPL` (the script's text), passed;
+- PreToolUse `Bash` `echo proba-control`, then PostToolUse: ran;
+- PreToolUse `Bash` `echo proba-cm-deny`, **no PostToolUse**: the `deny` held;
+- PreToolUse `Bash` `echo proba-cm-ask`, then PostToolUse: ran after the `ask`;
+- PreToolUse and PostToolUse `Read` of `note.txt`: ran;
+- PostToolUse `REPL`.
+
+**So.** A settings-hook PreToolUse guard sees a Code Mode script twice over: once as the `REPL` call with its source, and again as each tool call the script makes, with the values computed at run time (`tool_name` is the real tool, `Bash`, `Read`), and its `deny` is obeyed inside the script. A fleet guard whose matcher names `Bash` or `Read` keeps working; one that wants the script's text must also match `REPL`. The `ask`: no prompt, by timing (the owner did not remember): the whole script ran in 2.4 s (`repl-eval` event, `ms="2394"`, in the probe session's transcript), and in run 1 on ordinary tools the batch with the `ask` marker took 2.8 s. That matches the fleet's own finding of 22.09 (`~/.claude/hooks/deploy-gate.py:19`): in auto mode a hook's `ask` goes to the classifier, not to a person. Code Mode behaves the same here as ordinary tools. Not tested: the fleet's own user hooks (left out by `--setting-sources`); they are the same kind of hook, so the same path. The blocker stays: while pace-band hooks `agent.spawn`, Code Mode does not start in the owner's sessions at all (entry above).
+
+## 2026-11-13 (late) — Code Mode refuses to start: pace-band's `agent.spawn` hook
+
+**Context.** The fleet was restarted on 2.1.323 (all ten sessions, `lsof`, started 22:43–22:58). The owner chose to run the probe after the restart and ran it in a ghostty tab with the rebuilt kit (session 867bc2f2's scratch folder). The server flag `tengu_rustling_blossom` is now true in both caches of `~/.claude.json` (on 13.11 earlier it was false in `cachedGrowthBookFeatures`).
+
+**What came out.** At start: "Code Mode (experimental) isn't available: it doesn't yet work with an installed mod (a plugin with JavaScript hooks) that checks tool calls. Starting with the ordinary tools." No consent was asked (`codeModeCaveatsAcceptedV1` still unset). The session went on with ordinary tools, and the kit's guard behaved as for any session: the batch holding `proba-cm-deny` was denied twice (no PostToolUse line), the batch holding `proba-cm-ask` ran after the prompt, ToolSearch and the owner's `waiting.py` call were logged too. That says nothing about Code Mode.
+
+**Why, from 2.1.323's code.** The reason code is `mods` (`NCo`). `XXo` loads every module that has a `modulePath` and is not skipped by source (`Rq`), and refuses if any hook it registers matches one of fifteen events: `tool.call`, `tool.check`, `classic.PreToolUse`, `classic.PermissionRequest`, `classic.PermissionDenied`, `classic.PostToolUse`, `classic.PostToolUseFailure`, `agent.offer`, `agent.spawn`, `session.send`, `classic.TaskCreated`, `classic.TaskCompleted`, `classic.Elicitation`, `classic.ElicitationResult`, `classic.WorktreeCreate`. A module that fails to load counts as one too. pace-band's only mod in `CLAUDE_CODE_PLUGIN_DIRS`, and its `on('agent.spawn')` (`hooks/register.tsx:497`) is on the list, although it only watches: it records the turn's agents for `/pace` and toasts an agent below its definition. pace-band's other hooks (`session.start`, `turn.start`, `turn.complete`, `session.measure`, `command.run`, `config.set`, `ui.close`, `ui.render`) are not on the list. So, while pace-band loads from this working copy, Code Mode is off in every session of the owner; not stated anywhere in the mod's types (no "Code Mode" in `index.d.ts`).
+
+**A way around, not taken.** The same facts without `agent.spawn`: `turn.start` with `agentId` (a subagent's loop), `$.agent.list()` for `type`, `description`, `parentId`, and the first `turn.step` of that agent for `model`. Not built: the owner decides whether pace-band should give up the hook (it changes when the toast fires and adds a hook on the request path).
+
+**Next.** Probe again without pace-band, so Code Mode can start: `--setting-sources project,local` leaves out `~/.claude/settings.json` (its `env` loads pace-band; the fleet's user hooks drop out too, the kit's project guard stays). Not run yet.
+
 ## 2026-11-13 — Code Mode probe: kit ready, waiting for the owner
 
 **Context.** The owner said "проведи пробу Code Mode": does a fleet PreToolUse guard see the tool calls a Code Mode script makes? The hub, in its answer on the letter of 13.11, asked for the probe under the launch gate, not urgent.
