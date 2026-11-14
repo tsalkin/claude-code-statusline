@@ -2,6 +2,41 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-14 (later) — pace-band 0.16.0: no hook that keeps Code Mode off
+
+**Context.** The owner: "думаю что надо внести изменения для обеспечения совместимости с новыми функциями для тех кому это важно. Делай." This reverses the morning's "вариант 3" for the mod. Code Mode itself stays off in the owner's sessions: it is opt-in, and `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE` is not set.
+
+**The list, checked in 2.1.325's code.** It is the same fifteen events as in 2.1.323: `tool.call`, `tool.check`, `agent.offer`, `agent.spawn`, `session.send` and ten `classic.*`. pace-band hooked only `agent.spawn`.
+
+**The change** (`hooks/register.tsx`).
+- `agent.spawn` is gone.
+- **Agent's turn start.** `turn.start` with `agentId` now calls `next(e)` first, then `noteAgent`: it lists the agent from `$.agent.list()` (type, task, name) among the turn's agents.
+- **New `turn.step` hook.** On an agent loop's first request (`index === 0`) it calls `noteModel`: the model goes on the agent's row, and the toast comes when that model is a smaller family than the definition's. The step is passed on untouched (`return yield* next(e)`). Whatever fails in the mod is caught, so it never reaches the request.
+- **One toast per agent.** A resumed agent, or a teammate's next turn, is not warned again: a `Set` kept by the load, as `interactive` is.
+- **Fork.** No toast: it runs on its parent's model.
+- **The row's model.** `TurnAgent.model` is optional now: the row reads `type · status` until the first request.
+- **Engine rule.** `noteModel` sits at the top of the file. The engine refuses a `$` passed to a function declared inside `register`; the first run gave 121 red tests until it moved.
+
+**What changes for the person.** The toast comes at the agent's first request instead of at the spawn: the same moment in practice. A spawn the person refused (`deny`) never reaches a turn, so it is no longer listed; before, it was not listed either.
+
+**Floor raised to 2.1.318.** A mod hooking `turn.step` made a cut-off reply finish as success in headless runs until 2.1.318 (changelog 2.1.318, two lines). pace-band loads into `claude -p` too. Updated: README (both languages), the mod's README (a Code Mode section), `plugin.json` (0.16.0) and `marketplace.json`.
+
+**Gate.**
+- Line 72/72. The new case `mod-code-mode` greps the mod's non-test files for `on('<event>'` of the fifteen.
+- Reverse check of `mod-code-mode`, all red:
+  - the 0.15.1 `register.tsx`;
+  - an added `on("tool.call", …)`;
+  - a missing mod folder (`mod files: 0`).
+- Mod 161/161: the agents' tests are rewritten on `turn.start` + `turn.step` with a roster, and three are new (the name, said once, the main loop's requests untouched).
+- Mutations, each red:
+  - no `announced` check: "said once";
+  - no fork skip: the fork case;
+  - no `try` around `noteModel`: three toasts;
+  - the model not recorded: three `/pace` rows.
+- `tsc` and `validate --strict` clean. The validator lists `turn.step` and no `agent.spawn`; its two `.catch` warnings (`config.set`, `ui.close`) were there before.
+
+**Not checked live.** No session ran the new mod with an agent, or with Code Mode on: the machine is at 22 MB free with ten sessions, and Code Mode is opt-in. The check after merging: start any agent, then `/pace` lists it with its model. A launch with `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1` no longer says "isn't available: … an installed mod".
+
 ## 2026-11-14 — Claude Code 2.1.325: nothing to change; the fleet runs 2.1.323
 
 **Context.** The owner asked what the new release changes, what the project could use, and to pass anything important and urgent to the hub. 2.1.325 is installed (`claude --version`). It was built 13.11 18:52Z. 2.1.324 has no notes in `cc-watch.py --delta`.

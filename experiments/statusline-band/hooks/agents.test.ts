@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { AgentInfo, On } from 'claude-code'
 
 import { belowDefinition, familyOf, parseDefinition } from './agents'
 
@@ -46,13 +46,14 @@ describe('agent definitions', () => {
   })
 })
 
-// The engine beneath the plugin: definitions on disk, spawns answered on the
-// model each type gets, toasts and transcript views kept.
-function engine(on: On, files: Record<string, string>, models: Record<string, string> = {}) {
+// The engine beneath the plugin: definitions on disk, the agents' roster,
+// each agent's requests answered, toasts and transcript views kept.
+function engine(on: On, files: Record<string, string>) {
   const toasts: string[] = []
   const viewed: (string | undefined)[] = []
   const lines: string[] = []
-  let next = 0
+  const roster: AgentInfo[] = []
+  const steps: string[] = []
   mock.clock(on, { now: NOW })
   mock.store(on)
   mock.env(on, { HOME, TMPDIR: '/tmp/x/' })
@@ -72,8 +73,11 @@ function engine(on: On, files: Record<string, string>, models: Record<string, st
     if (!(e.path in files)) throw new Error(`ENOENT ${e.path}`)
     return { value: files[e.path]! }
   })
-  on('agent.spawn', (_$, e) => ({ model: models[e.subagentType] ?? e.parentModel, agentId: `a-${++next}` }))
-  on('agent.list', () => ({ value: [{ id: 'a-1', description: 'build', type: 'ispolnitel', status: 'completed' as const }] }))
+  on('agent.list', () => ({ value: roster }))
+  on('turn.step', async function* (_$, e) {
+    steps.push(`${e.agentId ?? 'main'}:${e.index}:${e.model}`)
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
+  })
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
     return { value: undefined }
@@ -92,7 +96,7 @@ function engine(on: On, files: Record<string, string>, models: Record<string, st
   })
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.complete', () => ({ text: '' }))
-  return { toasts, viewed, lines }
+  return { toasts, viewed, lines, roster, steps }
 }
 
 const USER_DEFS = {
@@ -101,71 +105,114 @@ const USER_DEFS = {
 }
 
 const start = ($: Engine, isInteractive = true) => $.session.start({ cwd: ROOT, surface: null, isInteractive })
-const spawn = ($: Engine, subagentType: string, description = 'build') =>
-  $.agent.spawn({
-    tool_use_id: 'tu-1',
-    prompt: 'go',
-    subagentType,
-    description,
-    provider: { plugin: 'engine', tier: 'core' },
-    parentModel: 'claude-opus-5-5',
-    background: false,
-    fork: false,
-  })
+
+// A request's stream read to its end: what the chain returned.
+async function drain<C, R>(s: AsyncGenerator<C, R>) {
+  for (;;) {
+    const r = await s.next()
+    if (r.done) return r.value
+  }
+}
+
+// One request of an agent's loop.
+const step = ($: Engine, agentId: string, model: string, index = 0) =>
+  drain($.turn.step({ turnId: `turn-${agentId}`, index, model, messageCount: 1, agentId }))
+
+// An agent as the engine starts one: on the roster, its loop's turn, its first
+// request on the model it resolved to (the parent's when not given).
+async function spawn(
+  $: Engine,
+  roster: AgentInfo[],
+  type: string,
+  { description = 'build', model = 'claude-opus-5-5', name }: { description?: string; model?: string; name?: string } = {},
+) {
+  const id = `a-${roster.length + 1}`
+  roster.push({ id, type, description, status: 'completed', ...(name === undefined ? {} : { name }) })
+  await $.turn.start({ text: 'go', turnId: `turn-${id}`, agentId: id })
+  await step($, id, model)
+  return id
+}
 
 const texts = async (ui: { findAll: (q: { type: string }) => Promise<{ text: string }[]> }) =>
   (await ui.findAll({ type: 'Text' })).map(t => t.text).join('|')
 
 describe('agent below its definition', () => {
-  test('a smaller family than the definition: said, the spawn left as asked', async ($, on) => {
-    const { toasts } = engine(on, USER_DEFS, { ispolnitel: 'claude-sonnet-5-5' })
+  test('a smaller family than the definition: said at its first request, the request left as it was', async ($, on) => {
+    const { toasts, roster, steps } = engine(on, USER_DEFS)
     await start($)
-    const r = await spawn($, 'ispolnitel')
-    expect(r).toEqual({ model: 'claude-sonnet-5-5', agentId: 'a-1' })
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
+    expect(steps).toEqual(['a-1:0:claude-sonnet-5-5'])
     expect(toasts).toEqual(['agent ispolnitel starts on sonnet, its definition names opus'])
   })
 
-  test('as defined, or above it: nothing said', async ($, on) => {
-    const { toasts } = engine(on, USER_DEFS, { ispolnitel: 'claude-opus-5-5', mekhanik: 'claude-opus-5-5' })
+  test('the name the agent was given, when it has one', async ($, on) => {
+    const { toasts, roster } = engine(on, USER_DEFS)
     await start($)
-    await spawn($, 'ispolnitel')
-    await spawn($, 'mekhanik')
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5', name: 'parser' })
+    expect(toasts).toEqual(['agent parser starts on sonnet, its definition names opus'])
+  })
+
+  test('as defined, or above it: nothing said', async ($, on) => {
+    const { toasts, roster } = engine(on, USER_DEFS)
+    await start($)
+    await spawn($, roster, 'ispolnitel')
+    await spawn($, roster, 'mekhanik')
     expect(toasts).toEqual([])
   })
 
   test("the project's definition wins over the user's", async ($, on) => {
-    const { toasts } = engine(
-      on,
-      { ...USER_DEFS, [`${ROOT}/.claude/agents/ispolnitel.md`]: def(['name: ispolnitel', 'model: sonnet']) },
-      { ispolnitel: 'claude-sonnet-5-5' },
-    )
+    const { toasts, roster } = engine(on, { ...USER_DEFS, [`${ROOT}/.claude/agents/ispolnitel.md`]: def(['name: ispolnitel', 'model: sonnet']) })
     await start($)
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
     expect(toasts).toEqual([])
   })
 
-  test('a type with no definition, or a headless run: nothing said', async ($, on) => {
-    const { toasts } = engine(on, USER_DEFS, { Explore: 'claude-haiku-5-5', ispolnitel: 'claude-sonnet-5-5' })
+  test('a type with no definition, a fork, or a headless run: nothing said', async ($, on) => {
+    const { toasts, roster } = engine(on, { ...USER_DEFS, [`${HOME}/.claude/agents/fork.md`]: def(['name: fork', 'model: opus']) })
     await start($, false)
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
     expect(toasts).toEqual([])
     await start($)
-    await spawn($, 'Explore')
+    await spawn($, roster, 'Explore', { model: 'claude-haiku-5-5' })
+    await spawn($, roster, 'fork', { model: 'claude-haiku-5-5' })
     expect(toasts).toEqual([])
   })
 
-  test('the mod failing does not stop the spawn', async ($, on) => {
-    engine(on, USER_DEFS, { ispolnitel: 'claude-opus-5-5' })
+  test('said once: the same agent resumed, or its later requests, are not', async ($, on) => {
+    const { toasts, roster } = engine(on, USER_DEFS)
+    await start($)
+    const id = await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
+    await step($, id, 'claude-sonnet-5-5', 1)
+    await $.turn.start({ text: 'more', turnId: 'turn-again', agentId: id })
+    await step($, id, 'claude-sonnet-5-5')
+    expect(toasts).toHaveLength(1)
+  })
+
+  test("the main loop's requests: nothing listed, nothing said", async ($, on) => {
+    const { toasts, steps } = engine(on, USER_DEFS)
+    await start($)
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    const r = await drain($.turn.step({ turnId: 't1', index: 0, model: 'claude-haiku-5-5', messageCount: 1 }))
+    expect(r.stopReason).toBe('end_turn')
+    expect(steps).toEqual(['main:0:claude-haiku-5-5'])
+    expect(toasts).toEqual([])
+  })
+
+  test("the mod failing does not stop the agent's turn or its request", async ($, on) => {
+    const { roster, steps } = engine(on, USER_DEFS)
     on('state.set', () => {
       throw new Error('state refused')
     })
-    expect(await spawn($, 'ispolnitel')).toEqual({ model: 'claude-opus-5-5', agentId: 'a-1' })
+    roster.push({ id: 'a-1', type: 'ispolnitel', description: 'build', status: 'running' })
+    expect(await $.turn.start({ text: 'go', turnId: 'turn-a-1', agentId: 'a-1' })).toEqual({ turnId: 'turn-a-1' })
+    expect((await step($, 'a-1', 'claude-sonnet-5-5')).stopReason).toBe('end_turn')
+    expect(steps).toEqual(['a-1:0:claude-sonnet-5-5'])
   })
 
   test('in Russian with the language set so', { options: { language: 'ru' } }, async ($, on) => {
-    const { toasts } = engine(on, USER_DEFS, { ispolnitel: 'claude-sonnet-5-5' })
+    const { toasts, roster } = engine(on, USER_DEFS)
     await start($)
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
     expect(toasts).toEqual(['агент ispolnitel запущен на sonnet, а в определении — opus'])
   })
 })
@@ -175,11 +222,11 @@ describe("the turn's agents in /pace", () => {
     const pane = ($: Engine) => $.ui.mount({ plugin: 'pace-band', surface, component: 'Pane', requestId: 'pace', props: PANE_PROPS })
 
     test(`${surface}: listed with model and status; a press opens the transcript`, async ($, on) => {
-      const { viewed } = engine(on, USER_DEFS, { ispolnitel: 'claude-opus-5-5', Explore: 'claude-haiku-5-5' })
+      const { viewed, roster } = engine(on, USER_DEFS)
       await start($)
       await $.turn.start({ text: 'go', turnId: 't1' })
-      await spawn($, 'ispolnitel', 'build the parser')
-      await spawn($, 'Explore', 'find callers')
+      await spawn($, roster, 'ispolnitel', { description: 'build the parser' })
+      await spawn($, roster, 'Explore', { description: 'find callers', model: 'claude-haiku-5-5' })
       const ui = await pane($)
       const shown = await texts(ui)
       expect(shown).toContain('agents of the last turn  2')
@@ -191,10 +238,10 @@ describe("the turn's agents in /pace", () => {
     })
 
     test(`${surface}: the next turn starts the list over; a subagent's turn does not`, async ($, on) => {
-      engine(on, USER_DEFS)
+      const { roster } = engine(on, USER_DEFS)
       await start($)
       await $.turn.start({ text: 'go', turnId: 't1' })
-      await spawn($, 'ispolnitel')
+      await spawn($, roster, 'ispolnitel')
       await $.turn.start({ text: 'work', turnId: 'a1', agentId: 'a-1' })
       const ui = await pane($)
       expect(await texts(ui)).toContain('agents of the last turn  1')
@@ -225,22 +272,22 @@ const cost = (usd: number) => ({ context: { window: 1_000_000, percent: 10 }, ra
 
 describe("the agents' share of the turn, in tokens", () => {
   test("on the turn line: the agents' tokens against the whole turn's", async ($, on) => {
-    const { lines } = engine(on, USER_DEFS)
+    const { lines, roster } = engine(on, USER_DEFS)
     await start($)
     await $.session.measure(cost(1))
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel')
     await $.turn.complete(ended(30, used(), 'a-1'))
     await $.turn.complete(ended(40, used(4 / 6)))
     expect(lines.at(-1)).toBe('last turn 40s · $+0.00 · agents 60% tok')
   })
 
   test('an agent that ends after the main loop: the line is written again', async ($, on) => {
-    const { lines } = engine(on, USER_DEFS)
+    const { lines, roster } = engine(on, USER_DEFS)
     await start($)
     await $.session.measure(cost(1))
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel')
     await $.turn.complete(ended(10, used()))
     expect(lines.at(-1)).toBe('last turn 10s · $+0.00')
     await $.turn.complete(ended(50, used(3), 'a-1'))
@@ -248,11 +295,11 @@ describe("the agents' share of the turn, in tokens", () => {
   })
 
   test("an agent of an earlier turn does not count toward this one", async ($, on) => {
-    const { lines } = engine(on, USER_DEFS)
+    const { lines, roster } = engine(on, USER_DEFS)
     await start($)
     await $.session.measure(cost(1))
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel')
     await $.turn.complete(ended(10, used()))
     await $.turn.start({ text: 'again', turnId: 't2' })
     await $.turn.complete(ended(50, used(3), 'a-1'))
@@ -261,21 +308,21 @@ describe("the agents' share of the turn, in tokens", () => {
   })
 
   test('in /pace: each agent with its own tokens', async ($, on) => {
-    engine(on, USER_DEFS)
+    const { roster } = engine(on, USER_DEFS)
     await start($)
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await spawn($, 'ispolnitel', 'build the parser')
+    await spawn($, roster, 'ispolnitel', { description: 'build the parser' })
     await $.turn.complete(ended(30, used(2), 'a-1'))
     const ui = await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'Pane', requestId: 'pace', props: PANE_PROPS })
     expect(await texts(ui)).toContain('ispolnitel · opus · done · 1.2k tok')
   })
 
   test('in Russian with the language set so', { options: { language: 'ru' } }, async ($, on) => {
-    const { lines } = engine(on, USER_DEFS)
+    const { lines, roster } = engine(on, USER_DEFS)
     await start($)
     await $.session.measure(cost(1))
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await spawn($, 'ispolnitel')
+    await spawn($, roster, 'ispolnitel')
     await $.turn.complete(ended(30, used(), 'a-1'))
     await $.turn.complete(ended(40, used(4 / 6)))
     expect(lines.at(-1)).toBe('ход 40с · $+0.00 · агенты 60% токенов')

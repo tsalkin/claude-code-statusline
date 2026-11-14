@@ -68,9 +68,13 @@ English or Russian, for `/pace` and the [pace-statusline](../../README.md) line 
 /plugin install pace-band@tsalkin
 ```
 
-Needs Claude Code 2.1.300 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
+Needs Claude Code 2.1.318 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
 
 Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and the agent definitions (`~/.claude/agents/`, the project's `.claude/agents/`), and writes its own store and two small files per interactive session in the temporary directory: the last turn, for the line, and the session's cost over the last five hours, `pace-band-fleet-<session>.json`, for the fleet. `/pace` reads those of every session, and the line's `pace-band-line-<session>.json` (name and cache). It makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
+
+## Code Mode
+
+[Code Mode](https://code.claude.com/docs/en/code-mode) (experimental, opt-in) stays off in a session whose loaded mods hook any of fifteen events: `tool.call`, `tool.check`, `agent.offer`, `agent.spawn`, `session.send` and ten `classic.*` ones. Up to 0.15.1 pace-band hooked `agent.spawn` to see the agents a turn starts, so with it installed Code Mode could not start. Since 0.16.0 it hooks none of them: an agent is listed when its loop's turn starts (`turn.start` with `agentId`, its type and task from `$.agent.list()`), and its model is read from its first request (`turn.step`), which the mod passes on untouched. The warning about an agent below its definition comes at that first request, once per agent. `tests/run.sh` (case `mod-code-mode`) fails if a hook on the list comes back.
 
 ## Tests
 

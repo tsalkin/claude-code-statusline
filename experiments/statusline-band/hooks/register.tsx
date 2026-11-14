@@ -448,12 +448,49 @@ function forecasts(windows: readonly LimitWindow[], t: number) {
     .filter((f): f is Forecast => f !== undefined)
 }
 
+// An agent loop's turn started: list it among the turn's agents, as the
+// engine's roster names it. Its model comes with its first request.
+async function noteAgent($: EngineInterface, id: string) {
+  if ((await read($, turnAgents) ?? []).some(a => a.id === id)) return
+  const info = (await $.agent.list()).find(a => a.id === id)
+  if (info === undefined) return
+  const agent: TurnAgent = { id, type: info.type, description: info.description, ...(info.name === undefined ? {} : { name: info.name }) }
+  await update($, turnAgents, (prev: TurnAgent[]) => (prev.some(a => a.id === id) ? prev : [...prev, agent]))
+}
+
+// An agent's first request: its model on its row in /pace, and a warning when
+// that is a smaller family than its definition names. Once per agent of this
+// load (`announced`): a resumed one, or a teammate's next turn, is not warned
+// about again.
+async function noteModel($: EngineInterface, id: string, model: string, announced: Set<string>, warn: { interactive: boolean; language: unknown }) {
+  if (announced.has(id)) return
+  announced.add(id)
+  await noteAgent($, id)
+  await update($, turnAgents, (prev: TurnAgent[]) => prev.map(a => (a.id === id ? { ...a, model } : a)))
+  const agent = ((await read($, turnAgents)) ?? []).find(a => a.id === id)
+  // A fork runs on its parent's model, whatever its type's definition says.
+  if (agent === undefined || agent.type === 'fork' || !warn.interactive) return
+  try {
+    const below = belowDefinition(model, await definitionModel($, agent.type))
+    if (below !== undefined) {
+      const w = await wordsFor($, warn.language)
+      $.ui.toast(w.agentBelow(agent.name ?? agent.type, below.is, below.want), { timeoutMs: 10_000 })
+    }
+  } catch {
+    // A definition that cannot be read: nothing to hold the agent to.
+  }
+}
+
 export const register: Register = (on, options) => {
   // A headless run (claude -p, a scripted session) shows no line, so it writes
   // no file for one. Kept by the module, not in $.state: a /clear starts the
   // session's state over under a new id and raises no session.start, while the
   // module and the process it runs in go on; a reload raises session.start again.
   let interactive = false
+  // Agents whose model this load has seen, by id: a resumed one, or a
+  // teammate's next turn, is not warned about again.
+  const announced = new Set<string>()
+
 
   on('session.start', async ($, e, next) => {
     const result = await next(e)
@@ -478,7 +515,15 @@ export const register: Register = (on, options) => {
   // turn.start fires for a subagent's or teammate's run too (Claude Code 2.1.299);
   // one started mid-turn must not restart the main loop's count.
   on('turn.start', async ($, e, next) => {
-    if (e.agentId !== undefined) return next(e)
+    if (e.agentId !== undefined) {
+      const r = await next(e)
+      try {
+        await noteAgent($, e.agentId)
+      } catch {
+        // The mod only watches: an agent it cannot list is left out of /pace.
+      }
+      return r
+    }
     // Nothing measured yet in this session's state (the first turn after a
     // /clear): the engine's own figures are the turn's start.
     const current = (await read($, now)) ?? figuresOf(await $.session.usage())
@@ -491,28 +536,20 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // Every agent the turn starts, for /pace; and a warning when one starts on a
-  // smaller model family than its definition names. The spawn itself is left
-  // as it was asked: the person chose it, the mod only says so.
-  on('agent.spawn', async ($, e, next) => {
-    const r = await next(e)
-    if (r.deny !== undefined || r.agentId === undefined) return r
-    const agentId = r.agentId
-    const agent: TurnAgent = { id: agentId, type: e.subagentType, description: e.description, model: r.model }
-    await update($, turnAgents, (prev: TurnAgent[]) => [...prev.filter(a => a.id !== agentId), agent])
-    if (e.fork || e.resume !== undefined || !interactive) return r
-    try {
-      const below = belowDefinition(r.model, await definitionModel($, e.subagentType))
-      if (below !== undefined) {
-        const w = await wordsFor($, options.language)
-        $.ui.toast(w.agentBelow(e.name ?? e.subagentType, below.is, below.want), { timeoutMs: 10_000 })
+  // An agent's first request: the model it runs on, for /pace, and a warning
+  // when that is a smaller family than its definition names. Read here, not
+  // at agent.spawn: a mod on agent.spawn keeps Code Mode off in the session
+  // (Claude Code 2.1.323). The step itself goes on untouched.
+  on('turn.step', async function* ($, e, next) {
+    if (e.agentId !== undefined && e.index === 0) {
+      try {
+        await noteModel($, e.agentId, e.model, announced, { interactive, language: options.language })
+      } catch {
+        // The mod only watches: whatever fails in it, the request goes as it was.
       }
-    } catch {
-      // A definition that cannot be read: nothing to hold the agent to.
     }
-    return r
-    // The mod only watches: whatever fails in it, the spawn goes on as asked.
-  }).catch(($, e, next) => next(e))
+    return yield* next(e)
+  })
 
   on('turn.complete', async ($, e, next) => {
     const used = tokensOf(e.usage)
@@ -724,7 +761,7 @@ export const register: Register = (on, options) => {
               const status = statuses.get(a.id)
               return (
                 <Button key={`agent-${a.id}`} plain onPress={() => $.ui.view({ agentId: a.id })}>
-                  <Text>{`${a.type} · ${familyOf(a.model) ?? a.model}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}${a.tokens === undefined ? '' : ` · ${w.tokens(fmtTokens(a.tokens))}`}`}</Text>
+                  <Text>{`${a.type}${a.model === undefined ? '' : ` · ${familyOf(a.model) ?? a.model}`}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}${a.tokens === undefined ? '' : ` · ${w.tokens(fmtTokens(a.tokens))}`}`}</Text>
                   <Text dimColor>{`  ${a.description}`}</Text>
                 </Button>
               )

@@ -619,6 +619,16 @@ out="$out
 switched off: $(ls "$CASE_ROOT" | grep -c pace-band-line)"
 check fleet-line "$out"
 
+# Code Mode: Claude Code turns it off for the whole session when a loaded mod
+# hooks any of these events (the list in 2.1.323 and 2.1.325's code). The
+# companion mod must hook none of them, so Code Mode works for those who want it.
+MOD_DIR="${STATUSLINE_MOD_DIR:-$HERE/../experiments/statusline-band/hooks}"
+CODE_MODE_OFF='tool\.call|tool\.check|classic\.(PreToolUse|PermissionRequest|PermissionDenied|PostToolUse|PostToolUseFailure|TaskCreated|TaskCompleted|Elicitation|ElicitationResult|WorktreeCreate)|agent\.offer|agent\.spawn|session\.send'
+hooked=$(cat "$MOD_DIR"/*.ts "$MOD_DIR"/*.tsx 2>/dev/null | grep -v '\.test\.' \
+    | grep -oE "on\(['\"]($CODE_MODE_OFF)['\"]" | sort -u)
+check mod-code-mode "mod files: $(ls "$MOD_DIR"/register.tsx 2>/dev/null | wc -l | tr -d ' ')
+hooks that turn Code Mode off: ${hooked:-none}"
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")

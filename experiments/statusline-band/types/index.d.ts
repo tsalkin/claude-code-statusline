@@ -54,7 +54,8 @@ export type FleetView = { at: number; windowStart: number; records: FleetRecord[
 
 // An agent the last main turn started, as its spawn answered: for /pace.
 // `tokens`: what its loop's turns used, summed, once one has ended.
-export type TurnAgent = { id: string; type: string; description: string; model: string; tokens?: number }
+// model: the agent's first request names it; absent until then.
+export type TurnAgent = { id: string; type: string; description: string; name?: string; model?: string; tokens?: number }
 
 declare module 'claude-code' {
   interface PluginState {
