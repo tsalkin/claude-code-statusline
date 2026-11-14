@@ -2,6 +2,37 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-14 (evening) — CANI: a hub knock left unanswered; a Stop guard for the fleet
+
+**What happened.** The hub knocked at 14:16 with a task letter (`code-mode-zamer`) while the pace-band change was in progress. I read the letter and found its premises outdated (В1 "pace-band не трогать" overruled, `--setting-sources` no longer needed, low memory). I told only the owner, and tied the answer to the hub to an unrelated owner decision ("after your answer about the check"). Three turns later the owner asked: "ты получил и решил не делать. Написал ли ты автору стука?" The answer to the hub went at 14:29 (`576d7a2` in the pool). The second knock, at 14:30, got a receipt within 8 seconds.
+
+**Root.**
+- Two acts were merged: a receipt to the author (no decision needed, owed, one line) and the start date (the owner's).
+- The harness delivers a mid-turn knock with "After completing your current task, decide whether/how to respond", and nothing tracks what is deferred.
+- The rule lives in the global CLAUDE.md as words. The fleet watches outgoing knocks (`knock-guard.py`) and the owner's questions (`waiting.py`), but no one watches an incoming knock without a reply.
+
+**Carrier built** (`docs/drafts/2026-11-14_knock-reply-guard/`, outside git through `.git/info/exclude`: fleet internals, the hub installs it). `knock-reply-guard.py` is a Stop hook. It blocks the turn while a knock that names a pool letter addressed to this project, or asks a question, has no `SendMessage` to its sender after it.
+
+It skips:
+- receipts;
+- FYI knocks about other projects' letters;
+- knocks quoted in tool output;
+- agents' reports;
+- knocks before `SINCE`;
+- a second block in a row.
+
+The project comes from `project_of_cwd.py`, compared with `address_matches()`.
+
+Checks:
+- tests 18/18;
+- eight mutations, each red;
+- reverse check on this session's transcript: cut at line 900 or 1070 blocks, naming the hub knock of 14:16 or 14:30; the whole transcript passes;
+- time: 0.03 s on 2.8 MB, 0.3 s on the fleet's largest transcript (229 MB).
+
+**Past coverage.** The fleet's transcripts since 01.11 hold 31 knocks about a letter to the receiver with no reply in the same session; yadro knocked tsalkin-ai four times in 26 minutes on 03.11. The first cut also flagged FYI knocks about others' letters, so the rule was narrowed to letters addressed to us.
+
+**Sent to the hub** (`2026-11-14__claude-code-statusline__to__hub__strazh-otveta-na-stuk.md`, `0766aed`, knocked): install the hook, a ready line for `cross-session-messaging-fleet.md`, two ledger rows. Step −1 of the 23.10 entry: today's start hint offered `cc-watch --mark 2.1.325`, and it was not run.
+
 ## 2026-11-14 (later) — pace-band 0.16.0: no hook that keeps Code Mode off
 
 **Context.** The owner: "думаю что надо внести изменения для обеспечения совместимости с новыми функциями для тех кому это важно. Делай." This reverses the morning's "вариант 3" for the mod. Code Mode itself stays off in the owner's sessions: it is opt-in, and `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE` is not set.
