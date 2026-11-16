@@ -2,6 +2,20 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-16 — The hub installed rule 3 and the deploy-gate fix; CANI on the measurement
+
+**Installed by the hub** (`~/.claude` `6916fa5`, checked on disk 15.11):
+- `knock-reply-guard.py`, rule 3 ("ответ на любой стук, кроме помеченных отправителем"). `SINCE` 2026-11-14T19:34:13Z; the hash differs from the draft only by that date. Its Stop line is in `~/.claude/settings.json`. The hub ran 21/21; the old version goes red on the new tests.
+- `deploy-gate.py` takes consent only from `source` none, empty or `user`. The new test is green, the old hook red on two.
+- The hub closed the letters about the guard, rule 3, 2.1.323 with Code Mode, 2.1.325 and the measurement (pool `a21be91`, `cffce31`). The fleet's version gate is at 2.1.325. Two hub knocks since then were marked ("К сведению:", "Квитанция:") and got no reply, as the rule says.
+
+**CANI on the measurement** (signs: a run wasted, two guard refusals). The lost T1 run and the request miscount are in the entry below. One ledger row went to the hub by letter `2026-11-16__claude-code-statusline__to__hub__cani-zamer-okruzhenie-proby.md`:
+- class: a probe launched from inside a session, its environment not checked against what the measurement needs, and a wait with no fail-fast;
+- carrier: `docs/drafts/cm-zamer/ref/drive.py` (drops the marker, `no_transcript` after 90 s) and `metrics2.py` (`requestId`), plus the project memory `probe-without-user-settings`;
+- the driver's reverse run was not done, because it needs a live `claude` launch with the marker.
+
+The guard refusals were the guards working: the secrets guard stopped `env | grep` (use `printenv NAME`), and the deploy-consent guard stopped `ls` on its folder (`DEPLOY_GATE_STATE` in scratch instead).
+
 ## 2026-11-15 — Code Mode measured on two fleet tasks; pace-band 0.16.0 lets it start
 
 **Context.** The hub's task `code-mode-zamer` (amendment №1: the owner's full settings). The owner: "Делай А - замер сейчас", then "возобновляй замер" after a pause. Kit in `docs/drafts/cm-zamer/`, outside git.
