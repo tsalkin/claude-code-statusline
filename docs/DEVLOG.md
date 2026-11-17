@@ -21,6 +21,7 @@ Engineering log: what changed, why, and what bit us. Newest first.
 - An apostrophe in a comment inside the single-quoted jq program ("agent's") closed the quote. The rows went silent, 7 cases red. The program's comments must not hold `'`.
 - `objects` in a jq binding turns a non-object into an empty stream, which drops the whole row; replaced with `if type == "object"`.
 - A heredoc append was stopped by Claude Code's removal guard ("can't be sure it read this command"); `Edit` did the same change.
+- After the fast-forward, `tsc` in the main working copy went red on `lastRequest` and `cost`: within minutes a session on 2.1.325 had rewritten the gitignored types file ("Written by Claude Code 2.1.325"), and another rewrote it back. The types follow whichever Claude Code loaded the mod last, and nine of the owner's sessions still run 2.1.325. So the module reads the new fields through a local `RosterExtras` type, and the test fakes are asserted, not declared. Checked under both: `claude plugin validate --strict` and `~/.local/share/claude/versions/2.1.325 plugin validate --strict` both pass (the old binary checks against its own built-in types and writes no file), and `plugin test` passes 167/167 on both engines.
 
 **Not yet:** seen live. The first agent in the owner's session will show it: `⚡<level>` in place of `⚡inh` on the agent rows, and `$` in `/pace`.
 

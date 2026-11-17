@@ -252,6 +252,11 @@ async function turnFile($: EngineInterface) {
 // unchanged roster writes nothing.
 let agentsWritten = ''
 
+// What Claude Code 2.1.326 added to an agent on the roster, read through this
+// type: the types file is written by whichever Claude Code loaded the mod
+// last, and a session on an older one must still type-check the module.
+type RosterExtras = { lastRequest?: { model: string; effort?: string | number }; cost?: { usd: number } }
+
 async function recordAgents($: EngineInterface, interactive: boolean) {
   if (!interactive) return
   const id = await $.session.id()
@@ -771,10 +776,10 @@ export const register: Register = (on, options) => {
 
     // The agents the last turn started, each a press away from its transcript.
     const agents = await read($, turnAgents)
-    let infos = new Map<string, AgentInfo>()
+    let infos = new Map<string, AgentInfo & RosterExtras>()
     if (agents.length > 0) {
       try {
-        infos = new Map((await $.agent.list()).map(a => [a.id, a]))
+        infos = new Map((await $.agent.list()).map(a => [a.id, a as AgentInfo & RosterExtras]))
       } catch {
         // No list (a thin client): the rows go without a status.
       }

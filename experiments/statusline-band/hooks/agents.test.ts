@@ -21,18 +21,23 @@ const def = (lines: string[]) => ['---', ...lines, '---', 'The agent’s prompt.
 
 // A roster entry: what a test names, the rest as a fresh subagent has it
 // (Claude Code 2.1.326 made these fields required; the mod reads none of them).
+// Asserted, not declared: the types file may be an older Claude Code's, which
+// has none of these fields (the module must type-check under both).
 type AgentFields = Pick<AgentInfo, 'id' | 'type' | 'description' | 'status'> & Partial<AgentInfo>
-const agentInfo = (fields: AgentFields): AgentInfo => ({
-  kind: 'local_agent',
-  taskStatus: fields.status === 'completed' ? 'completed' : 'running',
-  label: fields.description,
-  startTime: NOW,
-  cwd: ROOT,
-  tokenCount: 0,
-  tokenSamples: [],
-  hasRow: true,
-  ...fields,
-})
+const agentInfo = (fields: AgentFields) =>
+  ({
+    kind: 'local_agent',
+    taskStatus: fields.status === 'completed' ? 'completed' : 'running',
+    label: fields.description,
+    startTime: NOW,
+    cwd: ROOT,
+    tokenCount: 0,
+    tokenSamples: [],
+    hasRow: true,
+    ...fields,
+  }) as AgentInfo
+// The 2.1.326 fields the tests set, under either types file.
+type Extras = { lastRequest?: { at: number; model: string; effort?: string | number }; cost?: { usd: number } }
 
 describe('agent definitions', () => {
   test('name and model from the frontmatter', () => {
@@ -95,7 +100,7 @@ function engine(on: On, files: Record<string, string>, { facts = false, effort }
   on('turn.step', async function* (_$, e) {
     steps.push(`${e.agentId ?? 'main'}:${e.index}:${e.model}`)
     const agent = facts ? roster.find(a => a.id === e.agentId) : undefined
-    if (agent !== undefined) agent.lastRequest = { at: NOW, model: e.model, ...(effort === undefined ? {} : { effort: effort as 'high' }) }
+    if (agent !== undefined) (agent as Extras).lastRequest = { at: NOW, model: e.model, ...(effort === undefined ? {} : { effort }) }
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
   on('ui.toast', (_$, e) => {
@@ -318,7 +323,7 @@ describe("the agents' facts (Claude Code 2.1.326)", () => {
     await start($)
     await $.turn.start({ text: 'go', turnId: 't1' })
     await spawn($, roster, 'ispolnitel')
-    roster[0]!.cost = { usd: 0.42 }
+    ;(roster[0] as Extras).cost = { usd: 0.42 }
     const ui = await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'Pane', requestId: 'pace', props: PANE_PROPS })
     expect(await texts(ui)).toContain('ispolnitel · opus ⚡high · done · $0.42')
   })
