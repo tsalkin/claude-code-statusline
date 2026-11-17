@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { AgentInfo, On } from 'claude-code'
 
-import { belowDefinition, familyOf, parseDefinition } from './agents'
+import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition } from './agents'
 
 const NOW = Date.parse('2026-10-17T12:00:00Z')
 const HOME = '/home/me'
@@ -63,10 +63,13 @@ describe('agent definitions', () => {
 
 // The engine beneath the plugin: definitions on disk, the agents' roster,
 // each agent's requests answered, toasts and transcript views kept.
-function engine(on: On, files: Record<string, string>) {
+// `facts`: the engine is 2.1.326 or later, so each agent's request leaves its
+// model and effort on the roster (`lastRequest`), with `effort` the level sent.
+function engine(on: On, files: Record<string, string>, { facts = false, effort }: { facts?: boolean; effort?: string } = {}) {
   const toasts: string[] = []
   const viewed: (string | undefined)[] = []
   const lines: string[] = []
+  const agentFiles: string[] = []
   const roster: AgentInfo[] = []
   const steps: string[] = []
   mock.clock(on, { now: NOW })
@@ -91,6 +94,8 @@ function engine(on: On, files: Record<string, string>) {
   on('agent.list', () => ({ value: roster }))
   on('turn.step', async function* (_$, e) {
     steps.push(`${e.agentId ?? 'main'}:${e.index}:${e.model}`)
+    const agent = facts ? roster.find(a => a.id === e.agentId) : undefined
+    if (agent !== undefined) agent.lastRequest = { at: NOW, model: e.model, ...(effort === undefined ? {} : { effort: effort as 'high' }) }
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: null }
   })
   on('ui.toast', (_$, e) => {
@@ -107,11 +112,12 @@ function engine(on: On, files: Record<string, string>) {
   on('session.id', () => ({ value: 'sess-1' }))
   on('fs.write', (_$, e) => {
     if (e.path === '/tmp/x/pace-band-turn-sess-1.txt') lines.push(e.text.replace(/\n$/, ''))
+    if (e.path === '/tmp/x/pace-band-agents-sess-1.json') agentFiles.push(e.text.replace(/\n$/, ''))
     return { value: undefined }
   })
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('turn.complete', () => ({ text: '' }))
-  return { toasts, viewed, lines, roster, steps }
+  return { toasts, viewed, lines, roster, steps, agentFiles }
 }
 
 const USER_DEFS = {
@@ -264,6 +270,58 @@ describe("the turn's agents in /pace", () => {
       expect(await texts(ui)).not.toContain('agents of the last turn')
     })
   }
+})
+
+describe("the agents' facts (Claude Code 2.1.326)", () => {
+  test('by agent id: the model and the effort the last request carried', () => {
+    expect(
+      factsOf([
+        { id: 'a-1', lastRequest: { model: 'claude-opus-5-5', effort: 'high' } },
+        { id: 'a-2', lastRequest: { model: 'claude-haiku-5-5' } },
+        { id: 'a-3' },
+      ]),
+    ).toEqual({ 'a-1': { model: 'claude-opus-5-5', effort: 'high' }, 'a-2': { model: 'claude-haiku-5-5' } })
+  })
+
+  test('cost: two decimals, under a cent not a zero', () => {
+    expect(fmtUsd(1.2)).toBe('$1.20')
+    expect(fmtUsd(0.004)).toBe('<$0.01')
+    expect(fmtUsd(0)).toBe('$0.00')
+  })
+
+  test("written for the line after an agent's request; an unchanged roster writes nothing", async ($, on) => {
+    const { roster, agentFiles } = engine(on, USER_DEFS, { facts: true, effort: 'medium' })
+    await start($)
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, roster, 'ispolnitel', { model: 'claude-sonnet-5-5' })
+    expect(agentFiles).toEqual(['{"a-1":{"model":"claude-sonnet-5-5","effort":"medium"}}'])
+    await step($, 'a-1', 'claude-sonnet-5-5', 1)
+    expect(agentFiles).toHaveLength(1)
+  })
+
+  test('an engine before 2.1.326, or a headless session: no file', async ($, on) => {
+    const { roster, agentFiles } = engine(on, USER_DEFS)
+    await start($)
+    await spawn($, roster, 'ispolnitel')
+    expect(agentFiles).toEqual([])
+  })
+
+  test('headless: no file even with the facts', async ($, on) => {
+    const { roster, agentFiles } = engine(on, USER_DEFS, { facts: true, effort: 'high' })
+    await start($, false)
+    await spawn($, roster, 'ispolnitel')
+    expect(agentFiles).toEqual([])
+  })
+
+  test('in /pace: the effort sent and the cost /cost counts', async ($, on) => {
+    const { roster } = engine(on, USER_DEFS, { facts: true, effort: 'high' })
+    await start($)
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await spawn($, roster, 'ispolnitel')
+    roster[0]!.cost = { usd: 0.42 }
+    const ui = await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'Pane', requestId: 'pace', props: PANE_PROPS })
+    expect(await texts(ui)).toContain('ispolnitel · opus ⚡high · done · $0.42')
+  })
 })
 
 // A turn's requests: 100 in, 100 out, 300 read from the cache, 100 written: 600.

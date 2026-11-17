@@ -2,6 +2,28 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-17 (later) — pace-band 0.17.0: the agent rows show the effort actually sent
+
+**Decision.** Owner, 17.11: "1". The choice was to move the agent rows onto what Claude Code 2.1.326 now reports per agent.
+
+**Premise, checked in the 2.1.326 binary.** `$.agent.list()` builds each entry from the same task record that feeds the line's subagent rows: `QBe` gives `id: e.agentId`, and `model`/`effort` come from the task. A local agent's task is registered under its agent id (`_y(e,"local_agent",…)` with `agentId: e`). So the mod's agent id and the rows' task `id` are one key. The rows' payload carries `effort: qt.effort`, the level set, and none when the agent inherits. What a request actually carried is only in the mod API (`lastRequest.effort`). That a live engine fills `lastRequest` and `cost` was not observed: it is read from the types and the code path only.
+
+**What changed:**
+- **Mod, `/pace`.** An agent row reads `type · family ⚡effort · status · $cost`. The effort is the last request's, and the cost is the agent's `cost.usd` as `/cost` counts it. Before 2.1.326 the row falls back to the first request's model and the tokens of its ended turns, as in 0.16.0.
+- **Mod, file for the line.** After each request of an agent (`turn.step`, once answered), an interactive session writes `<tmp>/pace-band-agents-<session>.json`: `{"<agent id>": {"model", "effort"}}`. It writes only when the content changed. A headless session, or an engine before 2.1.326, writes nothing.
+- **Line, `subagent-statusline.sh`.** It reads that file by the payload's `session_id`. The effort it shows and checks is the one sent, which gives an inherited agent (`⚡inh`) its real level. A missing or broken file, an entry that is not an object, or an entry with no effort changes nothing.
+
+**Gate.** Mod 167/167 (6 new), `tsc`, `validate --strict`; line 74/74 (2 new). Reverse runs:
+- the two mod behaviour tests are red on 0.16.0's `register.tsx`;
+- `subagents-facts` is red on the old `subagent-statusline.sh`.
+
+**What bit us:**
+- An apostrophe in a comment inside the single-quoted jq program ("agent's") closed the quote. The rows went silent, 7 cases red. The program's comments must not hold `'`.
+- `objects` in a jq binding turns a non-object into an empty stream, which drops the whole row; replaced with `if type == "object"`.
+- A heredoc append was stopped by Claude Code's removal guard ("can't be sure it read this command"); `Edit` did the same change.
+
+**Not yet:** seen live. The first agent in the owner's session will show it: `⚡<level>` in place of `⚡inh` on the agent rows, and `$` in `/pace`.
+
 ## 2026-11-17 — Claude Code 2.1.326: test fakes catch up with `AgentInfo`; the roster now carries each agent's model and effort
 
 **Context.** The owner asked what the new release changes, what the project could use, and to pass anything important and urgent to the hub. 2.1.326 is installed (`claude --version`, binary of 17.11 06:11 GMT+8).

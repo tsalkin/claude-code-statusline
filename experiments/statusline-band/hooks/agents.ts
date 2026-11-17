@@ -47,3 +47,26 @@ export function belowDefinition(runsOn: string, wants: string | undefined) {
   const b = RANK[want]
   return a !== undefined && b !== undefined && a < b ? { is, want } : undefined
 }
+
+// What each agent's last request carried, by agent id: the model that answered
+// and the effort sent, the engine's own word (Claude Code 2.1.326) instead of
+// one worked out from definitions and settings. An agent with no request yet,
+// or an engine older than 2.1.326, gives nothing. `effort` is left out where
+// the request carried none (a model that takes no effort).
+export type AgentFact = { model: string; effort?: string | number }
+
+export function factsOf(list: readonly { id: string; lastRequest?: { model: string; effort?: string | number } }[]) {
+  const facts: Record<string, AgentFact> = {}
+  for (const a of list) {
+    const r = a.lastRequest
+    if (r === undefined || typeof r.model !== 'string') continue
+    facts[a.id] = { model: r.model, ...(r.effort === undefined ? {} : { effort: r.effort }) }
+  }
+  return facts
+}
+
+// "$0.04", "$1.20": an agent's cost as /cost keeps it, two decimals; under a
+// cent, "<$0.01" rather than a zero that reads as free.
+export function fmtUsd(usd: number) {
+  return usd > 0 && usd < 0.005 ? '<$0.01' : `$${usd.toFixed(2)}`
+}

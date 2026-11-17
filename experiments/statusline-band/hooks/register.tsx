@@ -1,8 +1,8 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionRateLimit, Timer } from 'claude-code'
+import type { AgentInfo, EngineInterface, Register, SessionRateLimit, Timer } from 'claude-code'
 
 import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
-import { belowDefinition, familyOf, parseDefinition, tokensOf } from './agents'
+import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition, tokensOf } from './agents'
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
@@ -240,6 +240,26 @@ async function turnFile($: EngineInterface) {
   const id = await $.session.id()
   if (!/^[\w-]+$/.test(id)) return undefined
   return `${await tmpDir($)}/pace-band-turn-${id}.txt`
+}
+
+// --- The agents' facts, for the bash line's subagent rows. ------------------
+
+// The rows (subagent-statusline.sh) get each agent's effort as set, and nothing
+// when it takes the session's; what its requests actually carry only the engine
+// knows. Written to <tmp>/pace-band-agents-<session>.json after each request of
+// an agent, by agent id, which is the rows' task id (Claude Code 2.1.326).
+// Kept by the module, like `interactive`: the text last written, so an
+// unchanged roster writes nothing.
+let agentsWritten = ''
+
+async function recordAgents($: EngineInterface, interactive: boolean) {
+  if (!interactive) return
+  const id = await $.session.id()
+  if (!/^[\w-]+$/.test(id)) return
+  const text = JSON.stringify(factsOf(await $.agent.list()))
+  if (text === agentsWritten || (text === '{}' && agentsWritten === '')) return
+  await $.fs.write(`${await tmpDir($)}/pace-band-agents-${id}.json`, `${text}\n`)
+  agentsWritten = text
 }
 
 // --- The fleet: this session's record, and every session's for /pace. -------
@@ -548,7 +568,16 @@ export const register: Register = (on, options) => {
         // The mod only watches: whatever fails in it, the request goes as it was.
       }
     }
-    return yield* next(e)
+    const result = yield* next(e)
+    // The request has been answered: the roster now holds what it carried.
+    if (e.agentId !== undefined) {
+      try {
+        await recordAgents($, interactive)
+      } catch {
+        // No file: the rows keep the effort as set.
+      }
+    }
+    return result
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -742,13 +771,33 @@ export const register: Register = (on, options) => {
 
     // The agents the last turn started, each a press away from its transcript.
     const agents = await read($, turnAgents)
-    let statuses = new Map<string, string>()
+    let infos = new Map<string, AgentInfo>()
     if (agents.length > 0) {
       try {
-        statuses = new Map((await $.agent.list()).map(a => [a.id, a.status]))
+        infos = new Map((await $.agent.list()).map(a => [a.id, a]))
       } catch {
         // No list (a thin client): the rows go without a status.
       }
+    }
+    // An agent's row: its type, the model and effort its last request carried
+    // (the first request's model before Claude Code 2.1.326), its status, and
+    // what it cost as /cost counts it, else the tokens of its ended turns.
+    const agentText = (a: TurnAgent) => {
+      const info = infos.get(a.id)
+      const model = info?.lastRequest?.model ?? a.model
+      const effort = info?.lastRequest?.effort
+      const status = info?.status
+      const usd = info?.cost?.usd
+      return [
+        a.type,
+        model === undefined
+          ? undefined
+          : `${familyOf(model) ?? model}${effort === undefined ? '' : ` ⚡${typeof effort === 'number' ? fmtTokens(effort) : effort}`}`,
+        status === undefined ? undefined : (w.agentStatus[status] ?? status),
+        usd !== undefined ? fmtUsd(usd) : a.tokens === undefined ? undefined : w.tokens(fmtTokens(a.tokens)),
+      ]
+        .filter(p => p !== undefined)
+        .join(' · ')
     }
     const agentRows =
       agents.length === 0
@@ -757,15 +806,12 @@ export const register: Register = (on, options) => {
             <Text key="agents-head" weight="semibold" wrap="truncate-end">
               {w.agentsHead(`${agents.length}`)}
             </Text>,
-            ...agents.map(a => {
-              const status = statuses.get(a.id)
-              return (
-                <Button key={`agent-${a.id}`} plain onPress={() => $.ui.view({ agentId: a.id })}>
-                  <Text>{`${a.type}${a.model === undefined ? '' : ` · ${familyOf(a.model) ?? a.model}`}${status === undefined ? '' : ` · ${w.agentStatus[status] ?? status}`}${a.tokens === undefined ? '' : ` · ${w.tokens(fmtTokens(a.tokens))}`}`}</Text>
-                  <Text dimColor>{`  ${a.description}`}</Text>
-                </Button>
-              )
-            }),
+            ...agents.map(a => (
+              <Button key={`agent-${a.id}`} plain onPress={() => $.ui.view({ agentId: a.id })}>
+                <Text>{agentText(a)}</Text>
+                <Text dimColor>{`  ${a.description}`}</Text>
+              </Button>
+            )),
             <Text key="agents-gap"> </Text>,
           ]
 

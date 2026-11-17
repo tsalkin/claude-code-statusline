@@ -265,6 +265,22 @@ new_case subagents-no-jq
 out=$(TEST_PATH=/nonexistent render_sub subagents.json; echo "exit=$?")
 check subagents-no-jq "$out"
 
+# 28a. The mod's facts (pace-band 0.17.0, Claude Code 2.1.326): the effort the last
+# request carried replaces the one set (a1: high → medium; no saved level for its model,
+# so no check) and
+# gives an inherited agent its level (a6: inh → max). A fact that is not an object
+# (a2) or names no effort (a3) changes nothing; nor does a file for another session.
+new_case subagents-facts; make_settings
+printf '%s\n' '{"a1":{"model":"claude-opus-5-5","effort":"medium"},"a2":"junk","a3":{"model":"claude-haiku-4-5"},"a6":{"model":"claude-opus-5-5[1m]","effort":"max"}}' \
+    > "$CASE_ROOT/pace-band-agents-0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31.json"
+printf '%s\n' '{"a7":{"model":"claude-sonnet-5-5","effort":"max"}}' > "$CASE_ROOT/pace-band-agents-other.json"
+check subagents-facts "$(render_sub subagents.json)"
+
+# 28b. A facts file that is not JSON: the rows as without one
+new_case subagents-facts-broken; make_settings
+printf 'not json\n' > "$CASE_ROOT/pace-band-agents-0f3c9a2e-5b7d-4e1a-9c2f-7a8b6d5e4f31.json"
+check subagents-facts-broken "$(render_sub subagents.json)"
+
 # 29-32. scripts/install.sh writes statusLine / subagentStatusLine into a sandbox
 # settings.json. Paths and the backup time are normalised in the output.
 # run_install <install.sh> [args...] → its output, "exit=N", then settings.json

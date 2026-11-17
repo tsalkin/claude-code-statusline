@@ -20,7 +20,8 @@
 # Claude Code 2.1.317 runs such an agent at it), else, for the older models that still
 # take it, to `effortLevel`. A current model with no saved level runs at its own
 # default, which the rows do not know: no check. No effort in the row data means the
-# subagent inherits the session's level ("⚡inh").
+# subagent inherits the session's level ("⚡inh"). With the pace-band mod (0.17.0+, Claude
+# Code 2.1.326+) the effort shown and checked is the one the agent's last request carried.
 #
 # Requires: bash, jq 1.6+. Settings: the same config file and variables as statusline.sh.
 #
@@ -95,6 +96,21 @@ if [ "$STATUSLINE_SHOW_EFFORT_CHECK" = "1" ] || [ "$STATUSLINE_SHOW_MODEL_CHECK"
     [ -n "$agent_defs" ] || agent_defs='{}'
 fi
 
+# What each agent's last request actually carried, by task id, from the pace-band mod
+# (Claude Code 2.1.326+): <tmp>/pace-band-agents-<session>.json, {"<id>": {"model":
+# …, "effort": …}}. The rows' own data gives the effort as set, and none when the
+# agent takes the session's; the mod's word replaces both. No mod, no file: as before.
+agent_facts='{}'
+facts_session=$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null)
+if [[ "$facts_session" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    facts_dir="${TMPDIR:-/tmp}"
+    facts_file="${facts_dir%/}/pace-band-agents-${facts_session}.json"
+    if [ -f "$facts_file" ]; then
+        agent_facts=$(jq -c 'if type == "object" then . else {} end' "$facts_file" 2>/dev/null)
+        [ -n "$agent_facts" ] || agent_facts='{}'
+    fi
+fi
+
 # The rows' own words, as in statusline.sh: STATUSLINE_LANG when it pins one, else the
 # kit's language when it pins one, else Russian when Claude Code's language is Russian.
 case "$STATUSLINE_LANG" in
@@ -122,6 +138,7 @@ printf '%s' "$input" | jq -c \
     --arg agent_effort "$agent_effort" \
     --argjson model_efforts "$model_efforts" \
     --argjson defs "$agent_defs" \
+    --argjson facts "$agent_facts" \
     --arg effort_check "$STATUSLINE_SHOW_EFFORT_CHECK" \
     --arg model_check "$STATUSLINE_SHOW_MODEL_CHECK" \
     --arg uh "$W_H" --arg um "$W_M" --arg us "$W_S" --arg inh "$W_INH" \
@@ -208,8 +225,10 @@ def effort_color:
      | sgr($hue) + "(≠" + $mwant + ")" + off
    else "" end) as $mcheck
 
-# effort: a level, a numeric token budget, or absent (inherited)
-| ($t.effort) as $e
+# effort: a level, a numeric token budget, or absent (inherited); what the last request
+# of the agent carried when the mod says so, which also gives an inherited one its level
+| ($facts[$t.id | tostring] | if type == "object" then .effort else null end) as $sent
+| (if $sent != null then $sent else $t.effort end) as $e
 | (if $e == null then sgr("2") + "⚡" + $inh + off
    elif ($e | type) == "number" then sgr("36") + "⚡" + ($e | kilo) + off
    else sgr($e | clean | effort_color) + "⚡" + ($e | clean) + off end) as $eff
