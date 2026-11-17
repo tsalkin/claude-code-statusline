@@ -19,6 +19,21 @@ const PANE_PROPS = {
 
 const def = (lines: string[]) => ['---', ...lines, '---', 'The agent’s prompt.'].join('\n')
 
+// A roster entry: what a test names, the rest as a fresh subagent has it
+// (Claude Code 2.1.326 made these fields required; the mod reads none of them).
+type AgentFields = Pick<AgentInfo, 'id' | 'type' | 'description' | 'status'> & Partial<AgentInfo>
+const agentInfo = (fields: AgentFields): AgentInfo => ({
+  kind: 'local_agent',
+  taskStatus: fields.status === 'completed' ? 'completed' : 'running',
+  label: fields.description,
+  startTime: NOW,
+  cwd: ROOT,
+  tokenCount: 0,
+  tokenSamples: [],
+  hasRow: true,
+  ...fields,
+})
+
 describe('agent definitions', () => {
   test('name and model from the frontmatter', () => {
     expect(parseDefinition(def(['name: ispolnitel', 'model: opus', 'effort: high']), '/a/x.md')).toEqual({ name: 'ispolnitel', model: 'opus' })
@@ -127,7 +142,7 @@ async function spawn(
   { description = 'build', model = 'claude-opus-5-5', name }: { description?: string; model?: string; name?: string } = {},
 ) {
   const id = `a-${roster.length + 1}`
-  roster.push({ id, type, description, status: 'completed', ...(name === undefined ? {} : { name }) })
+  roster.push(agentInfo({ id, type, description, status: 'completed', ...(name === undefined ? {} : { name }) }))
   await $.turn.start({ text: 'go', turnId: `turn-${id}`, agentId: id })
   await step($, id, model)
   return id
@@ -203,7 +218,7 @@ describe('agent below its definition', () => {
     on('state.set', () => {
       throw new Error('state refused')
     })
-    roster.push({ id: 'a-1', type: 'ispolnitel', description: 'build', status: 'running' })
+    roster.push(agentInfo({ id: 'a-1', type: 'ispolnitel', description: 'build', status: 'running' }))
     expect(await $.turn.start({ text: 'go', turnId: 'turn-a-1', agentId: 'a-1' })).toEqual({ turnId: 'turn-a-1' })
     expect((await step($, 'a-1', 'claude-sonnet-5-5')).stopReason).toBe('end_turn')
     expect(steps).toEqual(['a-1:0:claude-sonnet-5-5'])

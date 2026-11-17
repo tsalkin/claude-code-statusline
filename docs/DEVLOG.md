@@ -2,6 +2,29 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-17 — Claude Code 2.1.326: test fakes catch up with `AgentInfo`; the roster now carries each agent's model and effort
+
+**Context.** The owner asked what the new release changes, what the project could use, and to pass anything important and urgent to the hub. 2.1.326 is installed (`claude --version`, binary of 17.11 06:11 GMT+8).
+
+**Gate on 2.1.326.** First run in the main working copy: line 72/72, mod 161/161, but `tsc` and `validate --strict` red. Both failed on the same thing: `AgentInfo` in the types "Written by Claude Code 2.1.326" gained eight required fields (`kind`, `taskStatus`, `label`, `startTime`, `cwd`, `tokenCount`, `tokenSamples`, `hasRow`). The two roster fakes in `hooks/agents.test.ts` lacked them. The mod reads none of these fields. Fixed with an `agentInfo()` helper that fills defaults. After the fix: line 72/72, mod 161/161, `tsc` clean, `validate --strict` passed (only the known `ICON_MISSING` directory warning).
+
+**What bit us.** `Edit` on `experiments/statusline-band/hooks/agents.test.ts` in the main working copy failed in auto mode: "classifier gave no verdict … hard failure". It is not a prompt, and a retry gets the same answer. The same edit in a worktree went through. This matches 2.1.326's "Changed edits in a session's mods folder to ask more often": the folder is in `CLAUDE_CODE_PLUGIN_DIRS`. So in auto mode the mod can now only be edited in a worktree, which was the rule anyway.
+
+**New in the mod API, not in the notes.** `$.agent.list()` now gives, per agent: `model`, `effort` (the definition's or the call's, absent when it takes the session's), `lastRequest` (with the `effort` the request actually carried), `contextWindowSize`, `tokenCount`, `tokenSamples`, `usage` and `cost`. `tokenSamples` and `contextWindowSize` are absent from the 2.1.325 binary (`strings | grep -c`). pace-band 0.16.0 reads an agent's model from its first `turn.step` and guesses its level from definitions and `modelSettings`. The roster can now give both directly, plus each agent's cost. Held for the owner: no change made.
+
+**Read for the line and the mod in the notes:**
+- custom status line kept its old width, folder and session name after a resize, `/cd` or `/rename`; it also disappeared on Ctrl+C. Both fixed on Claude Code's side, nothing to change here;
+- mods: `overflowX="scroll"` on `Box`, `maxLines` and `wrap="clip"` on `Text`; `wrap="truncate-end"` no longer loses rows on a line feed. The band uses `truncate-end` on single-line texts only;
+- mods can use tools via `$.tool.call`/`$.tool.check` in Code Mode. pace-band makes no such calls.
+
+**For the fleet.** Sent by letter to the hub: `2026-11-17__claude-code-statusline__to__hub__cc-2-1-326-pamyat-i-resume.md`, pool `c9e6d61e`, knocked.
+- **Versions.** Nine sessions run 2.1.325 (`lsof`). 2.1.326 fixes lost history on `/resume` when memory is low, and the machine is short of memory today (37 MB free, swap 83%).
+- **Recommendation.** Take 2.1.326 at the next natural `/restart` and raise the version gate's floor.
+- **Hooks.** `"decision": "block"` now holds in more cases. The four fleet Stop hooks that print it do so only on a condition; their reverse run on 2.1.326 is the hub's.
+- **Wildcard rules.** Auto mode now ignores some wildcard allow rules. None of the named kinds are in the fleet's settings.
+
+The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-16 — The hub installed rule 3 and the deploy-gate fix; CANI on the measurement
 
 **Installed by the hub** (`~/.claude` `6916fa5`, checked on disk 15.11):
