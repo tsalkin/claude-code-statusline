@@ -2,15 +2,10 @@
 
 **18.11 midday: no 5-hour limit** (`04b442f`, owner: "Делай 1"; DEVLOG 18.11 midday). The owner's account (verified Ultra since 30.10) gets only `seven_day`. The line now shows the week alone; pace-band 0.18.2 drops a window past its reset from `/pace`, the band and the hint. Gate: line 81/81, mod 217/217 on 2.1.327 and 2.1.325, `tsc`, `validate --strict`. Pushed by the owner 18.11: `origin/main` = `7e9d75c` (by `git ls-remote`), with all the day's commits (pace-band 0.18.x, the fit fix, the engine check); a new version in the plugin directory. Asked Anthropic for the Fable weekly window (`model_scoped`) in the status line and mods (owner: "1", 18.11): a comment and 👍 on the open issue #101847 from the owner's account (https://github.com/anthropics/claude-code/issues/101847#issuecomment-6968424397); the status line's own issue #89769 was closed by the stale bot. Watch it at each Claude Code version: once `rate_limits` or `SessionRateLimit` carries the Fable window, show it in the line and `/pace`. `/pace` in open sessions changes only after the mod reloads (a new session). Seen by the owner in a new session, 18.11: "да, все работает" (`/pace` without the 5-hour window, and the agent rows drawn by the mod in this project). The owner chose the mod's agent rows in all projects (18.11: "1"). `~/.claude/settings.json` is the hub's (git `~/.claude`), so the edit went to the hub by letter `2026-11-18__claude-code-statusline__to__hub__stroki-agentov-modom-vezde.md`. Done 18.11: the owner removed the key by `!`, the hub committed it (`~/.claude` `38cc012`) and closed the letter; this project's `.claude/settings.local.json` deleted. From each new session on, the mod draws the agent rows everywhere; Claude Code's "subagentStatusLine is deprecated" warning goes away. To undo: put the key back in `~/.claude/settings.json` (through the hub). The CANI letter of 18.11 is closed too: three ledger rows, the fleet-hooks line as H-054.
 
-**Where we are (restart 18.11).**
-- This day's commits (2.1.327 check docs, the fit fix `9dbb1b8`, pace-band 0.18.0 `cdb2a1c` and 0.18.1 `b07bcc2`, the engine check) were pushed by the owner 18.11 with `7e9d75c`.
-- Gate: line 79/79 (with `engine` on 2.1.327), mod 216/216, `tsc`, `validate --strict`.
-
-**Next step, the owner's.** Open a new session of this project and start any agent. If the mod draws the rows, the row reads as the script's but shows the sent level (`⚡low`, not `⚡насл`) right after the agent's first request. If the mod does not draw, the row is Claude Code's own (`… 14m 32s · ↓ 314.3k tokens`) or empty. Then decide: all projects (drop `subagentStatusLine` from `~/.claude/settings.json`) or undo (delete `.claude/settings.local.json`).
+**Where we are (18.11, after the owner's push).** Nothing in progress. The owner pushed the RESUME commits 18.11 (owner: "пуш"). The hub's letter of 14.11 on the Code Mode measurement is closed (the report was accepted 15.11).
 
 **Open.**
-- Push (owner: `!git push`; every push is a new directory version).
-- The hub's answer to the CANI letter of 18.11.
+- The Fable weekly window: watch #101847 at each Claude Code version (see above).
 - The bar glyph cause on 2.1.325 is unproven. It goes away when tsalkin-ai restarts.
 
 **Each new Claude Code version.** `bash tests/run.sh` (the `engine` case checks that the engine still runs our commands), mod `claude plugin test` on the new binary and the oldest the fleet runs, `tsc`, `validate --strict`. Then read the notes for `statusLine`, `subagentStatusLine`, `AgentRow` and mods.
