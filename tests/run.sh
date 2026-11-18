@@ -680,6 +680,19 @@ hooked=$(cat "$MOD_DIR"/*.ts "$MOD_DIR"/*.tsx 2>/dev/null | grep -v '\.test\.' \
 check mod-code-mode "mod files: $(ls "$MOD_DIR"/register.tsx 2>/dev/null | wc -l | tr -d ' ')
 hooks that turn Code Mode off: ${hooked:-none}"
 
+# The engine still runs what the kit plugs into (statusLine, subagentStatusLine, or
+# the mod's AgentRow). The cases above run the scripts directly and stay green when
+# Claude Code stops calling them: 2.1.323 and 2.1.325 ran no subagentStatusLine, and
+# two version checks missed it (DEVLOG 18.11). Only where Claude Code is installed.
+if [ -d "$HOME/.local/share/claude/versions" ] && command -v strings >/dev/null 2>&1; then
+    if engine_out=$("$REPO/scripts/check-engine.sh" "${STATUSLINE_ENGINE:-}" 2>&1); then
+        [ "$UPDATE" = "1" ] || echo "ok       engine ($(printf '%s' "$engine_out" | head -1 | sed 's|.*/||'))"; pass=$((pass + 1))
+    else
+        echo "FAIL     engine: $(printf '%s' "$engine_out" | grep FAIL | head -1)"
+        fail=$((fail + 1))
+    fi
+fi
+
 # 10. jq missing: one explanatory line, exit 0
 new_case no-jq
 out=$(TEST_PATH=/nonexistent render full.json; echo "exit=$?")
