@@ -4,7 +4,7 @@ import type { On } from 'claude-code'
 
 import { parseDefinition } from './agents'
 import { PARITY, PARITY_NOW } from './rows.parity'
-import { agentRow, knobsFrom, rowLangFrom, settingsFacts } from './rows'
+import { agentRow, drawsRows, knobsFrom, rowLangFrom, settingsFacts } from './rows'
 import type { AgentDef, RowTask } from './rows'
 import { WORDS } from './words'
 
@@ -158,6 +158,17 @@ describe('agent rows: the hook', () => {
     const bodies = rowEngine(on, { subagentStatusLine: { type: 'command', command: 'x' } })
     if (!(await mountRow($, AGENT))) return
     expect(bodies.at(-1)).toBeUndefined()
+  })
+
+  test('an empty command (one project handing the rows to the mod): the mod draws', async ($, on) => {
+    const bodies = rowEngine(on, { subagentStatusLine: { type: 'command', command: ' ' } })
+    if (!(await mountRow($, AGENT))) return
+    expect(strip(bodies.at(-1))).toBe('mekhanik · sonnet-5-5 ⚡low · ▱▱▱▱ 11% 21K ▁█ · 1m40s · Bumping the version in plugin.json')
+  })
+
+  test('drawsRows: only a command that is not empty', () => {
+    expect([undefined, null, 'x', {}, { command: '' }, { command: ' \t' }, { command: 3 }, { command: 'bash x.sh' }].map(drawsRows))
+      .toEqual([false, false, false, false, false, false, false, true])
   })
 
   test('a body that arrives set passes untouched', async ($, on) => {

@@ -154,6 +154,14 @@ export function settingsFacts(settings: unknown, envEffort: string | null | unde
   return { want, agentDefault, modelEfforts }
 }
 
+// Whether a `subagentStatusLine` setting draws the rows: a command that is not
+// empty. A layer can't unset a key a lower one sets (a `null` in the local
+// settings leaves the user's command running, probe of 18.11), but an empty
+// command there runs nothing: that is how one project hands the rows to the mod.
+export function drawsRows(setting: unknown) {
+  return isObject(setting) && typeof setting.command === 'string' && setting.command.trim() !== ''
+}
+
 // The rows' language, as the line picks it: STATUSLINE_LANG when it pins one,
 // else the kit's `language` option when it pins one, else Claude Code's own.
 export function rowLangFrom(pin: string | null | undefined, kit: unknown, claude: unknown): Lang {

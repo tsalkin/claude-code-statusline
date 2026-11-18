@@ -6,7 +6,7 @@ import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition, tokensOf }
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
-import { agentRow, knobsFrom, rowLangFrom, settingsFacts } from './rows'
+import { agentRow, drawsRows, knobsFrom, rowLangFrom, settingsFacts } from './rows'
 import type { AgentDef } from './rows'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
@@ -970,7 +970,7 @@ async function readDefinitions($: EngineInterface) {
 async function agentBody($: EngineInterface, p: AgentRowProps, option: unknown) {
   if (typeof p.model !== 'string' || p.model === '') return undefined
   const settings = (await $.settings.read()) as Record<string, unknown>
-  if (settings.subagentStatusLine !== undefined && settings.subagentStatusLine !== null) return undefined
+  if (drawsRows(settings.subagentStatusLine)) return undefined
   // Each name spelled out: the engine lists what a module reads, so `$.env.get`
   // takes literals only. The knobs are rows.ts's ROW_KNOBS.
   const env: Record<string, string | null | undefined> = {
