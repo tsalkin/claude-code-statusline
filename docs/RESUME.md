@@ -1,5 +1,7 @@
 # RESUME — where to pick up
 
+**18.11 midday: no 5-hour limit** (`04b442f`, owner: "Делай 1"; DEVLOG 18.11 midday). The owner's account (verified Ultra since 30.10) gets only `seven_day`. The line now shows the week alone; pace-band 0.18.2 drops a window past its reset from `/pace`, the band and the hint. Gate: line 81/81, mod 217/217 on 2.1.327 and 2.1.325, `tsc`, `validate --strict`. Not pushed. Still open, the owner's: ask Anthropic to pass the Fable weekly window (`model_scoped`) to the status line and mods (option 2; an outward action, show the text first). `/pace` in open sessions changes only after the mod reloads (a new session).
+
 **Where we are (restart 18.11).**
 - `main` is past `origin/main` (`13f3824`, by `git ls-remote` 18.11) by this day's commits: 2.1.327 check docs, the fit fix `9dbb1b8`, pace-band 0.18.0 `cdb2a1c` and 0.18.1 `b07bcc2`, the engine check. None is pushed.
 - Gate: line 79/79 (with `engine` on 2.1.327), mod 216/216, `tsc`, `validate --strict`.
