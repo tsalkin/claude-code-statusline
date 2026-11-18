@@ -438,6 +438,27 @@ check turn-off "$(render full.json STATUSLINE_SHOW_TURN=0)"
 new_case turn-narrow; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
 check turn-narrow "$(render full.json STATUSLINE_WIDTH=60)"
 
+# 46b-46d. A GSD status too long for line 2 (yadro, 18.11: it and the last turn both
+# went, though the turn fit once the status was out). Now a dropped block comes back
+# when it fits, and the GSD block comes back cut with "…" to the room left.
+make_gsd_long() {
+    mkdir -p "$WORK/.planning"
+    sed 's/^status: executing$/status: СЕССИЯ 17.11 — НА ПРОДЕ 83c26cb (боты, админка) и a612dac (портал); следующий — волна 1 M-307 (срок 18.11)/' \
+        "$FIX/STATE.md" > "$WORK/.planning/STATE.md"
+}
+
+# 46b. Both stay: the turn whole, the status cut to the room left
+new_case gsd-long-fit; make_git; make_gsd_long; turn_file "$SID" 'ход 48с · $+0.71\n'
+check gsd-long-fit "$(render full.json STATUSLINE_WIDTH=100)"
+
+# 46c. No room for a cut status beside the turn: the turn (rank 9) gives way to it (rank 6)
+new_case gsd-long-yield; make_git; make_gsd_long; turn_file "$SID" 'ход 48с · $+0.71 · контекст +3% · агенты 94% токенов\n'
+check gsd-long-yield "$(render full.json STATUSLINE_WIDTH=70)"
+
+# 46d. A wide terminal: the whole status, no "…"
+new_case gsd-long-wide; make_git; make_gsd_long; turn_file "$SID" 'ход 48с · $+0.71\n'
+check gsd-long-wide "$(render full.json STATUSLINE_WIDTH=300)"
+
 # 47-52. Idle compaction: a 1M-window session 30% full (300K tokens) on a one-hour
 # cache is compacted about six minutes before the cache would go cold (14:43 → 14:37).
 big='.context_window.context_window_size = 1000000'

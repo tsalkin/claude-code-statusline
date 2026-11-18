@@ -790,9 +790,14 @@ add1 "$limits_part" 1
 [ "$STATUSLINE_SHOW_TIME" = "1" ] && add1 "⏱ ${session_time}" 7
 
 add2 "$gsd_update" 8
+# The GSD block may be cut rather than dropped when the line is too narrow: fit
+# needs its plain text and its colour, kept here with its place in line 2.
+shrink2_at=-1; shrink2_text=""; shrink2_sgr=""
 if [ -n "$gsd_task" ]; then
+    shrink2_at=${#line2_parts[@]}; shrink2_text="$gsd_task"; shrink2_sgr="\033[1m"
     add2 "\033[1m${gsd_task}\033[0m" 6
-else
+elif [ -n "$gsd_part" ]; then
+    shrink2_at=${#line2_parts[@]}; shrink2_text="$gsd_joined"; shrink2_sgr="\033[36m"
     add2 "$gsd_part" 6
 fi
 add2 "$tasks_part" 5
@@ -815,27 +820,69 @@ cols_of() {
     cols=$(( ${#s} + ${#s} - ${#narrow} ))
 }
 
-# fit <line number>: drop blocks by rank until the line fits the width
+# fit <line number>: drop blocks by rank until the line fits the width, then put
+# back what fits again. A wide block dropped late can free room for a narrow one
+# dropped before it: most important first (the reverse of the drop order), each
+# dropped block returns to its place if it fits. Last, the GSD block of line 2,
+# if still out, returns cut with "…" to the room left, when that is at least
+# FIT_SHRINK_MIN columns.
+FIT_SHRINK_MIN=16
 fit() {
-    local -a parts ranks widths
-    local i total top drop
+    local -a parts ranks widths keep dropped out
+    local i j n total kept top drop room text
     if [ "$1" = "1" ]; then parts=("${line1_parts[@]}"); ranks=("${line1_ranks[@]}")
     else parts=("${line2_parts[@]}"); ranks=("${line2_ranks[@]}"); fi
-    [ ${#parts[@]} -eq 0 ] && return
-    for i in "${!parts[@]}"; do cols_of "${parts[$i]}"; widths[$i]=$cols; done
-    while [ ${#parts[@]} -gt 1 ]; do
-        total=$(( (${#parts[@]} - 1) * 3 ))   # " | " between blocks
-        for i in "${!widths[@]}"; do total=$(( total + widths[i] )); done
+    n=${#parts[@]}
+    [ "$n" -eq 0 ] && return
+    for ((i=0; i<n; i++)); do cols_of "${parts[$i]}"; widths[$i]=$cols; keep[$i]=1; done
+    while :; do
+        total=0; kept=0
+        for ((i=0; i<n; i++)); do
+            [ "${keep[$i]}" = 1 ] && total=$(( total + widths[i] )) && kept=$(( kept + 1 ))
+        done
+        total=$(( total + (kept - 1) * 3 ))   # " | " between blocks
         [ "$total" -le "$fit_width" ] && break
+        [ "$kept" -le 1 ] && break
         top=0; drop=-1
-        for i in "${!ranks[@]}"; do
-            [ "${ranks[$i]}" -gt "$top" ] && top=${ranks[$i]} && drop=$i
+        for ((i=0; i<n; i++)); do
+            [ "${keep[$i]}" = 1 ] && [ "${ranks[$i]}" -gt "$top" ] && top=${ranks[$i]} && drop=$i
         done
         [ "$drop" -lt 0 ] && break
-        unset "parts[$drop]" "ranks[$drop]" "widths[$drop]"
-        parts=("${parts[@]}"); ranks=("${ranks[@]}"); widths=("${widths[@]}")
+        keep[$drop]=0; dropped+=("$drop")
     done
-    if [ "$1" = "1" ]; then line1_parts=("${parts[@]}"); else line2_parts=("${parts[@]}"); fi
+    if [ "$total" -le "$fit_width" ]; then
+        for ((j=${#dropped[@]}-1; j>=0; j--)); do
+            i=${dropped[$j]}
+            if [ $(( total + 3 + widths[i] )) -le "$fit_width" ]; then
+                keep[$i]=1; total=$(( total + 3 + widths[i] ))
+            fi
+        done
+        i=$shrink2_at
+        if [ "$1" = "2" ] && [ "$i" -ge 0 ] && [ "$i" -lt "$n" ] && [ "${keep[$i]}" = 0 ]; then
+            # Less important blocks (higher rank) give up their room to it, highest
+            # rank first, but only if that makes the room; otherwise they stay.
+            room=$(( fit_width - total - 3 ))
+            local -a yield=()
+            local y r
+            while [ "$room" -lt "$FIT_SHRINK_MIN" ]; do
+                top=${ranks[$i]}; y=-1
+                for ((j=0; j<n; j++)); do
+                    [ "${keep[$j]}" = 1 ] && [ "${ranks[$j]}" -gt "$top" ] && top=${ranks[$j]} && y=$j
+                done
+                [ "$y" -lt 0 ] && break
+                keep[$y]=0; yield+=("$y"); room=$(( room + widths[y] + 3 ))
+            done
+            if [ "$room" -ge "$FIT_SHRINK_MIN" ]; then
+                text="$shrink2_text"
+                if [ ${#text} -gt "$room" ]; then text="${text:0:$(( room - 1 ))}"; text="${text% }…"; fi
+                parts[$i]="${shrink2_sgr}${text}\033[0m"; keep[$i]=1
+            else
+                for r in "${yield[@]}"; do keep[$r]=1; done
+            fi
+        fi
+    fi
+    for ((i=0; i<n; i++)); do [ "${keep[$i]}" = 1 ] && out+=("${parts[$i]}"); done
+    if [ "$1" = "1" ]; then line1_parts=("${out[@]}"); else line2_parts=("${out[@]}"); fi
 }
 
 fit_width=""
