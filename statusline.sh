@@ -366,6 +366,8 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
         [ "$p5" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && h="$h \033[31m⇡${p5}%"
         [ "$p7" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && w="$w \033[31m⇡${p7}%"
     fi
+    # An account with no 5-hour limit (verified Ultra) gets no five_hour: the week alone.
+    if [ -z "$1" ]; then echo "${w}\033[0m"; return; fi
     echo "${h}\033[0m ${w}\033[0m"
 }
 
@@ -374,6 +376,8 @@ if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
     # rate_limits from the payload (Claude Code 2.1.80+): no stored login, no network
     if [ -n "$rl_five_used" ]; then
         limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset" "$rl_week_reset")
+    elif [ -n "$rl_week_used" ]; then
+        limits_part=$(build_limits "" "$rl_week_used" "" "$rl_week_reset")
     fi
 fi
 

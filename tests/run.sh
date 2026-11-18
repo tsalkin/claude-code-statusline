@@ -523,6 +523,16 @@ new_case idle-compact-floor; make_git
 jq '.context_window.context_window_size = 300000' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
 check idle-compact-floor "$(render "$CASE_ROOT/payload.json" CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS=50000)"
 
+# 58-59. An account with no 5-hour limit (verified Ultra, since 30.10.2026): the payload
+# carries only seven_day. The weekly window shows alone, with no 5-hour block; until
+# 18.11 the line dropped both. Short of the week: its countdown and pace stay.
+new_case week-only; make_git
+jq 'del(.rate_limits.five_hour)' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check week-only "$(render "$CASE_ROOT/payload.json")"
+new_case week-only-short; make_git
+jq 'del(.rate_limits.five_hour) | .rate_limits.seven_day.used_percentage = 93' "$FIX/rich.json" > "$CASE_ROOT/payload.json"
+check week-only-short "$(render "$CASE_ROOT/payload.json")"
+
 # 41. Both word tables: every row has a key, an English and a Russian word, and the
 # keys are unique. A word added in one language only goes red here.
 words_bad=""

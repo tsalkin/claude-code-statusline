@@ -240,3 +240,22 @@ describe('pace command: language and refresh together', () => {
     expect(opened).toEqual([])
   })
 })
+
+// An account with no 5-hour limit (verified Ultra, since 30.10.2026): Claude Code
+// sends only the weekly window, and the shared store keeps the last 5-hour reading,
+// here one whose reset passed weeks ago. A window past its reset is not shown: /pace
+// holds the week alone, with no frozen 5-hour row.
+describe('no 5-hour limit', () => {
+  test('a 5-hour window past its reset is not shown, the week is', async ($, on) => {
+    const { store } = engine(on)
+    store.set('pace:five_hour', { kind: 'five_hour', used: 6, resetsAt: NOW - 18 * 24 * HOUR, points: [{ t: NOW - 18 * 24 * HOUR - HOUR, used: 6 }] })
+    store.set('pace:seven_day', { kind: 'seven_day', used: 30, resetsAt: NOW + 84 * HOUR, points: [{ t: NOW - HOUR, used: 30 }] })
+    await start($)
+    await run($, '')
+    const shown = await texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'Pane', requestId: 'pace', props: PANE_PROPS }))
+    expect(shown).toContain('7d ')
+    expect(shown).toContain('30% used')
+    expect(shown).not.toContain('5h ')
+    expect(shown).not.toContain('6% used')
+  })
+})

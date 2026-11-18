@@ -467,10 +467,14 @@ function hintOf(f: Forecast, t: number, w: Words) {
   return undefined
 }
 
+// A window past its reset is left out: its figures are of a window that ended.
+// An account with no 5-hour limit (verified Ultra) gets no new five_hour reading,
+// so its last one stays in the store with a reset long gone; a window that does
+// reset comes back with the next reading.
 function forecasts(windows: readonly LimitWindow[], t: number) {
   return Object.keys(WINDOWS)
     .map(kind => windows.find(w => w.kind === kind))
-    .filter((w): w is LimitWindow => w !== undefined)
+    .filter((w): w is LimitWindow => w !== undefined && w.resetsAt > t)
     .map(w => forecastOf(w, t))
     .filter((f): f is Forecast => f !== undefined)
 }

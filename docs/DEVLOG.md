@@ -2,6 +2,27 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-18 (midday) — no 5-hour limit: the line shows the week alone, `/pace` drops a window past its reset
+
+**Trigger.** Owner, 18.11: the Claude app no longer shows the 5-hour limit, only the weekly one and Fable's.
+
+**Cause.** On 30.10 Max 20x became Ultra; a verified Ultra account has no 5-hour limit, only a weekly one for all models and a separate weekly one for Fable (support.claude.com, "What is the Ultra plan?", "How do usage and length limits work?"). The mod's store holds the last `five_hour` reading at 31.10 18:58 GMT+8; `seven_day` readings go on (18.11 11:24, 58 %).
+
+**Broke here.**
+- `statusline.sh` built the limits only when `five_hour` was there (`if [ -n "$rl_five_used" ]`), so since 31.10 the owner's line showed no limits at all, the week included. Seen with a fake payload: both windows give `Ч:94% 1ч46м Н:42% 1д0ч`, the week alone gave nothing.
+- `/pace` kept drawing the stale 5-hour window: `5h  6% used · 100% elapsed · 94% under schedule … lasts to reset Tue 20:00` (the new test, red on 0.18.1).
+
+**Decision.** Owner, 18.11: "Делай 1 — что бы если у аккаунта нет 5часового лимита — он не вводился."
+
+**Fixed.**
+- The line: with no `five_hour` and a `seven_day`, the weekly block alone (`W:25% 2d0h`, with its countdown and `⇡` when short). Cases `week-only`, `week-only-short`, both red on the old script. READMEs say so in the 5-hour row.
+- pace-band 0.18.2: `forecasts()` leaves out a window past its reset, so `/pace`, the band, the hint and the notification never show one. A window that resets comes back with its next reading. Test `no 5-hour limit` in `refresh.test.ts`.
+- Gate: line 81/81, mod 217/217 on 2.1.327 and 2.1.325, `tsc`, `validate --strict`.
+
+**Not reachable.** The Fable weekly limit: Claude Code 2.1.327 puts only `five_hour`, `seven_day` (and a gateway's `spend_limit`) into the status line payload, and the mod's `SessionRateLimit` has the same kinds. Fable's window (`model_scoped`) reaches only `/usage`. Asking Anthropic to pass it on is the owner's call (option 2 of 18.11), not taken yet.
+
+**Also.** `tsc` in a fresh worktree has no types: Claude Code writes `.claude-plugin/types/` itself and git ignores it. Without them `tsc` errs on implicit `any` and emits `.js` next to the sources. Copy the types from the main working copy first.
+
 ## 2026-11-18 (restart) — CANI: a version check that never asked whether the engine still calls us
 
 **Trigger.** Run by the session at `/restart`. The signs: the owner found what two version checks missed, and the Stop hook handed the turn back twice.
