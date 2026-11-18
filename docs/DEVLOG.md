@@ -2,6 +2,153 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-18 (restart) — CANI: a version check that never asked whether the engine still calls us
+
+**Trigger.** Run by the session at `/restart`. The signs: the owner found what two version checks missed, and the Stop hook handed the turn back twice.
+
+**Broke.** 2.1.323 removed `subagentStatusLine`, and the checks of 13.11 (2.1.323) and 14.11 (2.1.325) both wrote "nothing to change". The tests run the scripts directly, so they stayed green while Claude Code no longer called one of them. For about five days the sessions on those versions showed Claude Code's own agent rows, until the owner's screenshots of 18.11. Root: the check asked "does our code work", never "does the engine still run it". The notes were read for the line and the mod, and the line about the setting went by.
+
+**Fixed now.**
+- `scripts/check-engine.sh` reads the binary's strings. `statusLine` must be run; `subagentStatusLine` must be run, or `AgentRow` must be there for the mod. Exit 1 otherwise.
+- The `engine` case in `tests/run.sh` runs it wherever Claude Code is installed. `STATUSLINE_ENGINE=2.1.325` gives a red case (78/79); 2.1.327 a green one (79/79).
+- All installed versions were checked: 2.1.322 green, 2.1.323 and 2.1.325 red, 2.1.326 and 2.1.327 green.
+
+**Also.**
+- The Stop hook `waiting.py` caught, twice, a decision answered by number and not marked "✔ Решено". The guard worked.
+- BSD sed with `\x1b` gave a false red: it neither strips ANSI codes nor leaves Cyrillic whole. Saved to project memory (`strip-ansi-not-bsd-sed`).
+- The mods engine refused a module twice at load (an alias of `on`, `$.env.get` with a variable). `plugin test` caught both in the worktree.
+
+**Previous entries.**
+- 16.11 probe environment: worked (kits A–E).
+- 23.10 shared mark: a case in its favour (`--mark` left to the hub).
+- 17.10 single-suspect: mixed. The agent rows were separated; the bar glyphs were named "most likely" and marked unproven.
+
+Ledger rows went to the hub by letter: `2026-11-18__claude-code-statusline__to__hub__cani-proverka-dvizhka.md`, knocked.
+
+## 2026-11-18 (late night) — pace-band 0.18.1: one project hands its agent rows to the mod
+
+**Decision.** Owner, 18.11: "3": try the mod's rows in one project first, through its local settings.
+
+**Premise probed on 2.1.327.** In both probes the kit's `.claude/settings.json` holds the command, and the probe mod logs `body` and the merged setting.
+- `kitD`, with `"subagentStatusLine": null` in `settings.local.json`: the merged setting still holds the command, the script ran (`body` arrived set), and the null unset nothing.
+- `kitE`, with `{"type": "command", "command": ""}` there: the merged setting is the empty command, `body` never arrived set (three asks), and the mod's row was on screen.
+
+**Change** (`b07bcc2`). `drawsRows()`: the setting counts only when its `command` is a non-empty string. New tests: the empty command makes the mod draw, and `drawsRows` cases. Mod 216/216 on 2.1.327 and 2.1.325, `tsc`, `validate --strict`, line 78/78. Reverse run: the empty-command test is red on 0.18.0's `register.tsx`. README in three places.
+
+**Applied.** `/Users/maxipro/tsgs-projects/claude-code-statusline/.claude/settings.local.json` = `{"subagentStatusLine": {"type": "command", "command": ""}}`. The file was absent before, and it is ignored by the user's global git ignore. Only sessions of this project get the mod's rows. To undo, delete the file.
+
+**Not yet:** the owner seeing the mod's rows in a session of this project.
+
+## 2026-11-18 (night) — pace-band 0.18.0: the mod draws the agent rows where `subagentStatusLine` does not
+
+**Decision.** Owner, 18.11: "1". The mod draws the rows only where no `subagentStatusLine` is set. The script stays, and the owner's settings are not touched.
+
+**What changed** (`cdb2a1c`):
+- `hooks/rows.ts` ports the jq program of `subagent-statusline.sh`: the name, the model and its check, the effort (the sent one wins) and its check against the definition, `CLAUDE_CODE_SUBAGENT_EFFORT`, `modelSettings` or the legacy `effortLevel`, the bar, tokens, sparkline, elapsed time and the task text cut to width. The `STATUSLINE_*` knobs come from the environment, not from `config.sh`. The language follows `STATUSLINE_LANG`, then the kit's option, then Claude Code's.
+- `register.tsx` hooks `ui.render{component=AgentRow}`. When `body` arrives set, or the merged settings (`$.settings.read()`) hold `subagentStatusLine`, it passes. Otherwise it draws `body` from the props: `lastRequest.effort` is the sent effort, `columns` the width. Definitions are cached for 10 s.
+- `parseDefinition` now reads `effort:` too.
+- The word `inherit` (`inh`/`насл`) was added to both tables.
+
+**Parity.** `tests/gen-rows-parity.py` runs the script over 38 scenarios mirroring `tests/run.sh` (104 rows): settings, definitions, env and the facts file. It writes `hooks/rows.parity.ts` with the raw inputs and the script's rows. `rows.test.ts` derives the context from those raw inputs, as the mod does, and compares byte for byte. All 38 matched on the first run. `tests/run.sh` gained `rows-parity`, which regenerates into a temp file and compares; changing one word in the script turns it red.
+
+**What bit us.**
+- The engine refuses a module that aliases `on` (`const onAgentRow = on`: "on is always on("<event>", hook)"), and one that calls `$.env.get` with a variable name (literals only: the engine lists what a module reads). Both are caught by `claude plugin test` at module load.
+- The types of 2.1.325 have no `AgentRow`, and the types file follows whichever engine loaded the mod last. So the call carries `// @ts-ignore`, and the props are read through a local `AgentRowProps`. `tsc` was checked against both the 2.1.327 and the 2.1.325 declarations, the latter unpacked from the binary.
+- On 2.1.325, `$.ui.mount` of `AgentRow` throws "is not a component". The hook tests treat that as nothing to check, so `plugin test` passes there too.
+
+**Gate.**
+- Mod 214/214 on 2.1.327 and 2.1.325; `tsc` on both engines' types.
+- `validate --strict` passes on 2.1.327. 2.1.325 passes with one warning: AgentRow never runs there.
+- Line 78/78.
+- Reverse runs: the two drawing tests are red on 0.17.0's `register.tsx`; `rows-parity` is red after a word change in the script.
+- Live: an isolated session (kit `docs/drafts/agentrow-probe/kitC`, no `subagentStatusLine`) showed `general-purpose · sonnet-5-5 ⚡inh · ▱▱▱▱ 0% 0 · 0s · Подождать 25 секунд`, then `⚡low · ▱▱▱▱ 4% 41K ▁█ · 5s`.
+
+**Not yet:**
+- In the owner's sessions nothing changes: `subagentStatusLine` is set, so the script's row stands.
+- Removing the key would let the mod draw everywhere on 2.1.326+. That is the owner's call.
+- Not pushed.
+
+## 2026-11-18 (evening) — probe: a mod draws the subagent row (`AgentRow`)
+
+**Decision.** Owner, 18.11: "3": probe before moving the rows into the mod.
+
+**Kit.** `docs/drafts/agentrow-probe/`, outside git:
+- `mod/` is a mod with one hook, `ui.render{component=AgentRow}`. It logs every ask to `$PROBE_LOG`. When `body` arrives unset, it draws `PROBE · <type> · <model> ⚡<effort or sent> · <tokens> tok / <window>`; otherwise it passes the body through.
+- `bin/drive.py` is the pty driver of 15.11 with extra flags allowed.
+- Two interactive sessions on 2.1.327: `--setting-sources project,local` (no pace-band, no fleet hooks), `--model sonnet --effort low`, `CLAUDE_CODE_PLUGIN_DIRS` set to the kit's mod. The prompt starts one `general-purpose` agent that runs `sleep 25`.
+- Both kits sit under the trusted project folder. A scratch folder would stop at the trust dialog, and `subagentStatusLine` does not run without trust.
+
+**A: no `subagentStatusLine`.**
+- The hook was asked at the agent's start and again 5 s later; `body` arrived unset both times.
+- On screen (pty log): `◯ PROBE · general-purpose · claude-sonnet-5-5 ⚡inh · 0 tok / 1000000`, then `… ⚡low · 41612 tok / 1000000`.
+- So the mod's row replaces the engine's. The props carry what the script reads: `model`, `contextWindowSize`, `tokenCount`, `tokenSamples` and `columns` (74). They also carry `lastRequest.effort`, the effort actually sent ("low"), which the script gets only through pace-band's file.
+
+**B: `subagentStatusLine` given by `--settings`.**
+- The first ask came with `body` unset, and the mod's row was drawn for one frame.
+- About 350 ms later the next ask brought the script's row as `body` (`general-purpose · sonnet-5-5 ⚡насл · ▱▱▱▱ 0% …`), and the screen showed it from then on.
+- So "it arrives set where the person's settings already draw the row" holds only from the second ask. A mod that draws only when `body` is unset flashes its own row once beside the script.
+- The script showed `⚡насл` while the agent ran at `low`: pace-band was not loaded, so the effort file was missing. The mod has the sent effort directly.
+
+**For the move (option 2).** The mod can draw the whole row from its props. To avoid the one-frame flash it must not draw when `subagentStatusLine` is set: it can read the settings, or the setup can drop that key when the mod takes over. On 2.1.323–2.1.325 the script is not run at all, while the mod hook works on 2.1.326+ only (the `AgentRow` props are from 2.1.326). Not checked: the desktop and mobile surfaces, and rows of nested agents.
+
+Cost: two sessions of about 16 s each on Sonnet 5.5 at low.
+
+## 2026-11-18 (later) — two sessions, two lines: the fit bug, and `subagentStatusLine` gone in 2.1.323–2.1.325
+
+**Context.** The owner sent two screenshots, yadro and tsalkin-ai, and asked why the line looks different. Both sessions run the same command from `~/.claude/settings.json`; neither project has its own status line settings.
+
+**1. yadro: no GSD state and no last turn on line 2. Our bug, fixed (owner: "2").**
+- yadro's `.planning/STATE.md` holds a status of ~150 columns.
+- `fit` dropped the last turn first (rank 9), then the GSD state (rank 6), and never put the turn back, though it fit once the state was out.
+- Reproduced with yadro's session id at `COLUMNS=145`: exactly the screenshot. The turn file was on disk.
+- Fix (`9dbb1b8`): `fit` puts back dropped blocks that fit again, most important first (the reverse of the drop order). The GSD block of line 2, if still out, returns cut with `…` to the room left, at least 16 columns (`FIT_SHRINK_MIN`); less important blocks (higher rank) give way to it, and stay if that is not enough.
+- Gate: line 77/77, with three new cases: `gsd-long-fit`, `gsd-long-yield`, `gsd-long-wide`. `fit-70` changed: it now keeps the session time, which fits once the cache block is out. Reverse run on the old script: `fit-70`, `gsd-long-fit` and `gsd-long-yield` are red.
+- Checked under `/bin/bash` 3.2. 10 runs: 1.40 s before, 1.56 s after.
+- Done in a worktree, fast-forwarded to `main`. yadro at 145 now reads `v1.0 · СЕССИЯ 17.11 — … следующ… | ⚑ M-012 +28 /49 | yadro | git:(main) | ход 48с · $+0.71`.
+
+**2. tsalkin-ai: Claude Code's own subagent rows. Not our code: the engine.**
+- tsalkin-ai runs 2.1.325, yadro 2.1.326 (`lsof`).
+- The changelog of 2.1.323: "Removed the `subagentStatusLine` setting: subagent rows always use the default look".
+- The code that runs the command ("Skipping subagentStatusLine execution", "its subagentStatusLine command will not run") is in the 2.1.322, 2.1.326 and 2.1.327 binaries and absent from 2.1.323 and 2.1.325 (`strings | grep -c`).
+- 2.1.326 brought it back with a new string: "subagentStatusLine is deprecated in favor of mods and will stop working in a future release". The changelog of 2.1.326 does not say so.
+- `subagent-statusline.sh` renders the same row in both projects' folders.
+- **What bit us.** The checks of 2.1.323 and 2.1.325 said "nothing to change". The line's tests run the script directly, so they stayed green while Claude Code no longer called it. A version check should also ask whether the engine still runs the commands: the `strings` count above is the cheapest probe.
+- **Ahead.** The rows have to move into the mod before Claude Code drops the setting for good. 2.1.326's mod API can rewrite an `AgentRow` (label, body, `isHidden`). To put to the owner.
+
+**3. tsalkin-ai: the context bar drawn wide, eating the space before the %.** The script prints the same `▰▱` in both. Most likely 2.1.325's drawing: 2.1.326 "Fixed text being drawn out of place after … symbols … in terminals that draw them wider". Not proven beyond that; no other difference found.
+
+Points 2 and 3 go away when tsalkin-ai restarts on 2.1.327 (its screen says "Restart to update"; the hub decided on the natural `/restart`).
+
+## 2026-11-18 — Claude Code 2.1.327: nothing to change; fleet notes to the hub
+
+**Context.** The owner asked what the new release changes, what the project could use, and to pass anything important and urgent to the hub. 2.1.327 is installed (`claude --version`).
+
+**Gate on 2.1.327**, in the main working copy:
+- line: 74/74;
+- mod: 167/167 (`claude plugin test`);
+- `tsc` clean against types "Written by Claude Code 2.1.327";
+- `validate --strict` of the mod folder passed.
+
+`validate --strict .` at the repo root fails on "No version specified" in `plugin.json` and the marketplace entry. It fails the same way under the 2.1.326 binary, so it is not new in this release.
+
+**Mod API, compared.** The declarations ship inside the binary as a zstd asset (`claude-code.d.ts-*.txt.zst`); `strings` does not find them. Python 3.15's `compression.zstd` unpacked them from both binaries by scanning for zstd frames (839 frames; the file starts "// Claude Code function hooks"). The 2.1.326 → 2.1.327 diff has 65 lines, all in comments on plugin tiers (managed and unlisted plugins) and on `consent` for `$.tool.call`, which now counts only when the call answers a gesture on the plugin's own element. pace-band uses none of these. The extractor is in this session's scratch (`zx.py`); to repeat it, run it on two `~/.local/share/claude/versions/<v>` files and diff the results.
+
+**Read for the line and the mod in the notes:**
+- `$.model.complete`/`classify` at a usage limit now return the API's error at once. pace-band makes no such calls.
+- Code Mode no longer refuses to start when a mod hooks tool calls. pace-band 0.16.0 already dropped its `agent.spawn` hook, and the roster now gives the model and effort, so nothing to win back.
+- `/statusline` with `CLAUDE_CONFIG_DIR` now writes to the right folder. The README's install path is not affected.
+- Subagents: a resumed agent no longer takes a sibling's model or effort, and the first agent on a model waits up to 1.5 s for that model's settings. Before this, such an agent could start without its `modelSettings`, at the wrong level. The 0.17.0 rows show the effort actually sent, so they will show this fix once it is seen live.
+- Agent teammates on another model now compact at their own context limit. The subagent rows take their figures from the payload, so nothing changes here.
+
+**For the fleet.** Sent by letter to the hub: `2026-11-18__claude-code-statusline__to__hub__cc-2-1-327-flot.md`, knocked. Nothing urgent.
+- **Versions** (`lsof`). On 2.1.325: owners-code, Redaktsiya-tsgs, tsalkin-ai, zoom-pipeline. On 2.1.326: hub, Grow, maximtsalkin-site, tsgs-tunnel, yadro. Recommended: take 2.1.327 at the natural `/restart`, keep the floor.
+- **Early shell start.** The shell profile can now run before the first Bash command is approved (`CLAUDE_CODE_DISABLE_SHELL_HEAD_START`). Recommended: keep it.
+- **Auto mode.** The next release removes the billed classifier fallback. The fleet's transcripts of the last 7 days hold no such notice.
+- **`/status`** now lists broken agent, skill and command files, and hook matchers that never match.
+- **Symbolic links.** Seven project folders are links. Reading through one works on 2.1.327; writing through one was not checked.
+
+The hub's `cc-watch.py --mark` not touched.
+
 ## 2026-11-17 (later) — pace-band 0.17.0: the agent rows show the effort actually sent
 
 **Decision.** Owner, 17.11: "1". The choice was to move the agent rows onto what Claude Code 2.1.326 now reports per agent.

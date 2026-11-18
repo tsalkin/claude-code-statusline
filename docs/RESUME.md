@@ -1,5 +1,42 @@
 # RESUME — where to pick up
 
+**Where we are (restart 18.11).**
+- `main` is past `origin/main` (`13f3824`, by `git ls-remote` 18.11) by this day's commits: 2.1.327 check docs, the fit fix `9dbb1b8`, pace-band 0.18.0 `cdb2a1c` and 0.18.1 `b07bcc2`, the engine check. None is pushed.
+- Gate: line 79/79 (with `engine` on 2.1.327), mod 216/216, `tsc`, `validate --strict`.
+
+**Next step, the owner's.** Open a new session of this project and start any agent. If the mod draws the rows, the row reads as the script's but shows the sent level (`⚡low`, not `⚡насл`) right after the agent's first request. If the mod does not draw, the row is Claude Code's own (`… 14m 32s · ↓ 314.3k tokens`) or empty. Then decide: all projects (drop `subagentStatusLine` from `~/.claude/settings.json`) or undo (delete `.claude/settings.local.json`).
+
+**Open.**
+- Push (owner: `!git push`; every push is a new directory version).
+- The hub's answer to the CANI letter of 18.11.
+- The bar glyph cause on 2.1.325 is unproven. It goes away when tsalkin-ai restarts.
+
+**Each new Claude Code version.** `bash tests/run.sh` (the `engine` case checks that the engine still runs our commands), mod `claude plugin test` on the new binary and the oldest the fleet runs, `tsc`, `validate --strict`. Then read the notes for `statusLine`, `subagentStatusLine`, `AgentRow` and mods.
+
+18.11 late night: pace-band 0.18.1 in `main` (`b07bcc2`, owner: "3"; DEVLOG 18.11 late night).
+- A `null` in local settings does not unset the user's `subagentStatusLine`; an empty command does, and the mod then draws.
+- This project's `.claude/settings.local.json` holds the empty command (outside git), so only its sessions show the mod's rows.
+- Next: the owner looks at them. Then all projects (drop the key from `~/.claude/settings.json`), or delete the local file.
+
+18.11 night: pace-band 0.18.0 in `main` (`cdb2a1c`, owner: "1"; DEVLOG 18.11 night).
+- The mod draws the agent rows where no `subagentStatusLine` is set: the same rows as the script, byte for byte (`rows-parity`).
+- Gate: mod 214/214 on 2.1.327 and 2.1.325, line 78/78. Seen live in an isolated session.
+- Owner's sessions unchanged: the setting is on.
+- Next, the owner's: whether to drop `subagentStatusLine` from `~/.claude/settings.json`, and push.
+- After any change to `subagent-statusline.sh`, run `python3 tests/gen-rows-parity.py`.
+
+18.11 evening, the `AgentRow` probe (owner: "3"; DEVLOG 18.11 evening; kit in `docs/drafts/agentrow-probe/`):
+- A mod's `AgentRow` `body` replaces the engine's subagent row, with `model`, `contextWindowSize`, `tokenCount`, `tokenSamples`, `columns` and `lastRequest.effort`.
+- With `subagentStatusLine` set, the first ask has no `body`, and the script's row lands about 350 ms later. A mod drawing on an unset `body` flashes once.
+- Next: the owner's decision on moving the rows into pace-band (option 2).
+
+18.11 later (DEVLOG 18.11 later):
+- Fit fix in `main` (`9dbb1b8`, owner: "2"): a dropped block comes back when it fits, and a long GSD state is cut with `…`, not dropped. Gate 77/77. Not pushed.
+- Found: Claude Code 2.1.323 and 2.1.325 do not run `subagentStatusLine`. 2.1.326+ runs it again but calls it deprecated in favor of mods. Moving the subagent rows into pace-band (`AgentRow`) is the owner's decision, not yet asked.
+- Version checks must also probe that the engine still runs the commands (`strings | grep -c "Skipping subagentStatusLine execution"`).
+
+18.11: Claude Code 2.1.327 checked, nothing to change (DEVLOG 18.11). Gate green: line 74/74, mod 167/167, `tsc`, `validate --strict` of the mod folder. The mod API diff 2.1.326 → 2.1.327 is comments only (plugin tiers, `consent`). Letter to the hub `2026-11-18__claude-code-statusline__to__hub__cc-2-1-327-flot.md`, knocked: 2.1.327 at the natural `/restart`; whether to keep the early shell start; heads-up on auto mode's billed fallback going away, `/status` diagnostics and symbolic-link path checks. The hub answered the same day (pool `e5594d4d`): 2.1.327 at the natural `/restart`, no wave; the early shell start stays (it checked the profile); `--mark 2.1.327` set by the hub. pace-band 0.17.0 still not seen live, not pushed.
+
 17.11: Claude Code 2.1.326 checked, test fakes fixed (DEVLOG 17.11); the hub closed the letter 17.11 (pool `258c1ef7`): 2.1.326 at the natural `/restart`, no wave; the version floor stays 2.1.325 (it is about security); the Stop guards' tests green, the live probe is the hub's; `--mark 2.1.326` set by the hub; the owner chose "1" on the agent rows: pace-band 0.17.0 (DEVLOG 17.11 later) shows the effort each agent's last request carried, in `/pace` with its cost and on the line's subagent rows through `pace-band-agents-<session>.json`; gate green (mod 167/167, line 74/74, `tsc`, `validate --strict`); not yet seen live, not pushed.
 
 Updated 2026-11-16, at the restart after the Code Mode measurement (DEVLOG 15.11, 16.11). Gate green at the restart: line 72/72, mod 161/161, `tsc`, `validate --strict`. Not pushed: `main` is 5 commits past `origin/main` (`13f3824`, by `git ls-remote` 16.11), pace-band 0.16.0 among them. Before it, 14.11: the Code Mode probe, then the owner's "Делай" for pace-band 0.16.0, which superseded "вариант 3". Before it, 2.1.323 (13.11). The check: (nothing to change; gate green: line 71/71, mod 158/158, `tsc`, `validate --strict`, which now type-checks the hooks module and its tests; payload and the idle-compaction gate as in 2.1.322; letter to the hub: the 9 other sessions run 2.1.322 and miss its permission fixes, restart recommended; Code Mode to be probed against the PreToolUse guards before anyone turns it on; DEVLOG 13.11). Before it, 2.1.321–2.1.322 (11.11: `tsc` red on a new required `isCollapsed` in the band's props, test fakes only, fixed; gate green: line 71/71, mod 158/158, `tsc`, `validate --strict`; payload and the idle-compaction gate as in 2.1.319; Fable 5.2 runs at medium unless a level is saved for it, which went to the hub by letter; DEVLOG 11.11). Before it, 2.1.319 (06.11: nothing to change; its notes not out yet; gate green: line 71/71, mod 158/158, `tsc`, `validate --strict`; payload changed only in the gateway's `spend_limit`, which the line does not read; idle-compaction gate the same; no letter to the hub, nothing urgent; DEVLOG 06.11). Before it, 2.1.318 (04.11: nothing to change; gate green: line 71/71, mod 158/158, `tsc`, `validate --strict`; payload and the idle-compaction rule as in 2.1.317; the fleet notes went to the hub by letter, DEVLOG 04.11). Before it, 2.1.317 (gate green; the agent rows now follow the level saved for the agent's model, owner: "1", pushed 03.11 with the 31.10 fix, `13f3824`, checked by `git ls-remote`; the fleet question answered by the hub 11.11: owner chose variant 4, agents on another model only through definitions with a fixed `effort`; no `modelSettings` for Sonnet 5.5 or Haiku 5.5, so nothing to change in the line, DEVLOG 03.11). Before it, 2.1.316 (gate green; the agent rows now follow `CLAUDE_CODE_SUBAGENT_EFFORT`, owner: "А", in `main`, not pushed: it waits for the next release); the last change to the mod is pace-band 0.15.1 of 23.10 (the weekly rate, the words of `/pace`). `origin/main` = `13f3824` (the owner pushed it 03.11, checked by `git ls-remote`; before it `17396d0`, 23.10). Gate at 0.15.1 in the main working copy: line 69/69, mod 158/158, `tsc` and `validate --strict` clean. The day's history is in `docs/DEVLOG.md`, three entries of 23.10; older days there too.
