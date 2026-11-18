@@ -93,6 +93,7 @@ Claude Code's agent panel shows a row per running subagent. `subagent-statusline
 - `⚡inh`: the agent inherits the session's effort. `⚡8K`: a numeric token budget. With the [pace-band](experiments/statusline-band/) mod (0.17.0+, Claude Code 2.1.326+) the row shows the effort the agent's last request actually carried, an inherited one included, and holds that to the definition.
 - Rows that are not agents (shell tasks, workflows) keep Claude Code's own rendering.
 - An agent started by the Agent tool usually has no name in the row data; its description stands in, cut at 32 characters (`STATUSLINE_SUBAGENT_NAME_MAX`).
+- **Without `subagentStatusLine`.** Claude Code 2.1.323–2.1.325 do not run the setting at all, and 2.1.326 brought it back as deprecated "in favor of mods". The [pace-band](experiments/statusline-band/) mod (0.18.0+, Claude Code 2.1.326+) draws the same rows where no `subagentStatusLine` is set: same words, same checks, the same `STATUSLINE_*` variables from the environment (not from `config.sh`), and the effort each agent's last request carried. Where the setting is set, the script's row stands and the mod draws nothing. A test (`rows-parity` in `tests/run.sh`, the parity cases in `hooks/rows.test.ts`) holds the two to the same bytes.
 
 ## Install
 

@@ -11,18 +11,18 @@ export function tokensOf(u: { input_tokens: number; output_tokens: number; cache
 }
 
 // A definition's frontmatter, as Claude Code reads it: `name:` (else the file
-// name) and `model:`; anything that is not frontmatter gives nothing.
-export function parseDefinition(text: string, file: string): { name: string; model?: string } | undefined {
+// name), `model:` and `effort:`; anything that is not frontmatter gives nothing.
+export function parseDefinition(text: string, file: string): { name: string; model?: string; effort?: string } | undefined {
   const lines = text.split(/\r?\n/)
   if (!/^---[ \t]*$/.test(lines[0] ?? '')) return undefined
   const found: Record<string, string> = {}
   for (const line of lines.slice(1)) {
     if (/^---[ \t]*$/.test(line)) break
-    const m = /^(name|model):[ \t]*(.*)$/.exec(line)
+    const m = /^(name|model|effort):[ \t]*(.*)$/.exec(line)
     if (m) found[m[1]!] = m[2]!.replace(/["'\t]/g, '').trim()
   }
   const name = found.name || file.replace(/^.*[\\/]/, '').replace(/\.md$/, '')
-  return { name, model: found.model || undefined }
+  return { name, model: found.model || undefined, ...(found.effort ? { effort: found.effort } : {}) }
 }
 
 const FAMILIES = ['haiku', 'sonnet', 'opus', 'fable'] as const

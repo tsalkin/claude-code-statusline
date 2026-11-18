@@ -40,8 +40,8 @@ const agentInfo = (fields: AgentFields) =>
 type Extras = { lastRequest?: { at: number; model: string; effort?: string | number }; cost?: { usd: number } }
 
 describe('agent definitions', () => {
-  test('name and model from the frontmatter', () => {
-    expect(parseDefinition(def(['name: ispolnitel', 'model: opus', 'effort: high']), '/a/x.md')).toEqual({ name: 'ispolnitel', model: 'opus' })
+  test('name, model and effort from the frontmatter', () => {
+    expect(parseDefinition(def(['name: ispolnitel', 'model: opus', 'effort: high']), '/a/x.md')).toEqual({ name: 'ispolnitel', model: 'opus', effort: 'high' })
   })
 
   test('no name: the file name; quotes and CRLF dropped', () => {

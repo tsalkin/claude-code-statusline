@@ -6,6 +6,8 @@ import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition, tokensOf }
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
+import { agentRow, knobsFrom, rowLangFrom, settingsFacts } from './rows'
+import type { AgentDef } from './rows'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
 
@@ -896,6 +898,118 @@ export const register: Register = (on, options) => {
       </Box>
     )
   })
+
+  // The agent rows under the prompt, drawn as the line's subagent-statusline.sh
+  // draws them, where no `subagentStatusLine` command does: Claude Code 2.1.323
+  // dropped that setting, and 2.1.326 brought it back "deprecated in favor of
+  // mods". With the setting on, the script's row stands, and the mod draws
+  // nothing even before it lands (its first ask comes with no body). The types
+  // of 2.1.325 have no AgentRow, and the fleet runs both: the call is checked
+  // against 2.1.326+ only (the engine takes `on` only as a literal call), and
+  // the props are read through a local type.
+  // @ts-ignore AgentRow is new in Claude Code 2.1.326's types
+  on('ui.render', { component: 'AgentRow' }, async ($: EngineInterface, e: AgentRowEvent, next: (e: AgentRowEvent) => unknown) => {
+    if (e.props.body !== undefined) return next(e)
+    try {
+      const body = await agentBody($, e.props, options.language)
+      return next(body === undefined ? e : { ...e, props: { ...e.props, body } })
+    } catch {
+      return next(e)
+    }
+  })
+}
+
+// --- Agent rows: the line's subagent rows, drawn by the mod (rows.ts). -------
+
+type AgentRowProps = {
+  id: string
+  name?: string
+  type?: string
+  description?: string
+  label?: string
+  taskStatus?: string
+  model?: string
+  effort?: string | number
+  contextWindowSize?: number
+  tokenCount?: number
+  tokenSamples?: readonly number[]
+  startTime?: number
+  lastRequest?: { effort?: string | number }
+  columns?: number
+  body?: string
+  isHidden?: boolean
+}
+type AgentRowEvent = { props: AgentRowProps }
+
+// Definitions are read again at most every DEFS_TTL ms: a row is asked every
+// five seconds for each agent.
+const DEFS_TTL = 10_000
+let defsCache: { at: number; root: string; defs: Record<string, AgentDef> } | undefined
+
+// Every definition's model and effort by `name:` (else the file name): the
+// user's, then the project's, which win, as definitionModel reads them.
+async function readDefinitions($: EngineInterface) {
+  const t = await $.clock.now()
+  const root = (await $.session.root()).replace(/[\/]+$/, '')
+  if (defsCache !== undefined && defsCache.root === root && t - defsCache.at < DEFS_TTL) return defsCache.defs
+  const home = await $.env.get('HOME')
+  const claudeDir = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? (home === undefined || home === null ? undefined : `${home}/.claude`)
+  const defs: Record<string, AgentDef> = {}
+  for (const dir of [claudeDir === undefined ? undefined : `${claudeDir}/agents`, `${root}/.claude/agents`]) {
+    if (dir === undefined || !(await $.fs.exists(dir))) continue
+    for (const f of await $.fs.list(dir)) {
+      if (f.kind !== 'file' || !f.name.endsWith('.md')) continue
+      const d = parseDefinition(await $.fs.read(`${dir}/${f.name}`), f.name)
+      if (d !== undefined) defs[d.name] = { model: d.model, effort: d.effort }
+    }
+  }
+  defsCache = { at: t, root, defs }
+  return defs
+}
+
+async function agentBody($: EngineInterface, p: AgentRowProps, option: unknown) {
+  if (typeof p.model !== 'string' || p.model === '') return undefined
+  const settings = (await $.settings.read()) as Record<string, unknown>
+  if (settings.subagentStatusLine !== undefined && settings.subagentStatusLine !== null) return undefined
+  // Each name spelled out: the engine lists what a module reads, so `$.env.get`
+  // takes literals only. The knobs are rows.ts's ROW_KNOBS.
+  const env: Record<string, string | null | undefined> = {
+    STATUSLINE_SHOW_EFFORT_CHECK: await $.env.get('STATUSLINE_SHOW_EFFORT_CHECK'),
+    STATUSLINE_SHOW_MODEL_CHECK: await $.env.get('STATUSLINE_SHOW_MODEL_CHECK'),
+    STATUSLINE_SUBAGENT_BAR_LEN: await $.env.get('STATUSLINE_SUBAGENT_BAR_LEN'),
+    STATUSLINE_SUBAGENT_SPARK_LEN: await $.env.get('STATUSLINE_SUBAGENT_SPARK_LEN'),
+    STATUSLINE_SUBAGENT_NAME_MAX: await $.env.get('STATUSLINE_SUBAGENT_NAME_MAX'),
+    STATUSLINE_CTX_WARN: await $.env.get('STATUSLINE_CTX_WARN'),
+    STATUSLINE_CTX_CRIT: await $.env.get('STATUSLINE_CTX_CRIT'),
+    STATUSLINE_LANG: await $.env.get('STATUSLINE_LANG'),
+    CLAUDE_CODE_SUBAGENT_EFFORT: await $.env.get('CLAUDE_CODE_SUBAGENT_EFFORT'),
+  }
+  const w = WORDS[rowLangFrom(env.STATUSLINE_LANG, option, settings.language)]
+  return agentRow(
+    {
+      id: p.id,
+      name: p.name,
+      type: p.type,
+      description: p.description,
+      label: p.label,
+      taskStatus: p.taskStatus,
+      model: p.model,
+      effort: p.effort,
+      sent: p.lastRequest?.effort,
+      contextWindowSize: p.contextWindowSize,
+      tokenCount: p.tokenCount,
+      tokenSamples: p.tokenSamples,
+      startTime: p.startTime,
+    },
+    {
+      now: (await $.clock.now()) / 1000,
+      cols: p.columns ?? 0,
+      units: { h: w.h, m: w.m, s: w.s, inherit: w.inherit },
+      defs: await readDefinitions($),
+      ...settingsFacts(settings, env.CLAUDE_CODE_SUBAGENT_EFFORT),
+      ...knobsFrom(env),
+    },
+  )
 }
 
 type LegendItem = { name: string; tokens: number; color?: string }

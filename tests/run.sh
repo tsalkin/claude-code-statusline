@@ -632,6 +632,20 @@ out="$out
 broken: $(model_rows)"
 check subagents-model-level "$out"
 
+# The mod draws the same rows where subagentStatusLine does not run (pace-band
+# 0.18.0, hooks/rows.ts), held to this script by hooks/rows.parity.ts. A change
+# here that leaves that file behind fails: regenerate with tests/gen-rows-parity.py.
+if command -v python3 >/dev/null 2>&1; then
+    parity_out="$TMP/rows.parity.ts"
+    if python3 -I "$REPO/tests/gen-rows-parity.py" "$parity_out" >/dev/null 2>&1 \
+        && cmp -s "$parity_out" "$REPO/experiments/statusline-band/hooks/rows.parity.ts"; then
+        [ "$UPDATE" = "1" ] || echo "ok       rows-parity"; pass=$((pass + 1))
+    else
+        echo "FAIL     rows-parity: hooks/rows.parity.ts is not what subagent-statusline.sh draws — python3 tests/gen-rows-parity.py"
+        fail=$((fail + 1))
+    fi
+fi
+
 # Fleet: with the mod's turn file there, the line writes this session's name and
 # prompt cache for /pace, as JSON that stays valid with a quote, a backslash and a
 # tab in the name; no turn file, or STATUSLINE_SHARE_FLEET=0: nothing written.

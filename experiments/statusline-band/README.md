@@ -53,6 +53,8 @@ The warning is one press away from `/pace`: click it, or `p` once the band holds
 
 **An agent below its definition.** When an agent starts on a smaller model family than its definition names (`~/.claude/agents/`, or the project's `.claude/agents/`, which wins), a toast says so: `agent ispolnitel starts on sonnet, its definition names opus`. The spawn goes on as asked: the mod never changes it. The [pace-statusline](../../README.md) subagent rows show the same while the agent runs.
 
+**The agent rows.** Where no `subagentStatusLine` command draws them (Claude Code 2.1.323 dropped the setting; 2.1.326 brought it back, deprecated "in favor of mods"), the mod draws the agent rows under the prompt itself (`AgentRow`, Claude Code 2.1.326+), as the line's `subagent-statusline.sh` does: `ispolnitel · opus-5-5 ⚡high · ▰▱▱▱ 34% 68K ▁▂▃▅▆▇██ · 3m12s · what it is doing`, held to its definition, with the effort its last request carried. With the setting on, the script's row stands. On Claude Code 2.1.325 and older the hook never runs.
+
 ## Refresh
 
 Claude Code draws the band, the hint under the prompt and `/pace` again only on its own events: a turn, a measurement, a press. A session left idle would keep a forecast measured against an old time and miss what other sessions spent. So the mod refreshes them on a timer, every 30 seconds by default: it reads the readings every session stored, the fleet when `/pace` is open, and asks for a redraw. `/pace 10` sets the period (5 to 3600 seconds), `/pace 0` turns it off, as does `/config` → `pace-band.refresh`. Only sessions with a screen run the timer. The [pace-statusline](../../README.md) line has its own timer, set in `settings.json` (`"refreshInterval": 30` under `statusLine`): a mod cannot change that file.
