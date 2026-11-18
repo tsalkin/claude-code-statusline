@@ -19,7 +19,7 @@ Engineering log: what changed, why, and what bit us. Newest first.
 - pace-band 0.18.2: `forecasts()` leaves out a window past its reset, so `/pace`, the band, the hint and the notification never show one. A window that resets comes back with its next reading. Test `no 5-hour limit` in `refresh.test.ts`.
 - Gate: line 81/81, mod 217/217 on 2.1.327 and 2.1.325, `tsc`, `validate --strict`.
 
-**Not reachable.** The Fable weekly limit: Claude Code 2.1.327 puts only `five_hour`, `seven_day` (and a gateway's `spend_limit`) into the status line payload, and the mod's `SessionRateLimit` has the same kinds. Fable's window (`model_scoped`) reaches only `/usage`. Asking Anthropic to pass it on is the owner's call (option 2 of 18.11), not taken yet.
+**Not reachable.** The Fable weekly limit: Claude Code 2.1.327 puts only `five_hour`, `seven_day` (and a gateway's `spend_limit`) into the status line payload, and the mod's `SessionRateLimit` has the same kinds. Fable's window (`model_scoped`) reaches only `/usage`. Asked the same day (owner: "Делай 2", then "1"): no new issue, since #101847 (the mods API, "ideally the statusline" too) is open and the status line's own #89769 was closed by the stale bot on 23.10, #103033 as its duplicate. A comment with the Ultra argument and the 2.1.327 facts, plus a 👍, from the owner's account: https://github.com/anthropics/claude-code/issues/101847#issuecomment-6968424397.
 
 **Also.** `tsc` in a fresh worktree has no types: Claude Code writes `.claude-plugin/types/` itself and git ignores it. Without them `tsc` errs on implicit `any` and emits `.js` next to the sources. Copy the types from the main working copy first.
 
