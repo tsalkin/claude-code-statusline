@@ -14,6 +14,8 @@ Engineering log: what changed, why, and what bit us. Newest first.
 
 **To the hub** by letter `2026-11-20__claude-code-statusline__to__hub__cc-2-1-329-flot.md`, knocked: (1) 2.1.329 at the natural `/restart`, earlier for the heaviest sessions (memory leak fixes; 31 MB free, swap 84%); (2) in Code Mode an erroring PreToolUse hook no longer refuses: seven guards carry `onFailure: block`, three do not (`gsd-prompt-guard.js`, `gsd-read-guard.js`, `knock-guard.py`). Sessions by `lsof`: eight on 2.1.328, chitometr and maximtsalkin-site on 2.1.327. `--mark` not set (the hub's).
 
+**Answer, same day** (letter closed): the early restart is the owner's, asked by the hub in its chat; no `onFailure`: all three hooks only warn by design (`Advisory (does not block)` in the gsd headers, "ПРЕДУПРЕЖДЕНИЕ, не отказ" in `knock-guard.py`; no `exit(2)` or `deny` in any, checked here), so `block` would turn a crashed adviser into a refusal. `--mark 2.1.329` set by the hub. Lesson: before asking for `onFailure`, read the hook's header for whether it refuses at all.
+
 ## 2026-11-19 — Claude Code 2.1.328 checked: nothing to change; a Code Mode hook question to the hub
 
 **Gate on 2.1.328.** Line 81/81 (`engine (2.1.328)` green), mod 217/217 on 2.1.328 and 2.1.325, `tsc` clean on types "Written by Claude Code 2.1.328", `validate --strict` passed.
