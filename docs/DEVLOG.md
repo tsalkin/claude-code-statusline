@@ -2,6 +2,37 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-20 — report-check 0.1.0: the medium-agent note as its own mod, so pace-band stays installable on older Claude Code
+
+**Why.** The owner chose «Б»: a note under a medium agent's report to check its negative claims with a command of your own (the global CLAUDE.md rule, now a mechanism). `agent.report` (2.1.329) lets a mod rewrite the report before the parent reads it. Then the owner set the constraint: "тот кто сейчас загрузит впервые мой мод из GitHub даже со старой версией Claude Code смог его использовать".
+
+**Why not inside pace-band.**
+- An engine before 2.1.329 refuses the whole module that hooks `agent.report` ("\"agent.report\" is not an event"): 136 of 223 red on 2.1.328.
+- A plugin has one hooks module: two entries in `hooks.json` load none.
+- A computed event name is refused on 2.1.328 and 2.1.329 alike ("the event name passed to on() is not a string literal").
+- `engines` `>=2.1.329` on pace-band protects installed users: 2.1.328 `plugin update` says "Skipped — pace-band stays at 0.18.2". But it refuses a first install on an older client, which breaks the owner's constraint.
+
+**What was built.** `experiments/report-check`, `engines` `>=2.1.329`, its own catalog entry.
+- The level is taken from the agent's last request, else from the roster, else from the definition's `effort:`.
+- The note is in pace-band's language when pace-band pins one, else in Claude Code's.
+- Consumed, empty and unreadable reports pass through unchanged.
+
+Sandbox: a probe marketplace with a `git-subdir` source over a bare repo and a fresh `CLAUDE_CONFIG_DIR`.
+- On 2.1.328, pace-band 0.18.2 installs and passes 217/217. report-check is refused with "Run `claude update`".
+- On 2.1.329, both install.
+
+Gate:
+- 11/11 on 2.1.329, `tsc` on 2.1.329 types, `validate --strict` for both mods, `tests/run.sh` 81/81.
+- Squashed into main as `bf89f9f`. The owner pushed it (`origin/main` = `efb6e6e` by `git ls-remote`).
+
+**Fleet.** The fleet loads mods from `CLAUDE_CODE_PLUGIN_DIRS`, which is split on `path.delimiter`, so `:` on macOS (read in the 2.1.329 binary). The hub prepared a `jq` line that adds the folder to the owner's settings and handed it to the owner. It will close the letter after a new session shows `[report-check]` under a `chitatel` report.
+
+**Lesson (CANI 20.11).** Twice this session a question went out on a setting's property without reading the carrier:
+- `onFailure` asked of the hub for three hooks that only advise;
+- option «А» offered to the owner while `/pace` already names failed and stopped agents.
+
+The version-check procedure in RESUME now reads the carrier first. Ledger rows went to the hub by letter `2026-11-20__claude-code-statusline__to__hub__cani-posylka-bez-nositelya.md`.
+
 ## 2026-11-20 — Claude Code 2.1.329 checked: nothing to change; memory and Code Mode guards to the hub
 
 **Gate on 2.1.329.** Line 81/81 (`engine (2.1.329)` green), mod 217/217 on 2.1.329 and 2.1.325, `tsc` clean on types "Written by Claude Code 2.1.329", `claude plugin validate --strict experiments/statusline-band` passed. `validate --strict .` (the repo root) fails on "No version specified" in `.claude-plugin/plugin.json`, the same on 2.1.328: not a regression, and the gate has always been the mod folder.
