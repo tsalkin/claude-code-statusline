@@ -1,7 +1,10 @@
 {
   "name": "tsalkin",
   "description": "Maxim Tsalkin's Claude Code plugins",
-  "owner": { "name": "Maxim Tsalkin", "url": "https://github.com/tsalkin" },
+  "owner": {
+    "name": "Maxim Tsalkin",
+    "url": "https://github.com/tsalkin"
+  },
   "plugins": [
     {
       "name": "pace-statusline",
@@ -12,6 +15,11 @@
       "name": "pace-band",
       "source": "./experiments/statusline-band",
       "description": "/pace: each usage limit against its time and when it runs out at this rate, the agents of the last turn and the context by category; the last turn's cost on the status line, a band only to act on, a notification when a limit runs out early, a warning when an agent starts below its definition. A Claude Code mod (2.1.318+) that leaves Code Mode free to turn on, companion to pace-statusline."
+    },
+    {
+      "name": "report-check",
+      "source": "./experiments/report-check",
+      "description": "A note under a medium-effort agent's report: check its negative claims with a command of your own. A Claude Code mod (2.1.329+); pace-band does not need it and keeps working on older Claude Code."
     }
   ]
 }

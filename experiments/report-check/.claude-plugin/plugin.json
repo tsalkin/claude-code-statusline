@@ -1,0 +1,35 @@
+{
+  "name": "report-check",
+  "displayName": "Report Check",
+  "version": "0.1.0",
+  "description": "A note under a medium-effort agent's report, before the main loop reads it: check its negative claims (\"none\", \"not found\", \"not used\") with a command of your own. Other levels, empty and consumed reports pass as they were. English or Russian. A Claude Code mod for 2.1.329 and later (agent.report); companion to pace-band, which keeps working on older Claude Code.",
+  "author": {
+    "name": "Maxim Tsalkin",
+    "url": "https://github.com/tsalkin"
+  },
+  "homepage": "https://github.com/tsalkin/claude-code-statusline/tree/main/experiments/report-check",
+  "repository": "https://github.com/tsalkin/claude-code-statusline",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "effort",
+    "review",
+    "mod"
+  ],
+  "engines": {
+    "claude-code": ">=2.1.329"
+  },
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Of the note. auto follows pace-band's language when it is installed, else Claude Code's own Language setting (/config); en or ru pins one.",
+      "default": "auto",
+      "options": [
+        "auto",
+        "en",
+        "ru"
+      ]
+    }
+  }
+}

@@ -234,6 +234,10 @@ A second plugin in the same marketplace, a [Claude Code mod](https://code.claude
 
 In English or Russian, one switch for the plugin and the line together: `/pace ru`, `/pace en` or `/pace auto` (the same as `/config` → `pace-band.language`); on `auto`, Claude Code's own `language` setting. While the session is idle the band and `/pace` refresh every 30 seconds; `/pace 10` sets the period, `/pace 0` turns it off. Details: [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
 
+## Companion: report-check
+
+A separate small mod for Claude Code 2.1.329+: a note under a medium-effort agent's report to check its negative claims with a command of your own. It is kept apart from pace-band, so pace-band still installs and works on older Claude Code. `/plugin install report-check@tsalkin`. Details: [experiments/report-check/README.md](experiments/report-check/README.md).
+
 ## Optional modules
 
 ### GSD
