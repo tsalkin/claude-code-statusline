@@ -2,6 +2,30 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-20 — Claude Code 2.1.329 checked: nothing to change; memory and Code Mode guards to the hub
+
+**Gate on 2.1.329.** Line 81/81 (`engine (2.1.329)` green), mod 217/217 on 2.1.329 and 2.1.325, `tsc` clean on types "Written by Claude Code 2.1.329", `claude plugin validate --strict experiments/statusline-band` passed. `validate --strict .` (the repo root) fails on "No version specified" in `.claude-plugin/plugin.json`, the same on 2.1.328: not a regression, and the gate has always been the mod folder.
+
+**Mod API, compared** (zstd frames from both binaries, as 19.11). Added: the `agent.report` hook (a mod sees an agent's report before the waiting loop and may rewrite `text`; `status` `completed|failed|stopped`; a `review` field), `refusal: 'unanswered'`, theme ambience, cues and fills. Nothing the mod calls changed. `SessionRateLimit` still `five_hour`, `seven_day`, `spend_limit`; issue #101847 open, no comment after the owner's of 18.11.
+
+**Status line payload.** The code around `exceeds_200k_tokens` holds the same snake_case keys in 2.1.328 and 2.1.329. From the notes: a status line script that never ends no longer freezes the prompt (ours ends); `autoCompactWindow` is now read from project settings in pre-warmed sessions; the line does not read `autoCompactWindow`, and the owner does not set it.
+
+**Held idea:** `agent.report` could let pace-band stamp failed or stopped agents in `/pace`, or let a fleet mod append the "check negative claims" reminder to a medium agent's report. Not built; the owner's call.
+
+**To the hub** by letter `2026-11-20__claude-code-statusline__to__hub__cc-2-1-329-flot.md`, knocked: (1) 2.1.329 at the natural `/restart`, earlier for the heaviest sessions (memory leak fixes; 31 MB free, swap 84%); (2) in Code Mode an erroring PreToolUse hook no longer refuses: seven guards carry `onFailure: block`, three do not (`gsd-prompt-guard.js`, `gsd-read-guard.js`, `knock-guard.py`). Sessions by `lsof`: eight on 2.1.328, chitometr and maximtsalkin-site on 2.1.327. `--mark` not set (the hub's).
+
+## 2026-11-19 — Claude Code 2.1.328 checked: nothing to change; a Code Mode hook question to the hub
+
+**Gate on 2.1.328.** Line 81/81 (`engine (2.1.328)` green), mod 217/217 on 2.1.328 and 2.1.325, `tsc` clean on types "Written by Claude Code 2.1.328", `validate --strict` passed.
+
+**Mod API, compared.** The 2.1.327 and 2.1.328 declarations unpacked from the binaries (`python3.15 -I`, `compression.zstd`, scanning for zstd frames, the frame that starts "// Claude Code function hooks"). Additions only: the `tool.offer` hook and `$.tool.offer`, `$.session.machine`, `PluginHosts`, `NextOrigin` (`hookOwner`, `isOrganizations`). Nothing the mod calls changed. `SessionRateLimit.kind` still `five_hour`, `seven_day`, `spend_limit`: no Fable window; issue #101847 open, no new comment since the owner's of 18.11.
+
+**For the line and the mod, from the notes.** Subagent token counts no longer count a retried reply twice (the agents' share gets more exact); a plugin's toast no longer shows another plugin's text; a mod saved just after a turn began no longer reloads mid-turn. Subagent progress summaries in the terminal are now written by the small fast model. Nothing to change.
+
+**To the hub** by letter `2026-11-19__claude-code-statusline__to__hub__cc-2-1-328-flot.md`, knocked: 2.1.328 at the natural `/restart` (secret masking no longer crashes near out of memory; auto-compaction rebuilds the system prompt; zsh `=` words). A hypothesis, not tested: until 2.1.328 Code Mode ran `UserPromptSubmit` hooks on scripts' output, and `deploy-gate.py prompt` marks consent on a message that starts with `/deploy`; a reverse check is the hub's. `--mark` not set (the hub's).
+
+**Answer, same day** (pool `74d87907`): 2.1.328 at the natural `/restart`. The `/deploy` hypothesis repeated our own finding of 15.11 (`2026-11-15__claude-code-statusline__to__hub__code-mode-zamer.md`, point 3(a)), already fixed by the hub (`deploy-gate.py:265` takes consent only with `source` absent, empty or `user`; `~/.claude` `6916fa5`, both checked by this session). Lesson: before a letter on a hook, grep the pool for the hook's name.
+
 ## 2026-11-18 (midday) — no 5-hour limit: the line shows the week alone, `/pace` drops a window past its reset
 
 **Trigger.** Owner, 18.11: the Claude app no longer shows the 5-hour limit, only the weekly one and Fable's.
