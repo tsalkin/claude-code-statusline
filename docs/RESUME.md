@@ -1,5 +1,7 @@
 # RESUME — where to pick up
 
+**21.11: Claude Code 2.1.330 checked, nothing to change** (DEVLOG 21.11; gate: line 81/81, pace-band 217/217 on 2.1.330 and 2.1.326, report-check 11/11, `tsc` both mods, `validate --strict` both). The hub closed the report-check letter 21.11: the `[report-check]` line shows under a medium agent's report and not under high or xhigh. Open: the hub's answer to `exchange/2026-11-21__claude-code-statusline__to__hub__cc-2-1-330-flot.md` (when to take 2.1.330), knocked. The Fable window still absent. The oldest installed engine for the mod test is now 2.1.326.
+
 **Now (20.11 end of day).** report-check 0.1.0 is published: `bf89f9f` in main, pushed by the owner, `origin/main` = `efb6e6e` by `git ls-remote`. pace-band is unchanged (0.18.2) and installs on older Claude Code.
 - **Next step:** check whether the hub closed `exchange/2026-11-20__claude-code-statusline__to__hub__report-check-flot.md`. The distinguisher is a `[report-check]` line at the end of a `chitatel` report in a session started after the owner ran the hub's `jq` line. Still a plain report: either the line was not run, or the session started before it. Check with `CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`; it must hold both folders, separated by `:`.
 - **Open:**

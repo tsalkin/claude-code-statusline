@@ -2,6 +2,16 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-21 — Claude Code 2.1.330 checked: nothing to change; settings, worktree and memory fixes to the hub
+
+**Gate on 2.1.330.** Line 81/81 (`engine (2.1.330)` green), pace-band 217/217 on 2.1.330 and 2.1.326 (2.1.325 is no longer installed; 2.1.326 is now the oldest), report-check 11/11 on 2.1.330, `tsc` (`npx -p typescript tsc -p .`) clean for both mods on types "Written by Claude Code 2.1.330", `validate --strict` passed for both mod folders.
+
+**Mod API, compared** (zstd frame "// Claude Code function hooks" from both binaries, script `scratchpad/modtypes.py`, `python3.15 -I`). Added: `vcs.*` hooks and `$.vcs` (`detect`, `diff`, `isolate`, `list`, `status`, `release`; marked "Experimental: may change") so a mod can serve version control other than Git, worktrees included; `onPress` and `onLinkPress` may now be async. Nothing the mods call changed. `SessionRateLimit.kind` still `five_hour`, `seven_day`, `spend_limit`: no Fable window.
+
+**Status line payload.** The snake_case keys around `exceeds_200k_tokens` are the same in 2.1.329 and 2.1.330, except `plugins_sync_part_refused`, an unrelated plugin error code. From the notes: `claude plugin validate` no longer wrongly warns that an `AbovePrompt` hook never runs in VS Code (the band uses `AbovePrompt`, `register.tsx:856`); easel, a built-in chart mod, is new.
+
+**To the hub** by letter `2026-11-21__claude-code-statusline__to__hub__cc-2-1-330-flot.md`, knocked. Decision asked: 2.1.330 at the natural `/restart` or earlier in the heaviest sessions. It fixes user settings lost when several processes save at once, `ExitWorktree` deleting a worktree another session works in, and Monitors keeping the earlier conversation in memory; 32 MB free, swap 89%. Info: `rm` aimed at the working folder now asks (refused where nobody can answer), `/loop` up to 30 days, skills with `model:` leave subagents on the session's model, the same-name agent choice is fixed. Checked here: no own `rm -rf` in the fleet's automation, no `model:` in `~/.claude/skills`, no project agent repeating a `~/.claude/agents` name. Sessions by `lsof`: 11 on 2.1.329, inbox-triage on 2.1.328, none on 2.1.330. `--mark` not set (the hub's).
+
 ## 2026-11-20 — report-check 0.1.0: the medium-agent note as its own mod, so pace-band stays installable on older Claude Code
 
 **Why.** The owner chose «Б»: a note under a medium agent's report to check its negative claims with a command of your own (the global CLAUDE.md rule, now a mechanism). `agent.report` (2.1.329) lets a mod rewrite the report before the parent reads it. Then the owner set the constraint: "тот кто сейчас загрузит впервые мой мод из GitHub даже со старой версией Claude Code смог его использовать".
