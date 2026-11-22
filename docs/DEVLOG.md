@@ -2,6 +2,14 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-22 — the version check as two scripts; CANI 21–22.11
+
+**Why.** The 2.1.330 check was rebuilt by hand from this log, and it cost two rounds: plain `npx tsc` failed ("This is not the tsc command you are looking for"; the form `npx -p typescript tsc` has been here since 04.11), and the zstd unpacking of the mod API, described 19.11, was written again in the scratchpad. RESUME listed the steps as words, not commands.
+
+**What.** `scripts/version-gate.sh` runs the whole gate: `tests/run.sh`, `plugin test` of both mods on the newest and the oldest installed binary, `validate --strict`, `tsc`. A mod below its own `engines["claude-code"]` floor is skipped on the old binary: a local folder loads regardless of the range, so report-check on 2.1.328 fails 7 of 11 by design. `scripts/mod-api-diff.py <old> <new>` prints the changed declaration lines and `SessionRateLimit.kind`. Reverse check: `STATUSLINE_SCRIPT=/usr/bin/true` → `RED — tests/run.sh`, exit 1. Green on 2.1.330 with 2.1.328 as the oldest (2.1.326 and 2.1.327 were removed overnight; by `lsof` the whole fleet is on 2.1.330 now).
+
+**CANI 21–22.11** (self-started from `/restart`): two ledger rows to the hub by letter `2026-11-22__claude-code-statusline__to__hub__cani-21-22-11.md`. Besides the gate: a knock retold its letter (611 characters, `knock-guard.py` warned) and a reply knock from Redaktsiya-tsgs went without a receipt until the Stop hook held the turn. Memory: `knock-is-address-and-receipt.md`, `zsh-glob-no-match-aborts.md` (a zsh glob with no match aborts the whole compound command).
+
 ## 2026-11-21 — Claude Code 2.1.330 checked: nothing to change; settings, worktree and memory fixes to the hub
 
 **Gate on 2.1.330.** Line 81/81 (`engine (2.1.330)` green), pace-band 217/217 on 2.1.330 and 2.1.326 (2.1.325 is no longer installed; 2.1.326 is now the oldest), report-check 11/11 on 2.1.330, `tsc` (`npx -p typescript tsc -p .`) clean for both mods on types "Written by Claude Code 2.1.330", `validate --strict` passed for both mod folders.
