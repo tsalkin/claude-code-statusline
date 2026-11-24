@@ -105,6 +105,8 @@ Claude Code's agent panel shows a row per running subagent. `subagent-statusline
 /pace-statusline:setup
 ```
 
+On Claude Code 2.1.331 or later the install also brings the [pace-band](#companion-pace-pace-band) mod (`/pace`), switched on. It is optional: `/plugin disable pace-band@tsalkin` turns it off, `/plugin uninstall pace-band@tsalkin` removes it, and later updates of the line won't bring it back. If you already have the line, its next update on Claude Code 2.1.331 or later adds pace-band, switched on. An older Claude Code installs the line alone. [report-check](#companion-report-check) is never installed this way: it changes what Claude reads in agents' reports, so it comes only when you install it by name.
+
 A plugin cannot switch the main status line on by itself — Claude Code takes `statusLine` only from your own settings. The `setup` command does it for you: it shows what it will change, asks, backs up `settings.json`, and writes `statusLine` (and, if you want them, the subagent rows). The commands point at a small launcher in the plugin's data directory, which finds the installed version on every run, so plugin updates need no second setup. `/pace-statusline:setup remove` takes it out again.
 
 **Installed it before 2026-10-03, as `claude-code-statusline@claude-code-statusline`?** The plugin and its marketplace were renamed for the plugin directory. Remove the old one (`/plugin uninstall claude-code-statusline@claude-code-statusline`, then `/plugin marketplace remove claude-code-statusline`), add and install it again with the commands above, and run `/pace-statusline:setup`: it recognises the old launcher as its own and replaces it without `--force`.
@@ -227,6 +229,8 @@ A second plugin in the same marketplace, a [Claude Code mod](https://code.claude
 ![The /pace pane: limit windows against their time, and the context by category](docs/screenshots/pace-pane.png)
 
 ![The last turn's cost at the end of the line](docs/screenshots/pace-last-turn.png)
+
+On Claude Code 2.1.331 or later it comes with `pace-statusline`. On an older version, or to install the mod without the line:
 
 ```
 /plugin install pace-band@tsalkin

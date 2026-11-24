@@ -105,6 +105,8 @@ Claude Code сообщает скрипту ширину терминала (`$C
 /pace-statusline:setup
 ```
 
+В Claude Code 2.1.331 и новее вместе со строкой статуса ставится и включается мод [pace-band](#спутник-pace-pace-band) (`/pace`). Он не обязателен: `/plugin disable pace-band@tsalkin` выключает его, `/plugin uninstall pace-band@tsalkin` удаляет, и обновления строки его не вернут. Если строка у вас уже стоит, pace-band придёт включённым с её следующим обновлением — тоже в Claude Code 2.1.331 и новее. В более старом Claude Code ставится только строка. Мод [report-check](#спутник-report-check) так не ставится никогда: он меняет то, что Claude читает в отчётах агентов, поэтому его ставят только отдельной командой.
+
 Плагин не может сам включить основную строку статуса: `statusLine` Claude Code берёт только из ваших собственных настроек. Это делает команда `setup`: показывает, что изменит, спрашивает, делает резервную копию `settings.json` и записывает `statusLine` (и, если хотите, строки суб-агентов). Команды указывают на маленький запускатель в каталоге данных плагина — он при каждом запуске находит установленную версию, поэтому после обновлений плагина настраивать заново не нужно. `/pace-statusline:setup remove` убирает всё обратно.
 
 **Ставили до 03.10.2026 как `claude-code-statusline@claude-code-statusline`?** Плагин и его маркетплейс переименованы для каталога плагинов. Удалите старый (`/plugin uninstall claude-code-statusline@claude-code-statusline`, затем `/plugin marketplace remove claude-code-statusline`), добавьте и поставьте заново командами выше и запустите `/pace-statusline:setup`: старый запускатель он узнает как свой и заменит без `--force`.
@@ -228,11 +230,23 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 
 ![Цена последнего хода в конце строки](docs/screenshots/pace-last-turn.png)
 
+В Claude Code 2.1.331 и новее мод приходит вместе с `pace-statusline`. В более старом Claude Code или чтобы поставить мод без строки:
+
 ```
 /plugin install pace-band@tsalkin
 ```
 
 По-русски или по-английски — один переключатель на плагин и строку вместе: `/pace ru`, `/pace en` или `/pace auto` (то же самое — `/config` → `pace-band.language`); на `auto` — по настройке `language` самого Claude Code. Пока сессия простаивает, полоса и `/pace` обновляются раз в 30 секунд; `/pace 10` задаёт период, `/pace 0` выключает обновление. Подробности (на английском): [experiments/statusline-band/README.md](experiments/statusline-band/README.md).
+
+## Спутник: report-check
+
+Небольшой отдельный мод для Claude Code 2.1.329 и новее. Если агент работал на среднем уровне усилий (medium), мод дописывает под его отчётом напоминание для Claude: прежде чем опираться на отрицательные утверждения отчёта («нет», «не найдено», «не используется»), проверить каждое своей командой. Мод отделён от pace-band, чтобы pace-band по-прежнему ставился и работал в более старом Claude Code.
+
+```
+/plugin install report-check@tsalkin
+```
+
+Подробности (на английском): [experiments/report-check/README.md](experiments/report-check/README.md).
 
 ## Необязательные модули
 

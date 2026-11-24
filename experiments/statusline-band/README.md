@@ -70,6 +70,8 @@ English or Russian, for `/pace` and the [pace-statusline](../../README.md) line 
 /plugin install pace-band@tsalkin
 ```
 
+On Claude Code 2.1.331 or later, installing the [pace-statusline](../../README.md) line brings this mod too, switched on. `/plugin disable pace-band@tsalkin` turns the mod off and `/plugin uninstall pace-band@tsalkin` removes it; either way the line stays.
+
 Needs Claude Code 2.1.318 or later, in the terminal or the Desktop app's Code tab (mods draw nothing in VS Code, `claude -p` or cloud sessions). Limit windows come with a Claude subscription; on an API key `/pace` shows the context only.
 
 Mods are not sandboxed and run with your permissions. `claude plugin validate` lists every hook and call this one makes. It reads the session's usage figures and the agent definitions (`~/.claude/agents/`, the project's `.claude/agents/`), and writes its own store and three small files per interactive session in the temporary directory: the last turn, for the line; the session's cost over the last five hours, `pace-band-fleet-<session>.json`, for the fleet; and, from Claude Code 2.1.326, the model and effort each agent's last request carried, `pace-band-agents-<session>.json`, for the line's subagent rows. `/pace` reads those of every session, and the line's `pace-band-line-<session>.json` (name and cache). It makes no network requests of its own (the `compact` button runs Claude Code's own compaction).
