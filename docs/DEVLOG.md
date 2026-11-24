@@ -14,6 +14,8 @@ Engineering log: what changed, why, and what bit us. Newest first.
 - Not tested: the Anthropic plugin directory. The schema says bare names resolve against the declaring plugin's own marketplace and "one that cannot be installed is left out"; pace-band is not listed there.
 - Probe trap: a `git-subdir` source with `"path": "."` copies only the root's files (no `.claude-plugin`), so the engine never saw the field. `marketplace add file://…repo.git` is refused ("Invalid marketplace source format"); a local clone folder as the marketplace works and keeps the relative sources.
 
+**Then «1253 В»:** pace-band alone as an optional dependency (report-check changes what Claude reads in agents' reports, so it stays install-by-name). Branch `optional-pace-band`, `fc9ada6`: the field plus README paragraphs in both languages and the mod's README. Probed from the branch: 2.1.331 "(+ 1 optional dependency: pace-band)", 2.1.330 the line alone, an existing user's `plugin update` adds pace-band. Gate green in the worktree once the ignored `.claude-plugin/types/` were copied in (without them `tsc` is red and leaves `.js` files in `hooks/`). The README text went to the Redaktsiya before the merge (fleet rule 21.11). `plugin validate --strict .` of the root fails on `main` too ("No version specified"); the gate validates only the mod folders.
+
 ## 2026-11-24 — Claude Code 2.1.331 checked: nothing to change, nothing urgent for the hub
 
 **Gate.** `bash scripts/version-gate.sh`: green on 2.1.331, old binary 2.1.329 (line 81/81, pace-band 217/217 on both, report-check 11/11 on both, `validate --strict` and `tsc` clean for both mods). The gate needed no step typed by hand.

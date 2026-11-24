@@ -1,9 +1,11 @@
 # RESUME — where to pick up
 
 **Now (24.11).** Claude Code 2.1.331 checked, nothing to change (DEVLOG 24.11): `version-gate.sh` green, mod API only adds (`BesidePrompt`, `Underlay`, `session.redact`), payload the same, no Fable window. No letter to the hub: nothing urgent. `origin/main` = `0ee38f8` before this entry (by `git ls-remote`).
-- **`optionalDependencies` probed (25.11, owner «1252 Б», DEVLOG 25.11):** works on 2.1.331, ignored on 2.1.330 and 2.1.329, a mod can be removed on its own; but existing users on 2.1.331+ get both mods at their next update. Whether to take it, and with which mods, is the owner's (question 1253). Not in `main`.
+- **pace-band as an optional dependency (owner «1253 В», 25.11):** branch `optional-pace-band` (`fc9ada6`), worktree `scratchpad/wt-optdep` of session c7ce7884: `"optionalDependencies": ["pace-band"]` in `.claude-plugin/plugin.json`, new paragraphs in `README.md`, `README.ru.md`, `experiments/statusline-band/README.md`. Gate green there (2.1.331 and 2.1.329); probed: new install on 2.1.331 adds pace-band only, 2.1.330 the line alone, an existing user's update adds pace-band. Not in `main`.
+  - **Next step:** the Redaktsiya's answer to `exchange/2026-11-25__claude-code-statusline__to__Redaktsiya-tsgs__readme-ustanovka-pace-band.md` (knocked 25.11) → put its text into the branch → gate → ask the owner to merge into `main`; the push is the owner's and makes a new catalog version.
+  - A fresh worktree has no mod types (`.claude-plugin/types/` is ignored by git): copy them from the main working copy before `version-gate.sh`, or its `tsc` step is red and leaves `.js` files in `hooks/` (`git clean` them).
 - **Idea, not asked:** `BesidePrompt` for a short pace figure beside the prompt.
-- **Open:** the hub's letter `exchange/2026-11-21__hub__to__claude-code-statusline__lit-korrektura-tekstov-naruzhu.md` is still `status: open`, though its rule is already applied below; to be closed.
+- The hub's letter on proofreading (21.11) closed 25.11 with a note in its «Ответ».
 
 **Now (22.11, after `/restart`).** Nothing in progress. The version check is two scripts now (`scripts/version-gate.sh`, `scripts/mod-api-diff.py`; DEVLOG 22.11), green on 2.1.330. The whole fleet is on 2.1.330 (`lsof`, 22.11).
 - **Next step:** at the next Claude Code version run `bash scripts/version-gate.sh` and `python3 -I scripts/mod-api-diff.py <old> <new>`. If the gate is the only source of steps, the check needs no DEVLOG lookup; if a step had to be typed by hand, add it to the script.
