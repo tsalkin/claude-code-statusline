@@ -2,6 +2,30 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — `optionalDependencies` probed in a sandbox (owner: «1252 Б»), not taken into `main`
+
+**What.** A clone of `main` with `"optionalDependencies": ["pace-band", "report-check"]` in the root `.claude-plugin/plugin.json`, installed from fresh configs (`CLAUDE_CONFIG_DIR`, no fleet plugin dirs). Kit outside git: `scratchpad/optdep/` of session c7ce7884.
+
+**Results.**
+- 2.1.331: `plugin install pace-statusline@tsalkin` → "(+ 2 optional dependencies: pace-band, report-check)", all three enabled.
+- 2.1.330 and 2.1.329: the field is ignored silently, only the line installs. `plugin validate` passes on all three (only the old "No version specified" warning).
+- A mod can be removed on its own: after `uninstall report-check` and `disable pace-band`, `plugin update pace-statusline` keeps them out ("optional dependency left out: report-check@tsalkin (uninstalled or turned off earlier, install it by name to get it back)").
+- **Existing users:** installed from the commit without the field, then the catalog moved: `plugin update pace-statusline` → "(+ 2 optional dependencies: pace-band, report-check)", both enabled. The background auto-update calls the same routine (`Plugin autoupdate: …` in the 2.1.331 code), so users on 2.1.331+ would get both mods at their next update without asking. The background path itself was not run.
+- Not tested: the Anthropic plugin directory. The schema says bare names resolve against the declaring plugin's own marketplace and "one that cannot be installed is left out"; pace-band is not listed there.
+- Probe trap: a `git-subdir` source with `"path": "."` copies only the root's files (no `.claude-plugin`), so the engine never saw the field. `marketplace add file://…repo.git` is refused ("Invalid marketplace source format"); a local clone folder as the marketplace works and keeps the relative sources.
+
+## 2026-11-24 — Claude Code 2.1.331 checked: nothing to change, nothing urgent for the hub
+
+**Gate.** `bash scripts/version-gate.sh`: green on 2.1.331, old binary 2.1.329 (line 81/81, pace-band 217/217 on both, report-check 11/11 on both, `validate --strict` and `tsc` clean for both mods). The gate needed no step typed by hand.
+
+**Mod API** (`python3 -I scripts/mod-api-diff.py 2.1.330 2.1.331`, 60 lines). New render components `BesidePrompt`/`BesidePromptList` (a slot beside the prompt: `maxColumns`, `floatRows`, `floatColumns`, `isWorking`) and `Underlay`/`UnderlayList`; `Beneath` regions with `isWindowFocused` and `isMotionReduced`; a `session.redact` event and `$.redact(text)`; `invalidate(event, { agentId })`; `tool.offer` can be invalidated. Nothing the mods call changed. `SessionRateLimit.kind` still `five_hour`, `seven_day`, `spend_limit`: no Fable window.
+
+**Status line payload.** Keys around `exceeds_200k_tokens` the same as 2.1.330 (only `n_t` and an unrelated `tengu_cowork_shell_check` string nearby). The notes say nothing on `statusLine`, `subagentStatusLine` or `AgentRow`.
+
+**Notes that touch this project.** Plugin manifests take `optionalDependencies` (a plugin that installs with the one listing it, and can be disabled on its own): `pace-statusline` could pull `pace-band` and `report-check` in one install. An idea for the owner, not taken. An interrupted plugin update no longer leaves a half-filled plugin folder (#102186). `BesidePrompt` is a possible home for a short pace figure; not taken.
+
+**Fleet, checked here.** By `lsof`, 11 of 12 sessions already run 2.1.331 (one not read). Claude Opus 4.5 is deprecated on the API (retires 22.01.2027): the fleet's only mentions are the display lists in `subagent-statusline.sh:164` and `experiments/statusline-band/hooks/rows.ts:69`, harmless (`fleet-grep.sh`, 36 folders). No `PermissionDenied` hooks (its `retry: true` wording changed) and no `Agent(model:…)` rules in `~/.claude/settings.json`; no managed settings, so the 30.11 auto-update of managed marketplaces does not apply. The Stop-hook transcript fix (Claude Desktop) does not touch `waiting.py`: it reads `last_assistant_message`. Fixes worth having, already live: Workflow agents no longer leave background shells and MCP servers running; `/compact` no longer drops part of a summary that quotes XML tags. Nothing urgent, so no letter to the hub (as on 06.11); `--mark` is the hub's.
+
 ## 2026-11-22 — the version check as two scripts; CANI 21–22.11
 
 **Why.** The 2.1.330 check was rebuilt by hand from this log, and it cost two rounds: plain `npx tsc` failed ("This is not the tsc command you are looking for"; the form `npx -p typescript tsc` has been here since 04.11), and the zstd unpacking of the mod API, described 19.11, was written again in the scratchpad. RESUME listed the steps as words, not commands.

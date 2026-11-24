@@ -1,5 +1,10 @@
 # RESUME — where to pick up
 
+**Now (24.11).** Claude Code 2.1.331 checked, nothing to change (DEVLOG 24.11): `version-gate.sh` green, mod API only adds (`BesidePrompt`, `Underlay`, `session.redact`), payload the same, no Fable window. No letter to the hub: nothing urgent. `origin/main` = `0ee38f8` before this entry (by `git ls-remote`).
+- **`optionalDependencies` probed (25.11, owner «1252 Б», DEVLOG 25.11):** works on 2.1.331, ignored on 2.1.330 and 2.1.329, a mod can be removed on its own; but existing users on 2.1.331+ get both mods at their next update. Whether to take it, and with which mods, is the owner's (question 1253). Not in `main`.
+- **Idea, not asked:** `BesidePrompt` for a short pace figure beside the prompt.
+- **Open:** the hub's letter `exchange/2026-11-21__hub__to__claude-code-statusline__lit-korrektura-tekstov-naruzhu.md` is still `status: open`, though its rule is already applied below; to be closed.
+
 **Now (22.11, after `/restart`).** Nothing in progress. The version check is two scripts now (`scripts/version-gate.sh`, `scripts/mod-api-diff.py`; DEVLOG 22.11), green on 2.1.330. The whole fleet is on 2.1.330 (`lsof`, 22.11).
 - **Next step:** at the next Claude Code version run `bash scripts/version-gate.sh` and `python3 -I scripts/mod-api-diff.py <old> <new>`. If the gate is the only source of steps, the check needs no DEVLOG lookup; if a step had to be typed by hand, add it to the script.
 - **Open:** nothing waits on the hub: it entered both CANI rows and closed `exchange/2026-11-22__claude-code-statusline__to__hub__cani-21-22-11.md` (22.11). Five local commits not pushed (docs and scripts, `origin/main` = `4c0f22a` by `git ls-remote`); any push is a new catalog version — the owner's call.
