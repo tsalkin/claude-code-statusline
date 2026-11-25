@@ -1,5 +1,7 @@
 # RESUME — where to pick up
 
+**Now (25.11, 2.1.332 checked).** Nothing to change (DEVLOG 25.11, "2.1.332 checked"). Letter to the hub `exchange/2026-11-25__claude-code-statusline__to__hub__cc-2-1-332-flot.md` closed by the hub 25.11 (trap entered in `library/claude-code-watch.md`; 2.1.332 at the natural `/restart`). The owner pushed 25.11: `origin/main` = `f5a3387` by `git ls-remote` — pace-band with the line is in the catalog. Question 1309 answered «Б» (25.11): the probe is done, branch `probe-statusline-render` (`ba78138`, worktree `scratchpad/wt-statusline-probe` of the session) — works on 2.1.332, skipped silently on 2.1.331 (DEVLOG 25.11, "probe"). Open: question 1312, what to do with it.
+
 **Now (25.11, after `/restart`).** Nothing in progress. `main` is 9+ commits ahead of `origin/main` (`0ee38f8` by `git ls-remote`): the pace-band merge `e70f238` and docs, scripts.
 - **Next step:** Claude Code 2.1.332 is installed: `bash scripts/version-gate.sh` (green on 2.1.332 already, 25.11) and `python3 -I scripts/mod-api-diff.py 2.1.331 2.1.332`, the changelog in `~/.claude/cache/changelog.md`. The owner's push (`!git push`) stays open; it publishes pace-band with the line. Check by `git ls-remote origin main`: still `0ee38f8` — not pushed; the hash of local `main` — pushed.
 - First install from the catalog on any version: `scripts/sandbox-install.sh <version> <plugin>` (DEVLOG 25.11 CANI). A fresh worktree: the gate now stops with "no mod types" — copy `experiments/*/.claude-plugin/types` from the main working copy.

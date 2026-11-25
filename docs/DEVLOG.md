@@ -2,6 +2,33 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — probe: pace-band on the `StatusLine` row (owner «1309 Б»), not in `main`
+
+**Why.** 2.1.332 lets a mod rewrite the status line row (DEVLOG below). The owner asked for a probe, nothing released: does the row take the band's figure, and what does an older engine do.
+
+**What.** Branch `probe-statusline-render` (`ba78138`), worktree `scratchpad/wt-statusline-probe` of this session.
+- A `ui.render{component=StatusLine}` hook: the figure per window (`7d ⇣17`, `5h ⇡+12`) at the end of a `statusLine` command's output, or as the row where no command draws. `// @ts-ignore` and a local `StatusLineProps`, as with `AgentRow` (the types follow the last engine to load the mod).
+- `plugin test` 221/221 on 2.1.332 and on 2.1.331. Reverse run: a broken expectation is red on 2.1.332; on 2.1.331 the mount throws "is not a component", the cases check nothing, the rest pass.
+- `validate --strict`: passes on 2.1.332; on 2.1.331 one warning, "no component is named StatusLine, so it never runs" (strict fails; the same as `AgentRow` on 2.1.325). `tsc` clean on the 2.1.332 types.
+- Live, `scripts/screen-look.py` on the branch (an interactive claude in a pty, `--setting-sources project,local`, no prompt sent, so no tokens): 2.1.332 with no command → `7d ⇣17` under the prompt, no ⚠ and no mod name in front; with `echo 'probe line'` → `probe line · 7d ⇣17`; 2.1.331 with the command → `probe line`, nothing else, no error. Figures come from the shared store, before any turn.
+
+**What it means.**
+- Older engines skip it silently, so the owner's 20.11 requirement holds: the same mod installs and works on old Claude Code.
+- The mod's own row has no ⚠ and no mod name. That prefix was why the last turn's cost reaches the line through a temp file (`register.tsx`, `turnFile`). On 2.1.332+ the cost could go straight onto the line's row.
+- With the line installed, the figure repeats the line's own ⇡: in a release the row should carry only what the line lacks, or draw only where no command draws. Question 1312.
+
+## 2026-11-25 — Claude Code 2.1.332 checked: nothing to change; a `StatusLine` render for mods; one fleet trap to the hub
+
+**Why.** 2.1.332 installed; the 2.1.332 check was left half done in the CANI entry below (gate green, changelog and mod API not read).
+
+**What.**
+- `python3 -I scripts/mod-api-diff.py 2.1.331 2.1.332`: 120 changed declaration lines, additions only. `SessionRateLimit.kind` the same (`five_hour seven_day spend_limit`). Nothing in either mod uses what changed; the changelog fix for `turn.step` ("user-cancel" shown as an error on interrupt) touches only `agents.test.ts`, which drives `turn.step` itself.
+- New for this project: `ui.render` for `component: "StatusLine"` (`text`, `isManaged`, `isWorking`, `maxRows` up to 5, `columns`). It is asked whether or not the settings name a `statusLine` command. A hook can rewrite `text`, hide the row or draw its own Box/Text/Link; terminal only. So a mod can add to the line's row, or draw a status line with no `statusLine` setting at all. Not built: the owner's 20.11 requirement (a first install from GitHub works on old Claude Code) and the fleet on 2.1.331 (`lsof`) stand in the way; question 1309.
+- Also new: `ui.tip`, `ui.offer`; context breakdown fields (`systemTools`, `messageBreakdown`, `modelLabel`…); tool flags (`isReadOnly`, `isDestructive`…); `fs.stat`, `fs.exists`; `PreSkillShellCommand` hook input.
+- Opus 4.5 retires from the API 22.01.2027: in this project only label tables (`hooks/rows.ts:69`, `subagent-statusline.sh:164`), nothing to change.
+- To the hub: `exchange/2026-11-25__claude-code-statusline__to__hub__cc-2-1-332-flot.md` (asks: info) — `PreSkillShellCommand` in shared settings opens a dialog at start on 2.1.331 and older, the whole fleet is on 2.1.331; take 2.1.332 at the natural `/restart`. Knocked.
+- `cc-watch.py --mark` not set: it is the hub's.
+
 ## 2026-11-25 — CANI at `/restart`: two tools instead of two recipes
 
 **Why.** Two failed probe calls this session (a `git-subdir` source with `"path": "."` copied only the root's files; `marketplace add file://…repo.git` refused), both from a recipe in memory written for a plugin in a subfolder. The same class as 21.11 (the version check rebuilt from memory), so the step goes up from memory to a tool. And the gate went red in a fresh worktree on `tsc` for a reason of the place, not the code: the mod types are ignored by git.
