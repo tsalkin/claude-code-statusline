@@ -2,6 +2,15 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — CANI at `/restart` (second): the fleet census missed its own session
+
+**Why.** Three signs: the PreToolUse guard refused an unquoted `--include=*.ts` (zsh); the Stop hook returned a reply with `!git push` inside a paragraph; the census before the 2.1.332 letter counted 11 sessions, all on 2.1.331, while this one ran 2.1.332 — the letter said "none on 2.1.332", the owner was told "this session is on 2.1.331". The first two are guards doing their job.
+
+**What.**
+- Root: macOS `pgrep` leaves out the caller's ancestors by default (`-a` keeps them); the Claude session is an ancestor of its own Bash command (`pgrep -x claude | grep -c "^$PPID$"` → 0, `comm` is `claude`). The negative claim was not checked against the known count (`ListAgents`: 11 peers + this one).
+- `scripts/fleet-versions.sh`: `ps` for the processes, `lsof` for the binary, a count, and this session on its own line; not in the census → RED, exit 1. Reverse run: with `pgrep -x claude` → 11 sessions, RED, exit 1; with `ps` → 12, this session on 2.1.332.
+- Memory `fleet-census-not-pgrep.md`. Ledger row entered by the hub 25.11 (`exchange/2026-11-25__claude-code-statusline__to__hub__cani-25-11-vtoroy.md`, answered).
+
 ## 2026-11-25 — pace-band 0.19.0: the last turn on the StatusLine row (owner «1312 В»), on branch `row-turn`
 
 **Why.** The owner chose the long path: a line the mod draws itself, so a first install from the catalog needs no `settings.json` edit. First step, in their words: move the last turn's cost off the temporary file onto the new row, the line script staying for older Claude Code.
