@@ -2,6 +2,29 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — probe: the line drawn by the mod where no `statusLine` command is set (owner «1329 А»), on branch `mod-draws-line`
+
+**Why.** Step 2 of «1312 В»: a first install from the catalog shows the line with no `settings.json` edit. Prior-art and design first («1324 А»): `docs/PRIOR-ART.md` (update 25.11), `docs/MOD-LINE-DESIGN.md`. A plugin cannot set `statusLine` itself (binary 2.1.332 takes only `agent` and `subagentStatusLine` from a plugin), so the mod's `StatusLine` row is the only way. The owner chose A: the mod runs `statusline.sh`, one source of the line's look.
+
+**What.**
+- On 2.1.332+, interactive, terminal, and no `statusLine` command in the settings (settled at session start, atom `ownLineOn`), the mod builds the payload from its own reads (`$.session.usage/info/model/cwd/root/id`, the main loop's model id and effort from `turn.step`) and runs `bash statusline.sh` with it on stdin (`$.process.run`, 10 s), at session start, after each main-loop turn and on the refresh timer. The output goes to the atom `ownLineText`; the `StatusLine` hook draws it through `text` where the engine's `text` is null and the row is not managed. The last turn still goes on the row as in 0.19.0.
+- The script: the installed `pace-statusline` (a user-scope install first, as `scripts/launch.sh`), else the clone two folders above the mod (`CLAUDE_PLUGIN_ROOT`).
+- Not in the mod API, so not in the payload, so the line leaves their blocks out: the prompt cache (hit, expiry, miss cause), the session name after `/rename`, the PR, thinking `✦` (`grep -c` over the three `index.d.ts`, 25.11).
+- `$.session.model()` answers the id (`claude-opus-5-5`, live): `displayName()` in `rows.ts` spells it as the engine does (`Opus 5.5`, `Opus 5 (1M context)`).
+- A module-level lock (`lineRunning`) was dropped: a call left pending by an earlier test kept it set and swallowed the next run; in a session a hung run would have muted the line for its timeout. Two runs at once do no harm.
+- The test engine needs `command.register` answered, or `session.start` is skipped and "no run" cases pass with nothing checked: caught by the first red run.
+- `plugin test` 241/241 on 2.1.332 and 2.1.331, `tsc` clean. Reverse: the settings check off → "a statusLine command in the settings" red; the `isManaged` check off → "a managed command" red.
+- Live (`scripts/screen-look.py`, no prompt sent): 2.1.332, no command → `[Opus 5.5] | 0% (0/1000K) | ⏱ 0м | kitA`; with `echo probe line` → `probe line` alone; 2.1.331 → no line, no error.
+
+**Then, owner «1332 А» (take it to release 0.20.0).**
+- Before the session's first request its own limits are absent: the payload takes the last reading any session stored (`pace:<kind>` in `$.store`, the band's history) while its window runs; an ended window is left out; the session's own reading wins.
+- The context and the limits are measured after the turn ends (`session.measure`), so the line runs again then: the first live turn showed `0%` and `⚡auto` until it did.
+- Live, one turn (`docs/drafts/agentrow-probe/bin/drive.py`, Sonnet, `--effort low`, no command): before the turn `[Sonnet 5.5](≠opus) | ⚡auto | ▱▱▱▱▱▱ 0% (0/1000K) | Н:97% | ⏱ 0м` (the week from the store); after it `low(≠high) | ▱▱▱▱▱▱ 5% (50K/1000K) | Н:97%` and `kitT2 | last turn 1s · $+0.00` on the second row. The payloads were logged by a temporary `PROBE_LOG` write, taken out after.
+- `plugin test` 244/244 on 2.1.332 and 2.1.331, `tsc` clean. Reverse: the run after `session.measure` taken out → "a measurement of the context after the turn" red.
+- The timer path is the same `runOwnLine` from `refreshNow`; not seen live.
+- README (`README.md:110`, `README.ru.md:110`, `experiments/statusline-band/README.md:58`): the Redaktsiya's text (letter `exchange/2026-11-25__claude-code-statusline__to__Redaktsiya-tsgs__readme-line-without-setup.md`, answered 25.11). Its three questions settled from the code: "while pace-band is on" kept (no mod, no line); the whole `✎` block is gone without setup, not only a `/rename` name — `statusline.sh:202, 666` read `session_name` from the payload alone; the next paragraph narrowed to "A plugin cannot write `statusLine` itself", the Redaktsiya's wording.
+- Squashed into `main` as pace-band 0.20.0.
+
 ## 2026-11-25 — CANI at `/restart` (second): the fleet census missed its own session
 
 **Why.** Three signs: the PreToolUse guard refused an unquoted `--include=*.ts` (zsh); the Stop hook returned a reply with `!git push` inside a paragraph; the census before the 2.1.332 letter counted 11 sessions, all on 2.1.331, while this one ran 2.1.332 — the letter said "none on 2.1.332", the owner was told "this session is on 2.1.331". The first two are guards doing their job.

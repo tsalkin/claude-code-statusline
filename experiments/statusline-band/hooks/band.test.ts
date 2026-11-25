@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { On, SessionRateLimit } from 'claude-code'
+import { displayName } from './rows'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -400,5 +401,177 @@ describe('the last turn on the status line row', () => {
     expect(statuses).toEqual([])
     const got = await row($)
     if (got !== undefined) expect(got).toBe('line')
+  })
+})
+
+// The line the mod draws itself (owner «1312 В», «1329 А»): where no
+// `statusLine` command is set, on 2.1.332+ in a terminal, the mod runs
+// statusline.sh with a payload from its own reads and puts the output on the
+// row. A command in the settings, or a managed one, draws instead: never two.
+describe('the line the mod draws where no command is set', () => {
+  const ROW = { text: null, isManaged: false, isWorking: false, maxRows: 5, columns: 120 }
+  const CLONE = '/kit/experiments/statusline-band'
+  const CLONE_SCRIPT = '/kit/statusline.sh'
+  const REGISTRY = '/home/me/.claude/plugins/installed_plugins.json'
+
+  function lineEngine(on: On, o: { settings?: Record<string, unknown>; files?: Record<string, string>; stdout?: string; version?: string; store?: Record<string, unknown>; limits?: SessionRateLimit[] } = {}) {
+    const runs: { argv: readonly string[]; stdin?: string }[] = []
+    // A witness that session.start ran through: a case that expects no run
+    // passes on nothing when the engine skipped the hook (25.11, `command.register`).
+    const started: string[] = []
+    const files: Record<string, string> = { [CLONE_SCRIPT]: '#!/bin/bash', ...(o.files ?? {}) }
+    mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
+    mock.store(on, o.store ?? {})
+    mock.env(on, { TMPDIR: '/tmp/claude-501/', HOME: '/home/me', STATUSLINE_SHOW_TURN: '0' })
+    on('fs.exists', (_$, e) => ({ value: e.path in files }))
+    on('fs.read', (_$, e) => {
+      if (!(e.path in files)) throw new Error(`ENOENT ${e.path}`)
+      return { value: files[e.path]! }
+    })
+    on('fs.write', () => ({ value: undefined }))
+    on('settings.read', () => ({ value: o.settings ?? {} }))
+    on('session.id', () => ({ value: SESSION }))
+    on('session.version', () => ({ value: { version: o.version ?? '2.1.332', base: o.version ?? '2.1.332', builtAt: '2026-11-25T00:00:00Z' } }))
+    on('session.model', () => ({ value: 'claude-opus-5-5' }))
+    on('session.cwd', () => ({ value: '/work' }))
+    on('session.root', () => ({ value: '/work' }))
+    on('session.info', () => ({ value: { transcriptPath: '/home/me/.claude/projects/w/s.jsonl' } }))
+    on('session.usage', () => ({ value: { context: { window: 1_000_000, percent: 12 }, rateLimits: o.limits ?? [{ kind: 'five_hour', percentUsed: 30, resetsAt: '2026-10-03T15:00:00Z' }], startedAt: 0 } }))
+    // @ts-ignore the test engine's process events
+    on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: CLONE } }))
+    // @ts-ignore the test engine's process events
+    on('process.run', (_$: unknown, e: { argv: readonly string[]; init?: { stdin?: string } }) => {
+      runs.push({ argv: e.argv, stdin: e.init?.stdin })
+      return { value: { exitCode: 0, stdout: o.stdout ?? '[Opus 5.5] | 12%\n', stderr: '' } }
+    })
+    on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [String((e.props as { text?: string | null }).text ?? ENGINE).replace(/\x1b/g, '⎋')] }))
+    on('session.start', () => ({ cwd: '/work' }))
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    on('ui.status', () => ({ value: undefined }))
+    on('command.register', (_$, e) => {
+      started.push(e.name)
+      return { value: { command: e.name } }
+    })
+    return Object.assign(runs, { started })
+  }
+  const start = ($: Engine, surface: 'terminal' | 'desktop' = 'terminal') =>
+    $.session.start({ cwd: '/work', surface, isInteractive: true } as Parameters<Engine['session']['start']>[0])
+  async function row($: Engine, props: Record<string, unknown> = ROW) {
+    try {
+      return (await texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'StatusLine', props } as unknown as Parameters<Engine['ui']['mount']>[0]))).join('|')
+    } catch (err) {
+      if (/is not a component/.test(String(err))) return undefined
+      throw err
+    }
+  }
+
+  test('no command: the script runs with the payload, its output is the row', async ($, on) => {
+    const runs = lineEngine(on)
+    await start($)
+    expect(runs.length).toBe(1)
+    expect(runs[0]!.argv).toEqual(['bash', CLONE_SCRIPT])
+    const payload = JSON.parse(runs[0]!.stdin ?? '{}')
+    expect(payload.model).toEqual({ display_name: 'Opus 5.5', id: 'claude-opus-5-5' })
+    expect(payload.context_window.used_percentage).toBe(12)
+    expect(payload.rate_limits.five_hour).toEqual({ used_percentage: 30, resets_at: '2026-10-03T15:00:00Z' })
+    expect(payload.prompt_cache).toBeUndefined()
+    expect(payload.session_id).toBe(SESSION)
+    const got = await row($)
+    if (got !== undefined) expect(got).toBe('[Opus 5.5] | 12%')
+  })
+
+  test("before the session's first request: a stored window stands in, an ended one does not", async ($, on) => {
+    const now = Date.parse('2026-10-03T12:00:00Z')
+    const runs = lineEngine(on, {
+      store: {
+        'pace:seven_day': { kind: 'seven_day', used: 41, resetsAt: now + 3 * 24 * 3600_000, points: [] },
+        'pace:five_hour': { kind: 'five_hour', used: 90, resetsAt: now - 60_000, points: [] },
+      },
+    })
+    await start($)
+    const payload = JSON.parse(runs[0]!.stdin ?? '{}')
+    expect(payload.rate_limits.seven_day).toEqual({ used_percentage: 41, resets_at: '2026-10-06T12:00:00.000Z' })
+    // The session's own five-hour reading wins over the store's.
+    expect(payload.rate_limits.five_hour.used_percentage).toBe(30)
+  })
+
+  test('no reading of its own and the stored window ended: no limit', async ($, on) => {
+    const now = Date.parse('2026-10-03T12:00:00Z')
+    const runs = lineEngine(on, { limits: [], store: { 'pace:five_hour': { kind: 'five_hour', used: 90, resetsAt: now - 60_000, points: [] } } })
+    await start($)
+    const payload = JSON.parse(runs[0]!.stdin ?? '{}')
+    expect(payload.rate_limits.five_hour).toBeUndefined()
+  })
+
+  test('a measurement of the context after the turn: the line runs again', async ($, on) => {
+    const runs = lineEngine(on)
+    await start($)
+    expect(runs.length).toBe(1)
+    await $.session.measure(measured({ ctx: 5, five: 30, usd: 0 }))
+    expect(runs.length).toBe(2)
+  })
+
+  test('the installed pace-statusline first, a user-scope install before others', async ($, on) => {
+    const registry = JSON.stringify({ version: 2, plugins: { 'pace-statusline@tsalkin': [{ scope: 'project', installPath: '/p' }, { scope: 'user', installPath: '/u' }] } })
+    const runs = lineEngine(on, { files: { [REGISTRY]: registry, '/p/statusline.sh': '', '/u/statusline.sh': '' } })
+    await start($)
+    expect(runs[0]!.argv).toEqual(['bash', '/u/statusline.sh'])
+  })
+
+  for (const [what, settings] of [
+    ['a statusLine command in the settings', { statusLine: { type: 'command', command: '~/.claude/statusline.sh' } }],
+  ] as const) {
+    test(`${what}: no run, the row as the engine has it`, async ($, on) => {
+      const runs = lineEngine(on, { settings })
+      await start($)
+      expect(runs.started).toEqual(['pace'])
+      expect(runs).toEqual([])
+      const got = await row($)
+      if (got !== undefined) expect(got).toBe(ENGINE)
+    })
+  }
+
+  test('a managed command: the mod draws nothing over it', async ($, on) => {
+    const runs = lineEngine(on)
+    await start($)
+    expect(runs.started).toEqual(['pace'])
+    const got = await row($, { ...ROW, isManaged: true })
+    if (got !== undefined) expect(got).toBe(ENGINE)
+  })
+
+  test('a command that printed: its text stands, the mod adds no line', async ($, on) => {
+    const runs = lineEngine(on)
+    await start($)
+    expect(runs.started).toEqual(['pace'])
+    const got = await row($, { ...ROW, text: 'mine' })
+    if (got !== undefined) expect(got).toBe('mine')
+  })
+
+  for (const [what, version, surface] of [
+    ['2.1.331', '2.1.331', 'terminal'],
+    ['a desktop surface', '2.1.332', 'desktop'],
+  ] as const) {
+    test(`${what}: no run`, async ($, on) => {
+      const runs = lineEngine(on, { version })
+      await start($, surface)
+      expect(runs.started).toEqual(['pace'])
+      expect(runs).toEqual([])
+    })
+  }
+
+  test('a script that prints nothing: the row as the engine has it', async ($, on) => {
+    const runs = lineEngine(on, { stdout: '\n' })
+    await start($)
+    expect(runs.started).toEqual(['pace'])
+    const got = await row($)
+    if (got !== undefined) expect(got).toBe(ENGINE)
+  })
+
+  test('display names as the engine spells them', () => {
+    expect(displayName('claude-opus-5-5')).toBe('Opus 5.5')
+    expect(displayName('claude-opus-5[1m]')).toBe('Opus 5 (1M context)')
+    expect(displayName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
+    expect(displayName('claude-sonnet-5-5[1m]')).toBe('Sonnet 5.5 (1M context)')
+    expect(displayName('opusplan')).toBe('opusplan')
   })
 })

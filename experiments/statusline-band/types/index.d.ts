@@ -73,6 +73,8 @@ declare module 'claude-code' {
       turnAgents: TurnAgent[]
       turnText: string | null
       rowDrawn: boolean
+      ownLineOn: boolean
+      ownLineText: string | null
     }
   }
 }

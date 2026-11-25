@@ -70,6 +70,17 @@ const LEGACY_EFFORT_MODELS = [
   'claude-fable-5', 'claude-fable-5-1', 'claude-mythos-5', 'claude-mythos-5-1',
 ]
 
+// "claude-opus-5-5" → "Opus 5.5", "claude-opus-5[1m]" → "Opus 5 (1M context)":
+// the engine's display name, which `$.session.model()` does not give (it
+// answers the id, live 25.11). Anything else stays as it came. Used for the
+// line the mod draws itself (register.tsx).
+export function displayName(model: string) {
+  const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(\[1m\])?$/i.exec(model.trim())
+  if (m === null) return model
+  const fam = m[1]!.charAt(0).toUpperCase() + m[1]!.slice(1).toLowerCase()
+  return `${fam} ${m[2]}${m[3] === undefined ? '' : `.${m[3]}`}${m[4] === undefined ? '' : ' (1M context)'}`
+}
+
 // "claude-opus-5-5[1m]" → "claude-opus-5-5": the id `modelSettings` is keyed by.
 export const modelKey = (m: string) => m.toLowerCase().replace(/\[1m\]$/, '').replace(/-[0-9]{8}$/, '')
 // "claude-haiku-4-5-20251001" → "haiku-4-5", "claude-opus-5-5[1m]" → "opus-5-5 1M".

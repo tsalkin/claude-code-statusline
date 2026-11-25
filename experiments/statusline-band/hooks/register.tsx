@@ -6,7 +6,7 @@ import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition, tokensOf }
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
 import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
 import type { Forecast } from './pace'
-import { agentRow, drawsRows, knobsFrom, rowLangFrom, settingsFacts } from './rows'
+import { agentRow, displayName, drawsRows, knobsFrom, rowLangFrom, settingsFacts } from './rows'
 import type { AgentDef } from './rows'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
@@ -51,6 +51,11 @@ const turnText = atom({ plugin: 'pace-band', key: 'turnText' } as const, null)
 // True once Claude Code asked for the StatusLine row (2.1.332+): the mod then
 // puts the last turn on that row itself, and the line's file stays empty.
 const rowDrawn = atom({ plugin: 'pace-band', key: 'rowDrawn' } as const, false)
+// The line the mod draws itself where no `statusLine` command is set (owner
+// «1312 В», «1329 А»): whether it does, settled at session start, and the
+// output of the last run of statusline.sh, which the StatusLine hook draws.
+const ownLineOn = atom({ plugin: 'pace-band', key: 'ownLineOn' } as const, false)
+const ownLineText = atom({ plugin: 'pace-band', key: 'ownLineText' } as const, null as string | null)
 
 const PANE = 'pace'
 
@@ -413,6 +418,108 @@ function withTurn(text: string | null, turn: string, columns: number) {
   return lines.join('\n')
 }
 
+// --- The line drawn by the mod: statusline.sh run with the mod's own reads. --
+
+// The main loop's model id and effort, as its last request carried them: the
+// mod has no getter for either. Kept by the module, like `interactive`.
+let mainModelId: string | undefined
+let mainEffort: string | undefined
+// The row's width as last drawn; a render may not write state, a module may.
+let rowColumns = 100
+
+// A `statusLine` command in the settings draws the row itself: then the mod
+// draws no line of its own, never two.
+function namesCommand(v: unknown) {
+  return typeof v === 'object' && v !== null && typeof (v as { command?: unknown }).command === 'string' && (v as { command: string }).command.trim() !== ''
+}
+
+// The line's script: the installed pace-statusline plugin first (a user-scope
+// install first, as scripts/launch.sh looks), else the clone this mod sits in
+// (experiments/statusline-band → the repository's root).
+async function lineScript($: EngineInterface): Promise<string | undefined> {
+  const env = await $.process.hookEnv()
+  const home = await $.env.get('HOME')
+  const claudeDir = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? (home === undefined || home === null ? undefined : `${home}/.claude`)
+  const candidates: string[] = []
+  try {
+    const registry = claudeDir === undefined ? undefined : `${claudeDir}/plugins/installed_plugins.json`
+    if (registry !== undefined && (await $.fs.exists(registry))) {
+      const reg = JSON.parse(await $.fs.read(registry)) as { plugins?: Record<string, { scope?: string; installPath?: string }[]> }
+      for (const [key, installs] of Object.entries(reg.plugins ?? {})) {
+        if (!key.startsWith('pace-statusline@')) continue
+        const sorted = [...installs].sort((a, b) => (a.scope === 'user' ? 0 : 1) - (b.scope === 'user' ? 0 : 1))
+        for (const i of sorted) if (i.installPath !== undefined) candidates.push(`${i.installPath}/statusline.sh`)
+      }
+    }
+  } catch {
+    // No registry: the clone, if any.
+  }
+  const root = env.CLAUDE_PLUGIN_ROOT
+  // experiments/statusline-band → the clone's root, two folders up.
+  const clone = root?.replace(/[\/]+$/, '').split(/[\/]/).slice(0, -2).join('/')
+  if (clone !== undefined && clone !== '') candidates.push(`${clone}/statusline.sh`)
+  for (const c of candidates) {
+    try {
+      if (await $.fs.exists(c)) return c
+    } catch {
+      // Refused: the next one.
+    }
+  }
+  return undefined
+}
+
+// The payload a `statusLine` command gets, from what the mod can read. The
+// prompt cache, the session's name, the PR and thinking are not in the mod's
+// API: left out, the line leaves their blocks out.
+async function linePayload($: EngineInterface) {
+  const u = await $.session.usage()
+  const info = await $.session.info()
+  const cwd = await $.session.cwd()
+  const root = await $.session.root()
+  // Before its first request a session has no limits of its own: the last
+  // reading any session on the machine stored stands in, while its window runs.
+  const stored = await read($, limits)
+  const t = await $.clock.now()
+  const limit = (kind: string) => {
+    const l = u.rateLimits.find(r => r.kind === kind)
+    if (l !== undefined) return { used_percentage: l.percentUsed, resets_at: l.resetsAt }
+    const s = stored.find(w => w.kind === kind)
+    return s === undefined || s.resetsAt <= t ? undefined : { used_percentage: s.used, resets_at: new Date(s.resetsAt).toISOString() }
+  }
+  const ctx = u.context as { percent?: number; window?: number }
+  const model = await $.session.model()
+  return {
+    session_id: await $.session.id(),
+    transcript_path: info.transcriptPath,
+    workspace: { current_dir: cwd, project_dir: root },
+    model: { display_name: displayName(model), id: mainModelId ?? (/^claude-/i.test(model) ? model : undefined) },
+    context_window: ctx.percent === undefined ? { context_window_size: ctx.window } : { used_percentage: ctx.percent, remaining_percentage: 100 - ctx.percent, context_window_size: ctx.window },
+    effort: mainEffort === undefined ? undefined : { level: mainEffort },
+    rate_limits: { five_hour: limit('five_hour'), seven_day: limit('seven_day') },
+  }
+}
+
+// One run of the line. Two at once do no harm: the later output stands.
+async function runOwnLine($: EngineInterface) {
+  if (!(await read($, ownLineOn))) return
+  try {
+    const script = await lineScript($)
+    if (script === undefined) return
+    const payload = JSON.stringify(await linePayload($))
+    const r = await $.process.run(['bash', script], {
+      stdin: payload,
+      env: { COLUMNS: `${rowColumns}` },
+      timeoutMs: 10_000,
+    })
+    const text = r.exitCode === 0 && r.stdout.trim() !== '' ? r.stdout.replace(/\n+$/, '') : null
+    const before = await read($, ownLineText)
+    await update($, ownLineText, () => text)
+    if (before !== text) $.ui.invalidate('ui.render')
+  } catch {
+    // No bash, a refused run, a timeout: the row stays as the engine has it.
+  }
+}
+
 // A window that starts to run out before its reset gets one native notification
 // per reset, machine-wide (the store is shared): the band's warning for a
 // terminal out of sight. A headless run has nobody to tell, and takes no turn.
@@ -490,6 +597,7 @@ function startRefresh($: EngineInterface, seconds: number, interactive: boolean)
 async function refreshNow($: EngineInterface) {
   await loadLimits($)
   if (await read($, paneOpen)) await loadFleet($)
+  await runOwnLine($)
   $.ui.invalidate('ui.render')
 }
 
@@ -602,8 +710,11 @@ export const register: Register = (on, options) => {
     // Versions before 0.8.0 kept the last turn on the mod's own status line.
     $.ui.status(undefined)
     interactive = e.isInteractive
-    const onRow = e.isInteractive && e.surface === 'terminal' && (await drawsStatusRow($)) && (await turnShown($))
+    const rowAsked = e.isInteractive && e.surface === 'terminal' && (await drawsStatusRow($))
+    const onRow = rowAsked && (await turnShown($))
     await update($, rowDrawn, () => onRow)
+    const own = rowAsked && !namesCommand(((await $.settings.read()) as Record<string, unknown>).statusLine)
+    await update($, ownLineOn, () => own)
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)
@@ -616,6 +727,7 @@ export const register: Register = (on, options) => {
     // A reload (a new language, say) keeps the state: show the last turn again.
     await showTurn($, options.language, interactive)
     startRefresh($, refreshSecondsOf(options.refresh), interactive)
+    await runOwnLine($)
     return result
   })
 
@@ -648,6 +760,10 @@ export const register: Register = (on, options) => {
   // at agent.spawn: a mod on agent.spawn keeps Code Mode off in the session
   // (Claude Code 2.1.323). The step itself goes on untouched.
   on('turn.step', async function* ($, e, next) {
+    if (e.agentId === undefined) {
+      mainModelId = e.model
+      mainEffort = typeof e.effort === 'string' ? e.effort : undefined
+    }
     if (e.agentId !== undefined && e.index === 0) {
       try {
         await noteModel($, e.agentId, e.model, announced, { interactive, language: options.language })
@@ -675,6 +791,7 @@ export const register: Register = (on, options) => {
       await update($, turnTokens, () => used ?? null)
       await showTurn($, options.language, interactive)
       await recordFleet($, interactive)
+      await runOwnLine($)
     } else if (used !== undefined) {
       // An agent of this turn ended (a teammate, a turn of its own): its tokens
       // count toward the turn, also when it ends after the main loop did.
@@ -701,6 +818,8 @@ export const register: Register = (on, options) => {
     await showTurn($, options.language, interactive)
     if (e.changed.includes('cost')) await recordFleet($, interactive)
     if (await read($, paneOpen)) await loadFleet($)
+    // The context and the limits are measured after the turn ends: the line again.
+    if (e.changed.includes('context') || e.changed.includes('rateLimits')) await runOwnLine($)
     return next(e)
   })
 
@@ -938,9 +1057,13 @@ export const register: Register = (on, options) => {
   // @ts-ignore StatusLine is new in Claude Code 2.1.332's types
   on('ui.render', { component: 'StatusLine' }, async ($: EngineInterface, e: StatusLineEvent, next: (e: StatusLineEvent) => unknown) => {
     try {
+      rowColumns = e.props.columns
+      // No command draws the row: the line the mod ran stands in for one.
+      const own = e.props.text === null && !e.props.isManaged && (await read($, ownLineOn)) ? await read($, ownLineText) : null
+      const text = own ?? e.props.text
       const turn = await read($, turnText)
-      if (turn === null || !(await read($, rowDrawn))) return next(e)
-      return next({ ...e, props: { ...e.props, text: withTurn(e.props.text, turn, e.props.columns) } })
+      if (turn === null || !(await read($, rowDrawn))) return own === null ? next(e) : next({ ...e, props: { ...e.props, text } })
+      return next({ ...e, props: { ...e.props, text: withTurn(text, turn, e.props.columns) } })
     } catch {
       return next(e)
     }
