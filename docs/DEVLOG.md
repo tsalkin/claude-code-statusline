@@ -23,7 +23,7 @@ Engineering log: what changed, why, and what bit us. Newest first.
 - `plugin test` 244/244 on 2.1.332 and 2.1.331, `tsc` clean. Reverse: the run after `session.measure` taken out → "a measurement of the context after the turn" red.
 - The timer path is the same `runOwnLine` from `refreshNow`; not seen live.
 - README (`README.md:110`, `README.ru.md:110`, `experiments/statusline-band/README.md:58`): the Redaktsiya's text (letter `exchange/2026-11-25__claude-code-statusline__to__Redaktsiya-tsgs__readme-line-without-setup.md`, answered 25.11). Its three questions settled from the code: "while pace-band is on" kept (no mod, no line); the whole `✎` block is gone without setup, not only a `/rename` name — `statusline.sh:202, 666` read `session_name` from the payload alone; the next paragraph narrowed to "A plugin cannot write `statusLine` itself", the Redaktsiya's wording.
-- Squashed into `main` as pace-band 0.20.0.
+- Squashed into `main` as pace-band 0.20.0. Pushed by the owner 26.11: `origin/main` = `741c74d` by `git ls-remote` — in the catalog.
 
 ## 2026-11-25 — CANI at `/restart` (second): the fleet census missed its own session
 
