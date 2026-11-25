@@ -65,6 +65,11 @@ for m in $mods; do
     step "$m: validate --strict on $new"
     "$versions/$new" plugin validate --strict "$dir" 2>&1 | tail -1
     [ "${PIPESTATUS[0]}" -eq 0 ] || fail "$m validate --strict"
+    # The types are ignored by git: a fresh worktree has none, and tsc without
+    # them is red and leaves .js files in hooks/. Stop before that, with the fix.
+    if ! ls "$dir"/.claude-plugin/types/claude-code/* >/dev/null 2>&1; then
+        fail "$m has no mod types in $dir/.claude-plugin/types (ignored by git; in a fresh worktree copy them from the main working copy)"
+    fi
     step "$m: tsc on $(grep -h -m1 -o 'Written by Claude Code [0-9.]*' "$dir"/.claude-plugin/types/*/* 2>/dev/null | head -1)"
     (cd "$dir" && npx -y -p typescript tsc -p .) || fail "$m tsc"
     echo "tsc clean"

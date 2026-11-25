@@ -2,6 +2,17 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — CANI at `/restart`: two tools instead of two recipes
+
+**Why.** Two failed probe calls this session (a `git-subdir` source with `"path": "."` copied only the root's files; `marketplace add file://…repo.git` refused), both from a recipe in memory written for a plugin in a subfolder. The same class as 21.11 (the version check rebuilt from memory), so the step goes up from memory to a tool. And the gate went red in a fresh worktree on `tsc` for a reason of the place, not the code: the mod types are ignored by git.
+
+**What.**
+- `scripts/sandbox-install.sh <version> <plugin>…`: a fresh config without the fleet plugin dirs, the catalog from a clone of the committed HEAD. Checked: on 2.1.331 `pace-statusline` installs "(+ 1 optional dependency: pace-band)", on 2.1.330 the line alone. It does not measure `engines` (the clone folder is "Read from" directly), the header says so.
+- `scripts/version-gate.sh` stops before `tsc` when a mod has no types, with the fix in the message. Reverse run: a worktree with the new script and no types → "RED — statusline-band has no mod types …", no `.js` left in `hooks/`; the main working copy → green.
+- By the way: the gate is green on **2.1.332** (old 2.1.329). The rest of the 2.1.332 check (changelog, `mod-api-diff.py 2.1.331 2.1.332`) is not done yet.
+
+**Not a step.** The Stop hook caught a `/clear` advice without `/restart` and `/cani` (24.11): the guard worked, nothing to add. The question number in RESUME was written before the reserve output (1254, real 1261), found and fixed by this session the same minute.
+
 ## 2026-11-25 — `optionalDependencies` probed in a sandbox (owner: «1252 Б»), not taken into `main`
 
 **What.** A clone of `main` with `"optionalDependencies": ["pace-band", "report-check"]` in the root `.claude-plugin/plugin.json`, installed from fresh configs (`CLAUDE_CONFIG_DIR`, no fleet plugin dirs). Kit outside git: `scratchpad/optdep/` of session c7ce7884.
