@@ -46,6 +46,11 @@ const fleet = atom({ plugin: 'pace-band', key: 'fleet' } as const, null)
 const turnAgents = atom({ plugin: 'pace-band', key: 'turnAgents' } as const, [])
 // The main loop's own tokens in the last turn; its agents' are on each agent.
 const turnTokens = atom({ plugin: 'pace-band', key: 'turnTokens' } as const, null)
+// The last turn's text, as the line's file has it; null before the first turn.
+const turnText = atom({ plugin: 'pace-band', key: 'turnText' } as const, null)
+// True once Claude Code asked for the StatusLine row (2.1.332+): the mod then
+// puts the last turn on that row itself, and the line's file stays empty.
+const rowDrawn = atom({ plugin: 'pace-band', key: 'rowDrawn' } as const, false)
 
 const PANE = 'pace'
 
@@ -334,12 +339,78 @@ async function showTurn($: EngineInterface, option: unknown, interactive: boolea
   if (!interactive || start === null || current === null || seconds === null) return
   const path = await turnFile($)
   if (path === undefined) return
+  const share = agentsShareOf(await read($, turnTokens), await read($, turnAgents))
+  const text = describe(costOf(start, current, seconds, share), await wordsFor($, option))
+  const before = await read($, turnText)
+  await update($, turnText, () => text)
+  const onRow = await read($, rowDrawn)
+  if (onRow && before !== text) $.ui.invalidate('ui.render')
   try {
-    const share = agentsShareOf(await read($, turnTokens), await read($, turnAgents))
-    await $.fs.write(path, `${describe(costOf(start, current, seconds, share), await wordsFor($, option))}\n`)
+    // On the row, the file stays as the line's sign that the mod is here (its
+    // fleet record depends on it) and carries no turn: the line would print it twice.
+    await $.fs.write(path, `${onRow ? '' : text}\n`)
   } catch {
     // A temporary directory that refuses the write: the line just has no turn.
   }
+}
+
+// Claude Code asks for the StatusLine row from 2.1.332 on; before, the line's
+// file is the only way. The version the engine spells as a release (`base`).
+const STATUS_ROW_SINCE = [2, 1, 332]
+
+async function drawsStatusRow($: EngineInterface) {
+  try {
+    const v = await $.session.version()
+    const parts = (v.base ?? v.version).split(/[.-]/).slice(0, 3).map(Number)
+    for (let i = 0; i < 3; i++) {
+      const have = parts[i] ?? 0
+      if (Number.isNaN(have)) return false
+      if (have !== STATUS_ROW_SINCE[i]) return have > STATUS_ROW_SINCE[i]!
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+// The line's STATUSLINE_SHOW_TURN, as the line reads it: its config file
+// (STATUSLINE_CONFIG, else XDG_CONFIG_HOME or ~/.config, then
+// claude-code-statusline/config.sh) assigns over the environment, and anything
+// but 1 hides the turn. Off, the turn stays in the file the line then hides.
+async function turnShown($: EngineInterface) {
+  let value = await $.env.get('STATUSLINE_SHOW_TURN')
+  try {
+    const home = await $.env.get('HOME')
+    const xdg = await $.env.get('XDG_CONFIG_HOME')
+    const path = (await $.env.get('STATUSLINE_CONFIG')) ?? `${xdg ?? `${home}/.config`}/claude-code-statusline/config.sh`
+    if (await $.fs.exists(path)) {
+      for (const line of (await $.fs.read(path)).split('\n')) {
+        const m = /^\s*(?:export\s+)?STATUSLINE_SHOW_TURN=["']?([^"'\s#;]*)/.exec(line)
+        if (m) value = m[1]
+      }
+    }
+  } catch {
+    // No config file to read: the environment's value stands.
+  }
+  return (value ?? '1') === '1'
+}
+
+// What the row's text takes up: escape sequences draw nothing.
+function widthOf(s: string) {
+  return [...s.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\]8;[^\x07\x1b]*(\x07|\x1b\\)/g, '')].length
+}
+
+// The status line row with the last turn: at the end of the command's last
+// line after " | ", as the line drew it, and dropped first, as the line did,
+// when it does not fit; the row itself where no command draws.
+function withTurn(text: string | null, turn: string, columns: number) {
+  const dim = `\x1b[2m${turn}\x1b[0m`
+  if (text === null || text.trim() === '') return dim
+  const lines = text.replace(/\n+$/, '').split('\n')
+  const last = lines[lines.length - 1]!
+  if (widthOf(last) + 3 + widthOf(turn) > columns) return text
+  lines[lines.length - 1] = `${last} | ${dim}`
+  return lines.join('\n')
 }
 
 // A window that starts to run out before its reset gets one native notification
@@ -458,6 +529,9 @@ async function openPane($: EngineInterface, columns: number) {
   await update($, paneOpen, () => true)
 }
 
+type StatusLineProps = { text: string | null; isManaged: boolean; isWorking: boolean; maxRows: number; columns: number }
+type StatusLineEvent = { props: StatusLineProps }
+
 // The hint line's word for one window: when it runs out, for one that runs out
 // before its reset; how far ahead and how much is used by the reset, for one
 // spent ahead of its time that still lasts; nothing for the rest.
@@ -528,6 +602,8 @@ export const register: Register = (on, options) => {
     // Versions before 0.8.0 kept the last turn on the mod's own status line.
     $.ui.status(undefined)
     interactive = e.isInteractive
+    const onRow = e.isInteractive && e.surface === 'terminal' && (await drawsStatusRow($)) && (await turnShown($))
+    await update($, rowDrawn, () => onRow)
     const fresh = await readClaudeLang($)
     await update($, claudeLang, () => fresh)
     const w = await wordsFor($, options.language)
@@ -851,6 +927,23 @@ export const register: Register = (on, options) => {
     // Another mod's word stays first.
     const tail = e.props.tail === undefined || e.props.tail === '' ? mine : `${e.props.tail} · ${mine}`
     return next({ ...e, props: { ...e.props, tail } })
+  })
+
+  // The status line row, asked by Claude Code 2.1.332+ in a terminal whether or
+  // not the settings name a `statusLine` command (owner «1312 В», 25.11): the
+  // last turn goes on it here, not through the line's file. Whether it does is
+  // settled at session start (`rowDrawn`): drawing is pure, a render hook may
+  // not write state. Older engines have no such component and never ask; their
+  // types have none either, hence the local type.
+  // @ts-ignore StatusLine is new in Claude Code 2.1.332's types
+  on('ui.render', { component: 'StatusLine' }, async ($: EngineInterface, e: StatusLineEvent, next: (e: StatusLineEvent) => unknown) => {
+    try {
+      const turn = await read($, turnText)
+      if (turn === null || !(await read($, rowDrawn))) return next(e)
+      return next({ ...e, props: { ...e.props, text: withTurn(e.props.text, turn, e.props.columns) } })
+    } catch {
+      return next(e)
+    }
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

@@ -250,3 +250,155 @@ describe('pace-band', () => {
     })
   }
 })
+
+// The status line row of Claude Code 2.1.332+ (owner «1312 В»): in a terminal
+// the last turn goes on it, at the end of the command's output, and the line's
+// file stays as an empty sign that the mod is here. Settled at session start by
+// the engine's version and surface. An engine before 2.1.332 has no StatusLine
+// to mount ("is not a component"): the row cases check nothing there.
+describe('the last turn on the status line row', () => {
+  const ROW = { text: 'line', isManaged: false, isWorking: false, maxRows: 5, columns: 120 }
+  const TURN = 'last turn 12s · $+0.42 · ctx +3% · 5h +1'
+  const DIM = `⎋[2m${TURN}⎋[0m`
+
+  function rowEngine(on: On, version = '2.1.332', env: Record<string, string> = {}, files: Record<string, string> = {}) {
+    const statuses: (string | undefined)[] = []
+    mock.clock(on, { now: Date.parse('2026-10-03T12:00:00Z') })
+    mock.store(on)
+    mock.env(on, { TMPDIR: '/tmp/claude-501/', HOME: '/home/me', ...env })
+    on('fs.exists', (_$, e) => ({ value: e.path in files }))
+    on('fs.read', (_$, e) => {
+      if (!(e.path in files)) throw new Error(`ENOENT ${e.path}`)
+      return { value: files[e.path]! }
+    })
+    on('session.id', () => ({ value: SESSION }))
+    on('session.version', () => ({ value: { version, base: version.replace(/^(\d+\.\d+\.\d+(-dev)?).*$/, '$1'), builtAt: '2026-11-25T00:00:00Z' } }))
+    on('fs.write', (_$, e) => {
+      if (e.path === TURN_FILE) statuses.push(e.text.replace(/\n$/, ''))
+      return { value: undefined }
+    })
+    // Draws the row as the engine would: the text it was handed, its escapes
+    // shown as ⎋ (a Text takes none; the engine draws the SGR ones).
+    on('ui.render', ($, e) => $.ui.resolve(e).Text({ children: [String((e.props as { text?: string | null }).text ?? ENGINE).replace(/\x1b/g, '⎋')] }))
+    on('session.start', () => ({ cwd: '/work' }))
+    on('session.measure', (_$, e) => ({ changed: e.changed }))
+    on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+    on('turn.complete', () => ({ text: '' }))
+    on('ui.status', () => ({ value: undefined }))
+    return statuses
+  }
+  const startIn = ($: Engine, surface: 'terminal' | 'desktop' | null = 'terminal', isInteractive = true) =>
+    $.session.start({ cwd: '/work', surface, isInteractive } as Parameters<Engine['session']['start']>[0])
+  async function row($: Engine, props: Record<string, unknown> = ROW) {
+    try {
+      return (await texts(await $.ui.mount({ plugin: 'pace-band', surface: 'terminal', component: 'StatusLine', props } as unknown as Parameters<Engine['ui']['mount']>[0]))).join('|')
+    } catch (err) {
+      if (/is not a component/.test(String(err))) return undefined
+      throw err
+    }
+  }
+  async function aTurn($: Engine) {
+    await $.session.measure(measured({ ctx: 40, five: 30, usd: 1 }))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await $.session.measure(measured({ ctx: 43, five: 31, usd: 1.42 }))
+    await $.turn.complete(done(12))
+  }
+
+  test("2.1.332 in a terminal: the turn at the end of the command's output, the file empty", async ($, on) => {
+    const statuses = rowEngine(on)
+    await startIn($)
+    await aTurn($)
+    expect(statuses.length).toBeGreaterThan(0)
+    expect(statuses.every(t => t === '')).toBe(true)
+    const got = await row($)
+    if (got !== undefined) expect(got).toBe(`line | ${DIM}`)
+  })
+
+  test('two lines: the turn goes on the last', async ($, on) => {
+    rowEngine(on)
+    await startIn($)
+    await aTurn($)
+    const got = await row($, { ...ROW, text: 'first\nsecond\n' })
+    if (got !== undefined) expect(got).toBe(`first\nsecond | ${DIM}`)
+  })
+
+  test('no command: the turn is the row', async ($, on) => {
+    rowEngine(on)
+    await startIn($)
+    await aTurn($)
+    const got = await row($, { ...ROW, text: null })
+    if (got !== undefined) expect(got).toBe(DIM)
+  })
+
+  test('too narrow: the turn is dropped first, as the line drops it', async ($, on) => {
+    rowEngine(on)
+    await startIn($)
+    await aTurn($)
+    const bold = '\x1b[1mline\x1b[0m'
+    const narrow = await row($, { ...ROW, text: bold, columns: 4 + 3 + TURN.length - 1 })
+    if (narrow !== undefined) expect(narrow).toBe('⎋[1mline⎋[0m')
+    const fits = await row($, { ...ROW, text: bold, columns: 4 + 3 + TURN.length })
+    if (fits !== undefined) expect(fits).toBe(`⎋[1mline⎋[0m | ${DIM}`)
+  })
+
+  test('before any turn: the row as the command drew it', async ($, on) => {
+    rowEngine(on)
+    await startIn($)
+    const got = await row($)
+    if (got !== undefined) expect(got).toBe('line')
+  })
+
+  test('a development build of 2.1.332 and a later release draw on the row too', async ($, on) => {
+    const statuses = rowEngine(on, '2.1.332-dev.20261125.t101500.sha1a2b3c4')
+    await startIn($)
+    await aTurn($)
+    expect(statuses.every(t => t === '')).toBe(true)
+  })
+
+  for (const [what, version, surface] of [
+    ['2.1.331 in a terminal', '2.1.331', 'terminal'],
+    ['2.1.332 on a desktop surface', '2.1.332', 'desktop'],
+    ['2.1.332 with no surface', '2.1.332', null],
+  ] as const) {
+    test(`${what}: the turn stays in the line's file, the row untouched`, async ($, on) => {
+      const statuses = rowEngine(on, version)
+      await startIn($, surface)
+      await aTurn($)
+      expect(statuses.at(-1)).toBe(TURN)
+      const got = await row($)
+      if (got !== undefined) expect(got).toBe('line')
+    })
+  }
+
+  for (const [what, env, files] of [
+    ['STATUSLINE_SHOW_TURN=0 in the environment', { STATUSLINE_SHOW_TURN: '0' }, {}],
+    ['STATUSLINE_SHOW_TURN=0 in the config file', {}, { '/home/me/.config/claude-code-statusline/config.sh': '# mine\nexport STATUSLINE_SHOW_TURN="0"  # off\n' }],
+    ['the config file over the environment', { STATUSLINE_SHOW_TURN: '1', XDG_CONFIG_HOME: '/x' }, { '/x/claude-code-statusline/config.sh': 'STATUSLINE_SHOW_TURN=0\n' }],
+    ['STATUSLINE_CONFIG names the file', { STATUSLINE_CONFIG: '/etc/line.sh' }, { '/etc/line.sh': 'STATUSLINE_SHOW_TURN=no\n' }],
+  ] as const) {
+    test(`${what}: the turn hidden as the line hides it, not drawn on the row`, async ($, on) => {
+      const statuses = rowEngine(on, '2.1.332', env, files)
+      await startIn($)
+      await aTurn($)
+      expect(statuses.at(-1)).toBe(TURN)
+      const got = await row($)
+      if (got !== undefined) expect(got).toBe('line')
+    })
+  }
+
+  test('STATUSLINE_SHOW_TURN=1 in the config file: the turn on the row', async ($, on) => {
+    const statuses = rowEngine(on, '2.1.332', { STATUSLINE_SHOW_TURN: '0' }, { '/home/me/.config/claude-code-statusline/config.sh': 'STATUSLINE_SHOW_TURN=1\n' })
+    await startIn($)
+    await aTurn($)
+    expect(statuses.every(t => t === '')).toBe(true)
+  })
+
+  test('headless (claude -p): nothing written, the row untouched', async ($, on) => {
+    const statuses = rowEngine(on)
+    await startIn($, null, false)
+    await aTurn($)
+    expect(statuses).toEqual([])
+    const got = await row($)
+    if (got !== undefined) expect(got).toBe('line')
+  })
+})

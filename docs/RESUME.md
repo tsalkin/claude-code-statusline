@@ -1,5 +1,9 @@
 # RESUME — where to pick up
 
+**Now (25.11, pace-band 0.19.0 in `main`, owner «1312 В»).** Squash of branch `row-turn` (tip `693e021`; branches `row-turn` and `probe-statusline-render` deleted), the working copy back on `main`. On 2.1.332 in a terminal the mod puts the last turn on the status line row itself, the turn file stays empty (DEVLOG 25.11, "pace-band 0.19.0"). The README paragraph is the Redaktsiya's text (letter `exchange/2026-11-25__claude-code-statusline__to__Redaktsiya-tsgs__readme-pace-band-turn-row.md`, closed 25.11). `version-gate.sh 2.1.332 2.1.331` green on `main`.
+- **Next step: the owner's push** (`!git push`): a new catalog version, pace-band 0.19.0. Check by `git ls-remote origin main`: `f5a3387` — not pushed.
+- Then step 2 of В: the mod draws the line where no `statusLine` command is set.
+
 **Now (25.11, 2.1.332 checked).** Nothing to change (DEVLOG 25.11, "2.1.332 checked"). Letter to the hub `exchange/2026-11-25__claude-code-statusline__to__hub__cc-2-1-332-flot.md` closed by the hub 25.11 (trap entered in `library/claude-code-watch.md`; 2.1.332 at the natural `/restart`). The owner pushed 25.11: `origin/main` = `f5a3387` by `git ls-remote` — pace-band with the line is in the catalog. Question 1309 answered «Б» (25.11): the probe is done, branch `probe-statusline-render` (`ba78138`, worktree `scratchpad/wt-statusline-probe` of the session) — works on 2.1.332, skipped silently on 2.1.331 (DEVLOG 25.11, "probe"). Open: question 1312, what to do with it.
 
 **Now (25.11, after `/restart`).** Nothing in progress. `main` is 9+ commits ahead of `origin/main` (`0ee38f8` by `git ls-remote`): the pace-band merge `e70f238` and docs, scripts.

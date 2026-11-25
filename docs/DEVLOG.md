@@ -2,6 +2,22 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-25 — pace-band 0.19.0: the last turn on the StatusLine row (owner «1312 В»), on branch `row-turn`
+
+**Why.** The owner chose the long path: a line the mod draws itself, so a first install from the catalog needs no `settings.json` edit. First step, in their words: move the last turn's cost off the temporary file onto the new row, the line script staying for older Claude Code.
+
+**What.** Branch `row-turn` (`1b1174f`, on top of the probe branch; the probe's pace figure is taken out — it repeated the line's ⇡).
+- In a terminal on 2.1.332+, the mod puts the last turn on the status line row: after the command's last line, ` | ` and dim, as the line drew it; dropped first when it does not fit `columns` (the line's rank 9, `statusline.sh:813`); the whole row where no command draws.
+- The file `pace-band-turn-<session>.txt` stays, holding an empty line: the line writes its fleet record for `/pace` only when that file exists (`statusline.sh:766`). The line needs no change: an empty turn prints nothing.
+- Settled at session start: `$.session.version()` (present on 2.1.329 and 2.1.331 too) ≥ 2.1.332, `surface === 'terminal'`, interactive, and `STATUSLINE_SHOW_TURN` on — read as the line reads it, the config file over the environment. Otherwise the file carries the turn as before.
+- A render hook may not write state: "state.set: denied: it was made while ui.render is being dispatched, and drawing is pure" (found by a first try that set `rowDrawn` inside the hook). Hence the start-time decision.
+- A `Text` in the test engine takes no escape sequence: the stand-in engine draws them as ⎋.
+- `plugin test` 232/232 on 2.1.332 and 2.1.331; reverse runs red (the floor at 2.1.333: 5 fail; `STATUSLINE_SHOW_TURN` ignored: 4 fail). `version-gate.sh 2.1.332 2.1.331` green. Live (`docs/drafts/agentrow-probe/bin/drive.py`, one sonnet turn, the owner's `statusline.sh`): `kitC | git:(probe-statusline-render) | last turn 2s · $+0.11`, the turn file `"\n"`.
+- The mod README's paragraph (`experiments/statusline-band/README.md:40`) rewritten, sent to the Redaktsiya: `exchange/2026-11-25__claude-code-statusline__to__Redaktsiya-tsgs__readme-pace-band-turn-row.md`, knocked.
+- The main working copy is on `row-turn` (the owner: «сделай версию, которая будет работать у меня локально»). No upstream: a bare `git push` fails.
+
+**Next.** The Redaktsiya's answer → its text into the README → squash `row-turn` into `main` → the owner's push. Then the next step of В: the line drawn by the mod where no `statusLine` command is set.
+
 ## 2026-11-25 — probe: pace-band on the `StatusLine` row (owner «1309 Б»), not in `main`
 
 **Why.** 2.1.332 lets a mod rewrite the status line row (DEVLOG below). The owner asked for a probe, nothing released: does the row take the band's figure, and what does an older engine do.

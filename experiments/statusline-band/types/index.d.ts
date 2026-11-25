@@ -71,6 +71,8 @@ declare module 'claude-code' {
       claudeLang: 'en' | 'ru' | null
       fleet: FleetView | null
       turnAgents: TurnAgent[]
+      turnText: string | null
+      rowDrawn: boolean
     }
   }
 }
