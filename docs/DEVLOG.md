@@ -2,6 +2,24 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-27 — CANI at `/restart`: eight letters never committed to the pool; `scripts/command-look.py`
+
+**Pushed.** The owner pushed `7357a1c`: `origin/main` = `7357a1c` by `git ls-remote`. pace-band 0.21.0 is in the catalog.
+
+**Found.** `git status` of the pool: this project's letter to the Redaktsiya (27.11) untracked, seven closings of 08–25.11 modified and never committed. The Redaktsiya read the letter from disk, so nothing looked wrong. All eight committed by name (pool `cee8b53a`). `ready_to_clear.py` checks `chronicle/<project>/` only: letters were left out on purpose.
+
+**Bit us.**
+- `pool-add-guard.py` refused `git add -A` in the worktree: a pool path stood in another part of the same command. This is the 26.11 class in a form without a heredoc.
+- A receipt «письмо закрыто» went to the Redaktsiya in the same turn as the refused call. The letter stayed open for a few minutes.
+- The built-in check refused a heredoc holding `${…}`/`$$` twice. The second time, the heredoc was writing the memory about the first. Fix: Write/Edit, or a script file.
+
+**Done.**
+- Letter to the hub `exchange/2026-11-27__claude-code-statusline__to__hub__cani-27-11.md`. It has three ledger rows and step −1 over six entries. It also has a per-part `v_pule`, checked on a copy (the case of the day goes from refused to passing; `test-pool-add-guard.py` agrees on both versions). The last item is a narrow `ready_to_clear` check: refuse on untracked letters of the project.
+- Memory: `pool-letters-commit.md`, `edit-sources-by-script-file.md`; `knock-is-address-and-receipt.md` extended.
+- `scripts/command-look.py`: the live probe of a slash command (pty + pyte screen, `/pace` by default) moved from the scratchpad into the project. Run on the live copy: `/pace` drawn, exit 0.
+
+**Seen live with it** (the owner's real week): `now 1.9%/h (2.9× the 0.65%/h allowance)`, `used 10% today out of a 16% daily budget · 3h more at this pace`, the band `at this pace, today's budget runs out in 3h`, the line `⚡1.9%/h 2.9× · 3h left today`.
+
 ## 2026-11-27 — pace-band 0.21.0: pace now — the speed of the work going on, how long such work lasts, the daily budget (owner «1423 В (как расширенный режим)», «1424 Б в строке, А и В строками в /pace», «1437 Б»), in `main` (squash of branch `pace-speed`)
 
 **Why.** The owner: «я сейчас сел работать … это может продлиться час, два, три — усреднение не покажет», and «в начале срока я работаю интенсивно и могу опережать время». Asked: how long can I work at this pace before the overspend starts.
