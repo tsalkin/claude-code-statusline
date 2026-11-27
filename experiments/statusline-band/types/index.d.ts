@@ -66,6 +66,9 @@ declare module 'claude-code' {
       turnTokens: number | null
       isHidden: boolean
       limits: LimitWindow[]
+      previous: LimitWindow[]
+      paceK: number | null
+      ledgerHours: [number, number][] | null
       context: ContextView | null
       paneOpen: boolean
       claudeLang: 'en' | 'ru' | null

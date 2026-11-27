@@ -36,6 +36,36 @@ export type Words = {
   rateWindow: string
   runsOut: (rate: string, from: string, at: string, before: string) => string
   lasts: (rate: string, from: string, at: string, pct: string) => string
+  // The usual rate's source, the 72 hours (docs/PACE-SPEED-DESIGN.md), and how
+  // far the forecast at reset can be off.
+  rateUsual: string
+  spread: (pct: string) => string
+  // Pace now, in /pace: the run's speed against the allowance; before K is
+  // known, its dollars an hour; no run.
+  speedNow: (rate: string, ratio: string, allowance: string, since: string) => string
+  speedUsd: (usd: string, since: string) => string
+  idle: (allowance: string) => string
+  // Today against the daily budget, and how much more such work it holds.
+  today: (today: string, budget: string) => string
+  todayLeft: (span: string) => string
+  todayOver: string
+  // How long such work lasts: to the even line, the week, the limit.
+  evenIn: (span: string) => string
+  evenPast: string
+  weekIn: (span: string) => string
+  limitIn: (span: string) => string
+  vsLastWeek: (diff: string, then: string) => string
+  // The two charts' labels.
+  weekChart: string
+  hourChart: (top: string) => string
+  // The line's ⚡ (statusline.sh reads it from the mod's file): the run's
+  // speed and its share of the allowance; how long today's budget holds.
+  lineSpeed: (rate: string, ratio: string) => string
+  lineLeft: (span: string) => string
+  lineOver: string
+  // The band, while a run is on and today's budget is near.
+  bandBudget: (span: string) => string
+  bandOver: string
   noLimits: string
   context: string
   contextOf: (total: string, max: string, pct: string) => string
@@ -101,6 +131,26 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     rateWindow: 'average',
     runsOut: (rate, from, at, before) => `at ${rate}%/h (${from}) runs out ${at}, ${before} before reset`,
     lasts: (rate, from, at, pct) => `at ${rate}%/h (${from}) lasts to reset ${at}, ~${pct}% used by then`,
+    rateUsual: 'last 3 days',
+    spread: pct => ` ±${pct}`,
+    speedNow: (rate, ratio, allowance, since) => `now ${rate}%/h (${ratio}× the ${allowance}%/h allowance), working since ${since}`,
+    speedUsd: (usd, since) => `now $${usd}/h (working since ${since}); switches to %/h once weekly usage rises by two points`,
+    idle: allowance => `idle · allowance ${allowance}%/h`,
+    today: (today, budget) => `used ${today}% today out of a ${budget}% daily budget`,
+    todayLeft: span => ` · ${span} more at this pace`,
+    todayOver: " · over today's budget",
+    evenIn: span => `even line after ${span} at this pace`,
+    evenPast: 'above the even line',
+    weekIn: span => `${span} more at this pace, then usual pace to reset`,
+    limitIn: span => `${span} nonstop at this pace uses up the weekly limit`,
+    vsLastWeek: (diff, then) => `${diff} vs the same point last week (was ${then}%)`,
+    weekChart: 'week',
+    hourChart: top => `hourly over the last 24h, peak ${top}%`,
+    lineSpeed: (rate, ratio) => `⚡${rate}%/h ${ratio}×`,
+    lineLeft: span => ` · ${span} left today`,
+    lineOver: " · over today's budget",
+    bandBudget: span => `at this pace, today's budget runs out in ${span}`,
+    bandOver: "over today's budget",
     noLimits: 'limits: no data yet (subscription plans only)',
     context: 'context',
     contextOf: (total, max, pct) => `${total} of ${max} · ${pct}%`,
@@ -144,19 +194,39 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     decimal: ',',
     days: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
     windows: { five_hour: '5ч', seven_day: '7д' },
-    usedOfTime: (used, elapsed) => `расход ${used}% · прошло ${elapsed}% · `,
-    toSpare: pct => `ниже графика на ${pct}%`,
-    ahead: pct => `выше графика на ${pct}%`,
+    usedOfTime: (used, elapsed) => `расход ${used} % · прошло ${elapsed} % · `,
+    toSpare: pct => `ниже графика на ${pct} %`,
+    ahead: pct => `выше графика на ${pct} %`,
     onPace: 'по графику',
     limitReached: 'лимит исчерпан',
     noForecast: 'прогноза пока нет: мало замеров',
     rateRecent: span => `за ${span}`,
     rateWindow: 'среднее',
-    runsOut: (rate, from, at, before) => `при ${rate}%/ч (${from}) кончится ${at}, на ${before} раньше сброса`,
-    lasts: (rate, from, at, pct) => `при ${rate}%/ч (${from}) хватит до сброса ${at}, будет ~${pct}%`,
+    runsOut: (rate, from, at, before) => `при ${rate} %/ч (${from}) кончится ${at}, на ${before} раньше сброса`,
+    lasts: (rate, from, at, pct) => `при ${rate} %/ч (${from}) хватит до сброса ${at}, будет ~${pct} %`,
+    rateUsual: 'за 3 суток',
+    spread: pct => ` ±${pct}`,
+    speedNow: (rate, ratio, allowance, since) => `сейчас ${rate} %/ч, ×${ratio} от допустимых ${allowance} %/ч (работа с ${since})`,
+    speedUsd: (usd, since) => `сейчас ${usd} $/ч (работа с ${since}); проценты появятся, когда неделя сдвинется на 2 пункта`,
+    idle: allowance => `сейчас работы нет · допустимо ${allowance} %/ч`,
+    today: (today, budget) => `сегодня ${today} % из дневного бюджета ${budget} %`,
+    todayLeft: span => ` · в таком темпе ещё на ${span}`,
+    todayOver: ' · бюджет превышен',
+    evenIn: span => `равномерная линия — через ${span} в таком темпе`,
+    evenPast: 'выше равномерной линии',
+    weekIn: span => `ещё ${span} в таком темпе, дальше обычный — и недели хватит`,
+    limitIn: span => `без остановок лимит кончится через ${span}`,
+    vsLastWeek: (diff, then) => `${diff} к прошлой неделе на то же время (было ${then} %)`,
+    weekChart: 'неделя',
+    hourChart: top => `24ч по часам, макс. ${top} %`,
+    lineSpeed: (rate, ratio) => `⚡${rate} %/ч ×${ratio}`,
+    lineLeft: span => ` · сегодня хватит на ${span}`,
+    lineOver: ' · бюджет дня исчерпан',
+    bandBudget: span => `в таком темпе дневной бюджет кончится через ${span}`,
+    bandOver: 'дневной бюджет превышен',
     noLimits: 'лимиты: данных пока нет (только при подписке)',
     context: 'контекст',
-    contextOf: (total, max, pct) => `${total} из ${max} · ${pct}%`,
+    contextOf: (total, max, pct) => `${total} из ${max} · ${pct} %`,
     noContext: 'контекст: данных пока нет — откройте /pace снова после ответа',
     free: 'свободно',
     compactBuffer: 'резерв сжатия',
@@ -179,11 +249,11 @@ export const WORDS: Readonly<Record<Lang, Words>> = {
     agentsHead: count => `агенты последнего хода  ${count}`,
     agentStatus: { pending: 'ждёт запуска', running: 'работает', waiting: 'ждёт', idle: 'простаивает', completed: 'готов', failed: 'сбой', killed: 'остановлен' },
     agentBelow: (agent, is, want) => `агент ${agent} запущен на ${is}, а в определении — ${want}`,
-    agentsShare: pct => `агенты ${pct}% токенов`,
+    agentsShare: pct => `агенты ${pct} % токенов`,
     inherit: 'насл',
     tokens: n => `${n} токенов`,
     hintOut: (window, at) => `${window} кончится ${at}`,
-    hintAhead: (window, pct, atReset) => (atReset === undefined ? `${window} ⇡${pct}` : `${window} ⇡${pct} · к сбросу ~${atReset}%`),
+    hintAhead: (window, pct, atReset) => (atReset === undefined ? `${window} ⇡${pct}` : `${window} ⇡${pct} · к сбросу ~${atReset} %`),
     ctx: 'контекст',
     out: 'кончится',
     compact: 'сжать',

@@ -1,8 +1,8 @@
 {
   "name": "pace-band",
   "displayName": "Pace Band",
-  "version": "0.20.0",
-  "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out at this rate, the fleet (which sessions of the machine spent the 5-hour window, whose cache went cold), the agents of the last turn with their tokens (a press opens one's transcript) and the context by category. The last turn's cost on the status line, with the agents' share of its tokens; a band above the prompt only to act on: a limit that runs out before its reset (with a native notification once per reset), a compact button; a quiet word at the end of the hint line under the prompt for a window ahead of its time; a warning when an agent starts below its definition; the agent rows under the prompt, as pace-statusline's subagent rows, where no subagentStatusLine command draws them. Leaves Code Mode free to turn on: it hooks no event that keeps Code Mode off. The band and /pace refresh on a timer while the session is idle (/pace <seconds>). A Claude Code mod; companion to pace-statusline.",
+  "version": "0.21.0",
+  "description": "/pace: how fast the 5-hour and weekly limits are spent against their time, when each runs out (the week at its usual 3-day rate, with a range), current pace (against the allowance, today against the daily budget, how long it lasts at this pace, the same point last week, the week and the last 24 hours as charts), the fleet (which sessions of the machine spent the 5-hour window, whose cache went cold), the agents of the last turn with their tokens (a press opens one's transcript) and the context by category. The last turn's cost and ⚡ the current work pace on the status line, with the agents' share of its tokens; a band above the prompt only to act on: a limit that runs out before its reset (with a native notification once per reset), today's budget running out within 3 hours at this pace, a compact button; a quiet word at the end of the hint line under the prompt for a window ahead of its time; a warning when an agent starts below its definition; the agent rows under the prompt, as pace-statusline's subagent rows, where no subagentStatusLine command draws them. Leaves Code Mode free to turn on: it hooks no event that keeps Code Mode off. The band and /pace refresh on a timer while the session is idle (/pace <seconds>). An optional spend ledger (option `ledger`) records each session's hourly spend. A Claude Code mod; companion to pace-statusline.",
   "author": {
     "name": "Maxim Tsalkin",
     "url": "https://github.com/tsalkin"
@@ -33,6 +33,12 @@
       "title": "Refresh (seconds)",
       "description": "How often the band, the hint under the prompt and /pace refresh while the session is idle: 5 to 3600 seconds; 0 refreshes only on Claude Code's events. /pace <seconds> sets it too.",
       "default": 30
+    },
+    "ledger": {
+      "type": "boolean",
+      "title": "Hourly spend ledger (extended mode)",
+      "description": "Records each session's hourly spend in the Claude Code config folder (pace-band/ledger). Shows your current pace within the first few minutes of work, your usual rate, and the cost of 1% of the weekly limit to the cent. Keeps spend history beyond the 30 days covered by transcripts. Off by default.",
+      "default": false
     }
   },
   "types": "./types/index.d.ts"

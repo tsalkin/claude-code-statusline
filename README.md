@@ -188,6 +188,7 @@ See [`examples/config.sh`](examples/config.sh) for every setting with its defaul
 | `STATUSLINE_SHOW_SESSION_NAME` | `✎ session name` |
 | `STATUSLINE_SHOW_PR` | `PR #…` |
 | `STATUSLINE_SHOW_TURN` | the last turn, from the pace-band mod |
+| `STATUSLINE_SHOW_SPEED` | `⚡` current work pace and time until today's budget runs out at that pace, from the pace-band mod |
 | `STATUSLINE_SHARE_FLEET` | with the pace-band mod: this session's name and cache, written for `/pace`'s fleet section (not a block of the line) |
 | `STATUSLINE_FIT` | dropping blocks to fit the width |
 | `STATUSLINE_LINKS` | the PR as a clickable link (`0` if your terminal or tmux prints the escape code instead) |

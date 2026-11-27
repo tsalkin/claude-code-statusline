@@ -434,6 +434,31 @@ check turn-escape "$(render full.json)"
 new_case turn-off; make_git; turn_file "$SID" 'last turn 43s · $+0.30\n'
 check turn-off "$(render full.json STATUSLINE_SHOW_TURN=0)"
 
+# 46e-46i. The speed of the work going on, written by the pace-band mod to
+# <TMPDIR>/pace-band-speed.txt, "<epoch s>|<fast|over>|<text>": after the week,
+# yellow, red once today's budget is spent; only when written in the last 2 min.
+speed_file() { printf '%b' "$1" > "$CASE_ROOT/pace-band-speed.txt"; }
+
+# 46e. Fresh, faster than the week allows: yellow after the week
+new_case speed; make_git; speed_file "$((NOW - 30))|fast|⚡1.4%/h 2× · 4h left today\n"
+check speed "$(render full.json)"
+
+# 46f. Today's budget spent: red
+new_case speed-over; make_git; speed_file "$((NOW - 30))|over|⚡2.4%/h 3.5× · over today's budget\n"
+check speed-over "$(render full.json)"
+
+# 46g. Written more than 2 minutes ago: nothing
+new_case speed-stale; make_git; speed_file "$((NOW - 300))|fast|⚡1.4%/h 2× · 4h left today\n"
+check speed-stale "$(render full.json)"
+
+# 46h. A backslash or a control character never reaches the terminal; a long text is cut
+new_case speed-escape; make_git; speed_file "$((NOW - 30))|fast|⚡1,4 %/ч \x1b[31mred\x07 \\\\033[0m · ещё очень долго сегодня и завтра тоже\n"
+check speed-escape "$(render full.json)"
+
+# 46i. STATUSLINE_SHOW_SPEED=0 hides it
+new_case speed-off; make_git; speed_file "$((NOW - 30))|fast|⚡1.4%/h 2× · 4h left today\n"
+check speed-off "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
 # 46. A terminal too narrow for all of line 2: the last turn goes first, the branch stays
 new_case turn-narrow; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
 check turn-narrow "$(render full.json STATUSLINE_WIDTH=60)"

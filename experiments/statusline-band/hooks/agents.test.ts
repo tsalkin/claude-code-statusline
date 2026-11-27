@@ -403,7 +403,7 @@ describe("the agents' share of the turn, in tokens", () => {
     await spawn($, roster, 'ispolnitel')
     await $.turn.complete(ended(30, used(), 'a-1'))
     await $.turn.complete(ended(40, used(4 / 6)))
-    expect(lines.at(-1)).toBe('ход 40с · $+0.00 · агенты 60% токенов')
+    expect(lines.at(-1)).toBe('ход 40с · $+0.00 · агенты 60 % токенов')
   })
 })
 

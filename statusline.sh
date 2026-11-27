@@ -53,6 +53,7 @@ STATUSLINE_CONFIG="${STATUSLINE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/claude
 : "${STATUSLINE_SHOW_SESSION_NAME:=1}"     # the session's name (--name, /rename, or its AI title)
 : "${STATUSLINE_SHOW_PR:=1}"               # open pull / merge request of the branch
 : "${STATUSLINE_SHOW_TURN:=1}"             # what the last turn cost, written by the pace-band mod
+: "${STATUSLINE_SHOW_SPEED:=1}"            # "⚡1.4%/h 2× · 4h left today" while work outpaces the week, from the pace-band mod
 : "${STATUSLINE_SHARE_FLEET:=1}"           # with the pace-band mod: this session's name and cache for /pace
 
 # Thresholds
@@ -347,6 +348,26 @@ print('|'.join(out))
 PYEOF
 }
 
+# The speed of the work going on, written by the pace-band mod to
+# <tmp>/pace-band-speed.txt as one line, "<epoch s>|<fast|over>|<text>", while
+# the fleet works faster than the week allows (docs/PACE-SPEED-DESIGN.md). One
+# file for every session: they all spend the same week. Shown only when written
+# in the last 2 minutes; read with builtins, stripped as the turn file is.
+speed_text() {
+    [ "$STATUSLINE_SHOW_SPEED" = "1" ] || return 0
+    local f="${TMPDIR:-/tmp}" line="" at tone text
+    f="${f%/}/pace-band-speed.txt"
+    [ -f "$f" ] || return 0
+    IFS= read -r line < "$f" || [ -n "$line" ] || return 0
+    IFS='|' read -r at tone text <<< "$line"
+    [[ "$at" =~ ^[0-9]+$ ]] || return 0
+    [ $((NOW - at)) -le 120 ] && [ $((at - NOW)) -le 60 ] || return 0
+    text="${text//\\/}"; text="${text//[[:cntrl:]]/}"
+    [ ${#text} -gt 40 ] && text="${text:0:39}…"
+    [ -n "$text" ] || return 0
+    if [ "$tone" = "over" ]; then printf '\033[31m%s' "$text"; else printf '\033[33m%s' "$text"; fi
+}
+
 build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
     local fl wl fc wc t5="" p5="" t7="" p7="" h w
     # remaining % = int(100 - used), truncated toward zero; "?" for a non-number
@@ -366,6 +387,9 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
         [ "$p5" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && h="$h \033[31m⇡${p5}%"
         [ "$p7" -ge "$STATUSLINE_PACE_WARN" ] 2>/dev/null && w="$w \033[31m⇡${p7}%"
     fi
+    local sp
+    sp=$(speed_text)
+    [ -n "$sp" ] && w="$w $sp"
     # An account with no 5-hour limit (verified Ultra) gets no five_hour: the week alone.
     if [ -z "$1" ]; then echo "${w}\033[0m"; return; fi
     echo "${h}\033[0m ${w}\033[0m"

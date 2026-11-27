@@ -2,6 +2,35 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-27 — pace-band 0.21.0: pace now — the speed of the work going on, how long such work lasts, the daily budget (owner «1423 В (как расширенный режим)», «1424 Б в строке, А и В строками в /pace», «1437 Б»), in `main` (squash of branch `pace-speed`)
+
+**Why.** The owner: «я сейчас сел работать … это может продлиться час, два, три — усреднение не покажет», and «в начале срока я работаю интенсивно и могу опережать время». Asked: how long can I work at this pace before the overspend starts.
+
+**Analysis (`docs/PACE-SPEED-DESIGN.md`).** 30 days of transcripts (Claude Code keeps no more): 1% of the week ≈ $27.1 at list price, residual under 0.43% on all 19 ticks of the week; work in runs (1.3 h median, 2.4 h p90, 84% of spend); reset days the heaviest. The band's "runs out" used the last ≤90 min: 20.5 points off the end of the week on average, the worst of seven tried; the 72-hour rate 9.5.
+
+**What.**
+- The weekly forecast on its usual rate, 72 h (into the ended window, now kept as `pace:<kind>:prev`), with a range by the day of the window (±11/8/6); the window's average where the readings do not reach back, said so.
+- Pace now from the fleet's records: the run (spend with no 20-min gap, ≤3 h), its speed at K dollars a point (K measured against the week's ticks, kept as `pace:k`); the allowance; hours of such work to today's budget (the line), the even line, the week at the usual rate after it, the limit (`/pace`); today against the daily budget; last week at this point; two charts, the week and the last 24 h.
+- The band: today's budget spent, or within 3 h of such work, while a run is on.
+- The line: `⚡1.4%/h 2× · 4h left today` after the week while the fleet outpaces the week; the mod writes `<tmp>/pace-band-speed.txt`, the line shows it under 2 min old (`STATUSLINE_SHOW_SPEED`).
+- The extended mode, option `ledger` (off): every interactive session's spend by the hour in its own file, `<config>/pace-band/ledger/<yyyy-mm>/<session>.json`; the usual rate, K and the hour chart from it where it reaches.
+
+**Bit us.**
+- A reading of an older window started the new window's history over: an idle session answers with the old window right after a reset. Now stale.
+- The usual rate read 0 with no readings 72 h back (the first reading stood for the whole past): the pane said "~30% at reset" for a week half gone at 30.
+- `usedAt` took a history whose first reading sat at the window's start for one begun late.
+- The temporary directory holds 1,432 entries: the fleet is read at most every 30 s while /pace is closed.
+- The test kit has no `toBeCloseTo`, and its clock moves through `mock.clock(...)`'s handle, not `$.clock`.
+- Ten old pane tests held the 90-min weekly forecast: rewritten to the new meaning ("a run of work does not run the week out"), not loosened.
+
+**Checked.** `version-gate.sh 2.1.332 2.1.331` green: line 86/86, pace-band 299/299 on both, report-check 11/11, `validate --strict`, `tsc`. Reverse: the budget band's threshold, the weekly forecast's usual rate, the line's 2-minute freshness, the ledger forced on — each red. On the owner's real week and fleet (a throwaway test, removed): `now 2.4%/h, ×3.5 the allowance of 0.67%/h`, `today 7.1% of the daily budget 16% · 4h more of such work`, `the even line in 5h · the week lasts 14h · the limit in 1d 9h`.
+
+**Texts.** Every word the owner or a user reads went through the Redaktsiya, two rounds (letter `exchange/2026-11-27__claude-code-statusline__to__Redaktsiya-tsgs__pace-now-words.md`, closed): en/ru words, README rows, the catalog description and the `ledger` option; Я-85 (a no-break space before `%`) over every Russian word with a percent.
+
+**Live probe (owner «1437 Б»).** An interactive claude in a pty with the branch's mod (`CLAUDE_CODE_PLUGIN_DIRS`, `--setting-sources project,local`, no prompt to the model), `/pace` typed, the screen read through pyte at 150×75. The line drew `⚡`; the three "how long" figures joined in one row outgrew the pane — now a row each (`3d882c9`).
+
+**Merged.** `version-gate.sh 2.1.332 2.1.331` green on the branch tip `3d882c9` right before the squash (line 86/86, pace-band 299/299 on both, report-check 11/11, `validate --strict`, `tsc`). The line changes at once in every session; the new `/pace` after `/reload-plugins` or in a new session. Not pushed — the owner's move.
+
 ## 2026-11-25 — probe: the line drawn by the mod where no `statusLine` command is set (owner «1329 А»), on branch `mod-draws-line`
 
 **Why.** Step 2 of «1312 В»: a first install from the catalog shows the line with no `settings.json` edit. Prior-art and design first («1324 А»): `docs/PRIOR-ART.md` (update 25.11), `docs/MOD-LINE-DESIGN.md`. A plugin cannot set `statusLine` itself (binary 2.1.332 takes only `agent` and `subagentStatusLine` from a plugin), so the mod's `StatusLine` row is the only way. The owner chose A: the mod runs `statusline.sh`, one source of the line's look.

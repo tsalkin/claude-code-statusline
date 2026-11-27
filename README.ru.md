@@ -188,6 +188,7 @@ git clone https://github.com/tsalkin/claude-code-statusline.git ~/claude-code-st
 | `STATUSLINE_SHOW_SESSION_NAME` | `✎ имя сессии` |
 | `STATUSLINE_SHOW_PR` | `PR #…` |
 | `STATUSLINE_SHOW_TURN` | последний ход, от мода pace-band |
+| `STATUSLINE_SHOW_SPEED` | `⚡` скорость текущей работы и на сколько хватит дневного бюджета (мод pace-band) |
 | `STATUSLINE_SHARE_FLEET` | при моде pace-band: имя сессии и её кеш — для раздела «флот» в `/pace` (в самой строке не показывается) |
 | `STATUSLINE_FIT` | подгонка под ширину |
 | `STATUSLINE_LINKS` | PR ссылкой (`0`, если ваш терминал или tmux печатает управляющую последовательность вместо ссылки) |

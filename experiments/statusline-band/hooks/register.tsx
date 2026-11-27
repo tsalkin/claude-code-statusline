@@ -4,10 +4,12 @@ import type { AgentInfo, EngineInterface, Register, SessionRateLimit, Timer } fr
 import type { ContextView, Figures, FleetLine, FleetRecord, LimitWindow, TurnAgent } from '../types'
 import { belowDefinition, factsOf, familyOf, fmtUsd, parseDefinition, tokensOf } from './agents'
 import { FLEET_KEEP, FLEET_PREFIX, LINE_PREFIX, fleetOf, fleetText, parseLine, parseRecord, withSample } from './fleet'
-import { PACE_COLORS, WINDOWS, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, layoutBar, limitBar, moodOf, paletteOf, withReading } from './pace'
-import type { Forecast } from './pace'
+import { PACE_COLORS, WINDOWS, endedBy, fmtClock, fmtPct, fmtRate, fmtSpan, fmtTokens, forecastOf, hourChart, kOf, layoutBar, limitBar, moodOf, paceViewOf, paletteOf, spendsOf, usualRate, weekChart, withReading } from './pace'
+import type { ChartCell, Forecast, PaceView } from './pace'
 import { agentRow, displayName, drawsRows, knobsFrom, rowLangFrom, settingsFacts } from './rows'
 import type { AgentDef } from './rows'
+import { LEDGER_DIR, ledgerSince, ledgerSpends, monthBefore, monthOf, parseLedger, sumLedgers, withSpend } from './ledger'
+import type { Ledger } from './ledger'
 import { WORDS, langFrom } from './words'
 import type { Lang, Words } from './words'
 
@@ -37,6 +39,12 @@ const base = atom({ plugin: 'pace-band', key: 'base' } as const, null)
 const turnSeconds = atom({ plugin: 'pace-band', key: 'turnSeconds' } as const, null)
 const isHidden = atom({ plugin: 'pace-band', key: 'isHidden' } as const, false)
 const limits = atom({ plugin: 'pace-band', key: 'limits' } as const, [])
+// The windows that ended before the stored ones, by kind: the usual rate and
+// last week's figure read them. And K, dollars a point of the weekly window.
+const previous = atom({ plugin: 'pace-band', key: 'previous' } as const, [])
+const paceK = atom({ plugin: 'pace-band', key: 'paceK' } as const, null)
+// The extended mode's hours, every session's, [hour start, dollars]: null while off.
+const ledgerHours = atom({ plugin: 'pace-band', key: 'ledgerHours' } as const, null)
 const context = atom({ plugin: 'pace-band', key: 'context' } as const, null)
 const paneOpen = atom({ plugin: 'pace-band', key: 'paneOpen' } as const, false)
 // Claude Code's own `language` setting as en or ru: read at session start, kept
@@ -159,6 +167,11 @@ async function recordLimits($: EngineInterface, readings: readonly SessionRateLi
     if (Number.isNaN(resetsAt)) continue
     const key = `pace:${r.kind}`
     const saved = (await $.store.get(key)) as LimitWindow | undefined
+    const ended = endedBy(saved, resetsAt)
+    if (ended !== undefined) {
+      await $.store.set(`${key}:prev`, ended)
+      await update($, previous, (prev: LimitWindow[]) => [...prev.filter(w => w.kind !== r.kind), ended])
+    }
     const next = withReading(saved, r.kind, r.percentUsed, resetsAt, t)
     await $.store.set(key, next)
     await update($, limits, (prev: LimitWindow[]) => [...prev.filter(w => w.kind !== r.kind), next])
@@ -172,6 +185,165 @@ async function loadLimits($: EngineInterface) {
     if (saved !== undefined) found.push(saved)
   }
   await update($, limits, () => found)
+  const ended: LimitWindow[] = []
+  for (const kind of Object.keys(WINDOWS)) {
+    const saved = (await $.store.get(`pace:${kind}:prev`)) as LimitWindow | undefined
+    if (saved !== undefined) ended.push(saved)
+  }
+  await update($, previous, () => ended)
+  const k = (await $.store.get('pace:k')) as { k?: unknown } | undefined
+  await update($, paceK, () => (typeof k?.k === 'number' && k.k > 0 ? k.k : null))
+}
+
+// K, dollars a point of the weekly window, from the fleet's records against the
+// window's ticks; kept in the store for every session and for the next start.
+async function measureK($: EngineInterface) {
+  const view = await read($, fleet)
+  const week = (await read($, limits)).find(w => w.kind === 'seven_day')
+  if (week === undefined) return
+  const t = await $.clock.now()
+  // The ledger, where it covers the window: a week of ticks, not five hours.
+  const hours = await read($, ledgerHours)
+  const span = WINDOWS[week.kind]!.ms
+  const fromLedger = hours !== null && (ledgerSince(hours) ?? Infinity) <= week.resetsAt - span ? kOf(week, ledgerSpends(hours, t), t) : undefined
+  if (fromLedger === undefined && view === null) return
+  const k = fromLedger ?? kOf(week, spendsOf(view!.records), t)
+  if (k === undefined) return
+  await $.store.set('pace:k', { k, resetsAt: week.resetsAt, at: t })
+  await update($, paceK, () => k)
+}
+
+// The line's ⚡: while the fleet works faster than the week allows, one line
+// for statusline.sh in <tmp>/pace-band-speed.txt, "<epoch s>|<fast|over>|<text>";
+// the line shows it while it is under 2 minutes old. One file for every
+// session (they all spend the same week): the last to measure writes it. An
+// interactive session only, as with the turn's file.
+export const SPEED_FILE = 'pace-band-speed.txt'
+let speedShown = false
+// Whether this session is interactive, for writers outside register's closure.
+let interactive_ = false
+let speedFor: { interactive: boolean; language: unknown } = { interactive: false, language: undefined }
+
+export function speedLineOf(v: PaceView | undefined, t: number, w: Words): { tone: 'fast' | 'over'; text: string } | undefined {
+  const run = v?.run
+  if (v === undefined || run === undefined) return undefined
+  const f = v.forecast
+  const allowance = Math.max(0, 100 - f.used) / Math.max((f.resetsAt - t) / 3_600_000, 1 / 60)
+  if (allowance <= 0 || run.speed <= allowance) return undefined
+  const over = v.budget !== undefined && v.budget.today >= v.budget.budget
+  const tail = over ? w.lineOver : run.pace.toBudget !== undefined ? w.lineLeft(fmtSpan(run.pace.toBudget * 3_600_000, w)) : ''
+  return { tone: over ? 'over' : 'fast', text: `${w.lineSpeed(fmtRate(run.speed, w), fmtRate(run.speed / allowance, w))}${tail}` }
+}
+
+async function writeSpeed($: EngineInterface) {
+  if (!speedFor.interactive) return
+  try {
+    const t = await $.clock.now()
+    const line = speedLineOf(await weekView($, t), t, await wordsFor($, speedFor.language))
+    if (line === undefined && !speedShown) return
+    const path = `${await tmpDir($)}/${SPEED_FILE}`
+    await $.fs.write(path, line === undefined ? '\n' : `${Math.floor(t / 1000)}|${line.tone}|${line.text}\n`)
+    speedShown = line !== undefined
+  } catch {
+    // A temporary directory that refuses the write: the line shows no ⚡.
+  }
+}
+
+// Local midnight of the day `t` falls on.
+function dayStartOf(t: number) {
+  const d = new Date(t)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+// Pace now for the weekly window (docs/PACE-SPEED-DESIGN.md): undefined while
+// the window is not known or past its reset.
+async function weekView($: EngineInterface, t: number): Promise<PaceView | undefined> {
+  const week = (await read($, limits)).find(w => w.kind === 'seven_day')
+  if (week === undefined || week.resetsAt <= t) return undefined
+  const prev = (await read($, previous)).find(w => w.kind === 'seven_day')
+  const view = await read($, fleet)
+  const k = await read($, paceK)
+  const hours = await read($, ledgerHours)
+  return paceViewOf(week, prev, spendsOf(view?.records ?? []), k ?? undefined, t, dayStartOf(t), hours ?? undefined)
+}
+
+// --- The ledger, the extended mode (ledger.ts) ------------------------------
+
+async function claudeDirOf($: EngineInterface) {
+  const home = await $.env.get('HOME')
+  return (await $.env.get('CLAUDE_CONFIG_DIR')) ?? (home === undefined || home === null ? undefined : `${home}/.claude`)
+}
+
+let ownLedger: { month: string; ledger: Ledger } | undefined
+let ledgerStartedAt: number | undefined
+
+// This session's cost into its own file, by the hour: an interactive session
+// with the option on.
+async function recordLedger($: EngineInterface, on: boolean) {
+  if (!on || !interactive_) return
+  const current = await read($, now)
+  if (current?.usd === undefined) return
+  try {
+    const id = await $.session.id()
+    if (!/^[\w-]+$/.test(id)) return
+    const dir = await claudeDirOf($)
+    if (dir === undefined) return
+    const t = await $.clock.now()
+    const month = monthOf(t)
+    const path = `${dir}/${LEDGER_DIR}/${month}/${id}.json`
+    let saved = ownLedger?.ledger.id === id ? ownLedger : undefined
+    // A reload forgets the module's copy: the file still has it.
+    if (saved === undefined && (await $.fs.exists(path))) {
+      const l = parseLedger(await $.fs.read(path))
+      if (l !== undefined) saved = { month, ledger: l }
+    }
+    // A new month starts a new file: the last month's hours stay in their own.
+    const base = saved === undefined ? undefined : saved.month === month ? saved.ledger : { ...saved.ledger, hours: {} }
+    ledgerStartedAt ??= (await $.session.usage()).startedAt
+    const next = withSpend(base, id, current.usd, ledgerStartedAt ?? t, t)
+    ownLedger = { month, ledger: next }
+    await $.fs.write(path, `${JSON.stringify(next)}\n`)
+  } catch {
+    // A config folder that refuses the write: no ledger, base mode goes on.
+  }
+}
+
+// Every session's hours, this month's folder and the last one's: at most every
+// 5 minutes, or when forced (the session's start, /pace opening).
+const LEDGER_EVERY = 5 * 60_000
+let ledgerAt = -Infinity
+
+async function loadLedger($: EngineInterface, on: boolean, force = false) {
+  if (!on) {
+    if ((await read($, ledgerHours)) !== null) await update($, ledgerHours, () => null)
+    return
+  }
+  const t = await $.clock.now()
+  if (!force && t - ledgerAt < LEDGER_EVERY) return
+  ledgerAt = t
+  try {
+    const dir = await claudeDirOf($)
+    if (dir === undefined) return
+    const ledgers: Ledger[] = []
+    for (const month of [monthBefore(t), monthOf(t)]) {
+      const folder = `${dir}/${LEDGER_DIR}/${month}`
+      if (!(await $.fs.exists(folder))) continue
+      for (const e of await $.fs.list(folder)) {
+        if (e.kind !== 'file' || !e.name.endsWith('.json')) continue
+        const l = parseLedger(await $.fs.read(`${folder}/${e.name}`))
+        if (l !== undefined) ledgers.push(l)
+      }
+    }
+    const hours = sumLedgers(ledgers).filter(([h]) => h >= t - 35 * 24 * 3_600_000)
+    await update($, ledgerHours, () => hours)
+  } catch {
+    // No listing: pace now goes on from the fleet and the readings.
+  }
+}
+
+function ledgerOn(option: unknown) {
+  return option === true || option === 'true'
 }
 
 async function loadContext($: EngineInterface, columns: number) {
@@ -202,12 +374,13 @@ function paceWords(f: Forecast, w: Words) {
 function forecastWords(f: Forecast, t: number, w: Words) {
   if (f.runsOutAt !== undefined && f.runsOutAt <= t) return w.limitReached
   if (f.ratePerHour === undefined) return w.noForecast
-  const from = f.rateFrom === 'recent' ? w.rateRecent(fmtSpan(t - (f.rateSince ?? t), w)) : w.rateWindow
+  const from = f.rateFrom === 'recent' ? w.rateRecent(fmtSpan(t - (f.rateSince ?? t), w)) : f.rateFrom === 'usual' ? w.rateUsual : w.rateWindow
   const rate = fmtRate(f.ratePerHour, w)
   if (f.runsOutAt !== undefined) {
     return w.runsOut(rate, from, fmtClock(f.runsOutAt, t, w), fmtSpan(f.resetsAt - f.runsOutAt, w))
   }
-  return w.lasts(rate, from, fmtClock(f.resetsAt, t, w), fmtPct(f.atReset ?? f.used, w))
+  const spread = f.spread === undefined ? '' : w.spread(fmtPct(f.spread, w))
+  return `${w.lasts(rate, from, fmtClock(f.resetsAt, t, w), fmtPct(f.atReset ?? f.used, w))}${spread}`
 }
 
 function labelOf(f: Forecast, w: Words) {
@@ -308,6 +481,19 @@ async function recordFleet($: EngineInterface, interactive: boolean) {
 function windowStartOf(windows: readonly LimitWindow[], t: number) {
   const five = windows.find(w => w.kind === 'five_hour')
   return five !== undefined && five.resetsAt > t ? five.resetsAt - FLEET_KEEP : t - FLEET_KEEP
+}
+
+// The fleet's records, for pace now while /pace is closed: at most every 30
+// seconds. The temporary directory holds more than the mod's files (27.11:
+// 1,432 entries), and every session measures after every turn.
+const FLEET_EVERY = 30_000
+let fleetAt = -Infinity
+
+async function freshFleet($: EngineInterface) {
+  const t = await $.clock.now()
+  if (!(await read($, paneOpen)) && t - fleetAt < FLEET_EVERY) return
+  fleetAt = t
+  await loadFleet($)
 }
 
 async function loadFleet($: EngineInterface) {
@@ -596,7 +782,9 @@ function startRefresh($: EngineInterface, seconds: number, interactive: boolean)
 // fleet in an open /pace, and the time every forecast is measured against.
 async function refreshNow($: EngineInterface) {
   await loadLimits($)
-  if (await read($, paneOpen)) await loadFleet($)
+  await freshFleet($)
+  await measureK($)
+  await writeSpeed($)
   await runOwnLine($)
   $.ui.invalidate('ui.render')
 }
@@ -653,13 +841,52 @@ function hintOf(f: Forecast, t: number, w: Words) {
 // An account with no 5-hour limit (verified Ultra) gets no new five_hour reading,
 // so its last one stays in the store with a reset long gone; a window that does
 // reset comes back with the next reading.
-function forecasts(windows: readonly LimitWindow[], t: number) {
+// The weekly window runs on its usual rate, over 72 hours (27.11: the recent
+// one made a run of work read as the whole week's pace).
+function forecasts(windows: readonly LimitWindow[], t: number, ended: readonly LimitWindow[] = []) {
   return Object.keys(WINDOWS)
     .map(kind => windows.find(w => w.kind === kind))
     .filter((w): w is LimitWindow => w !== undefined && w.resetsAt > t)
-    .map(w => forecastOf(w, t))
+    .map(w => forecastOf(w, t, w.kind === 'seven_day' ? usualRate(w, ended.find(p => p.kind === w.kind), t) : undefined))
     .filter((f): f is Forecast => f !== undefined)
 }
+
+// Pace now in /pace, under the weekly window: the run's speed, today against
+// the daily budget, how long such work lasts, last week; then the two charts.
+function paceLines(v: PaceView, t: number, w: Words) {
+  const f = v.forecast
+  const lines: { key: string; text: string; tone?: string }[] = []
+  const allowance = Math.max(0, 100 - f.used) / Math.max((f.resetsAt - t) / 3_600_000, 1 / 60)
+  if (v.run !== undefined) {
+    const ratio = allowance > 0 ? v.run.speed / allowance : 0
+    lines.push({ key: 'speed', text: w.speedNow(fmtRate(v.run.speed, w), fmtRate(ratio, w), fmtRate(allowance, w), fmtClock(v.run.start, t, w)), tone: ratio > 1 ? PACE_COLORS.caution : undefined })
+  } else if (v.runUsd !== undefined) {
+    lines.push({ key: 'speed', text: w.speedUsd(fmtRate(v.runUsd.perHour, w), fmtClock(v.runUsd.start, t, w)) })
+  } else {
+    lines.push({ key: 'speed', text: w.idle(fmtRate(allowance, w)) })
+  }
+  if (v.budget !== undefined) {
+    const p = v.run?.pace
+    const tail = v.budget.today >= v.budget.budget ? w.todayOver : p?.toBudget !== undefined ? w.todayLeft(fmtSpan(p.toBudget * 3_600_000, w)) : ''
+    lines.push({ key: 'today', text: `${w.today(fmtPct(v.budget.today, w), fmtPct(v.budget.budget, w))}${tail}`, tone: v.budget.today >= v.budget.budget ? PACE_COLORS.out : undefined })
+  }
+  // One row each: joined, they outgrew the pane (27.11, live: cut at «then
+  // usual pace…», the limit never shown).
+  const p = v.run?.pace
+  if (p !== undefined) {
+    const even = p.toEven === 0 ? w.evenPast : p.toEven !== undefined ? w.evenIn(fmtSpan(p.toEven * 3_600_000, w)) : undefined
+    if (even !== undefined) lines.push({ key: 'even', text: even })
+    if (p.toWeek !== undefined) lines.push({ key: 'week', text: w.weekIn(fmtSpan(p.toWeek * 3_600_000, w)) })
+    if (p.toLimit !== undefined) lines.push({ key: 'limit', text: w.limitIn(fmtSpan(p.toLimit * 3_600_000, w)) })
+  }
+  if (v.vsLastWeek !== undefined) {
+    const d = v.vsLastWeek.diff
+    lines.push({ key: 'last-week', text: w.vsLastWeek(`${d > 0 ? '+' : d < 0 ? '−' : '±'}${fmtPct(Math.abs(d), w)}`, fmtPct(v.vsLastWeek.then, w)) })
+  }
+  return { lines, allowance }
+}
+
+const CHART_TONE: Record<ChartCell['tone'], string | undefined> = { above: PACE_COLORS.caution, below: undefined, none: undefined }
 
 // An agent loop's turn started: list it among the turn's agents, as the
 // engine's roster names it. Its model comes with its first request.
@@ -710,6 +937,11 @@ export const register: Register = (on, options) => {
     // Versions before 0.8.0 kept the last turn on the mod's own status line.
     $.ui.status(undefined)
     interactive = e.isInteractive
+    fleetAt = -Infinity
+    speedFor = { interactive: e.isInteractive, language: options.language }
+    interactive_ = e.isInteractive
+    ledgerAt = -Infinity
+    await loadLedger($, ledgerOn(options.ledger), true)
     const rowAsked = e.isInteractive && e.surface === 'terminal' && (await drawsStatusRow($))
     const onRow = rowAsked && (await turnShown($))
     await update($, rowDrawn, () => onRow)
@@ -816,8 +1048,14 @@ export const register: Register = (on, options) => {
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)
     // A measurement after the turn ended still counts toward it.
     await showTurn($, options.language, interactive)
-    if (e.changed.includes('cost')) await recordFleet($, interactive)
-    if (await read($, paneOpen)) await loadFleet($)
+    if (e.changed.includes('cost')) {
+      await recordFleet($, interactive)
+      await recordLedger($, ledgerOn(options.ledger))
+    }
+    await loadLedger($, ledgerOn(options.ledger))
+    await freshFleet($)
+    if (e.changed.includes('rateLimits')) await measureK($)
+    await writeSpeed($)
     // The context and the limits are measured after the turn ends: the line again.
     if (e.changed.includes('context') || e.changed.includes('rateLimits')) await runOwnLine($)
     return next(e)
@@ -881,7 +1119,11 @@ export const register: Register = (on, options) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const t = await $.clock.now()
     const width = Math.max(30, e.props.bodyColumns)
-    const fs = forecasts(await read($, limits), t)
+    const fs = forecasts(await read($, limits), t, await read($, previous))
+    const weekly = await weekView($, t)
+    const ledger = await read($, ledgerHours)
+    const kNow = await read($, paceK)
+    const weekWindow = (await read($, limits)).find(x => x.kind === 'seven_day')
     const ctx = await read($, context)
     const fleetView = await read($, fleet)
     const selfId = fleetView === null ? undefined : await $.session.id().catch(() => undefined)
@@ -891,6 +1133,33 @@ export const register: Register = (on, options) => {
     // lone · on a line of their own).
     const rowText = (f: Forecast) => `${labelOf(f, w)}   ${w.usedOfTime(fmtPct(f.used, w), fmtPct(f.elapsed, w))}${paceWords(f, w)}`.length
     const barWidth = Math.min(40, Math.max(10, width - Math.max(0, ...fs.map(rowText)) - 1))
+
+    // Pace now and the two charts, under the weekly window.
+    const chartWidth = Math.max(10, Math.min(48, width - 16))
+    const chartRow = (key: string, label: string, cells: readonly ChartCell[], note: string) => (
+      <Box key={key}>
+        <Text dimColor>{`   ${label.padEnd(8)}`}</Text>
+        {cells.map((c, i) => (
+          <Text key={`${key}-${i}`} color={CHART_TONE[c.tone]}>
+            {c.char}
+          </Text>
+        ))}
+        <Text dimColor wrap="truncate-end">{`  ${note}`}</Text>
+      </Box>
+    )
+    const paceRows = (v: PaceView, win: LimitWindow) => {
+      const { lines, allowance } = paceLines(v, t, w)
+      const hours = hourChart(win, t, Math.min(24, chartWidth), allowance, ledger ?? undefined, kNow ?? undefined)
+      return [
+        ...lines.map(l => (
+          <Text key={`pace-${l.key}`} color={l.tone} wrap="truncate-end">
+            {`   ${l.text}`}
+          </Text>
+        )),
+        chartRow('chart-week', w.weekChart, weekChart(win, t, chartWidth), ''),
+        chartRow('chart-hours', '24', hours.cells, w.hourChart(fmtRate(hours.top, w))),
+      ]
+    }
 
     const limitRows = fs.map(f => {
       const forecastTone = forecastColor(f)
@@ -911,6 +1180,7 @@ export const register: Register = (on, options) => {
           <Text color={forecastTone} dimColor={forecastTone === undefined} wrap="truncate-end">
             {`   → ${forecastWords(f, t, w)}`}
           </Text>
+          {f.kind === 'seven_day' && weekly !== undefined && weekWindow !== undefined ? paceRows(weekly, weekWindow) : null}
         </Box>
       )
     })
@@ -1038,7 +1308,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const t = await $.clock.now()
     const w = await wordsFor($, options.language)
-    const parts = forecasts(await read($, limits), t)
+    const parts = forecasts(await read($, limits), t, await read($, previous))
       .map(f => hintOf(f, t, w))
       .filter((p): p is string => p !== undefined)
     if (parts.length === 0) return next(e)
@@ -1073,8 +1343,11 @@ export const register: Register = (on, options) => {
     const current = await read($, now)
     const needsCompact = (current?.ctx ?? 0) >= COMPACT_AT && !e.props.isWorking
     const t = await $.clock.now()
-    const warnings = forecasts(await read($, limits), t).filter(runsOutEarly)
-    if (e.props.hasSurvey || (await read($, isHidden)) || (!needsCompact && warnings.length === 0)) {
+    const warnings = forecasts(await read($, limits), t, await read($, previous)).filter(runsOutEarly)
+    // While a run is on: today's budget spent, or spent within 3 hours of such work.
+    const pace = (await weekView($, t))?.run?.pace
+    const budgetNear = pace?.toBudget !== undefined && pace.toBudget < 3 ? pace.toBudget : undefined
+    if (e.props.hasSurvey || (await read($, isHidden)) || (!needsCompact && warnings.length === 0 && budgetNear === undefined)) {
       return next(e)
     }
     const { Box, Button, Text } = $.ui.resolve(e)
@@ -1099,6 +1372,17 @@ export const register: Register = (on, options) => {
                   {`${warningOf(f, t, w)}  `}
                 </Text>
               ))}
+            </Button>
+          ) : null}
+          {budgetNear !== undefined ? (
+            <Button
+              key="budget"
+              plain
+              onPress={async () => {
+                if (!(await read($, paneOpen))) await openPane($, e.props.bodyColumns)
+              }}
+            >
+              <Text color={budgetNear === 0 ? 'red' : 'yellow'}>{`${budgetNear === 0 ? w.bandOver : w.bandBudget(fmtSpan(budgetNear * 3_600_000, w))}  `}</Text>
             </Button>
           ) : null}
           {needsCompact ? (
