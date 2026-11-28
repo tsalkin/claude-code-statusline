@@ -249,6 +249,36 @@ async function writeSpeed($: EngineInterface) {
   }
 }
 
+// The line's W:/Н: from the fleet's freshest reading (owner 1534 А, 28.11): the
+// payload holds a session's last answer, hours old when it idles (45 % shown
+// while the week stood at 49). In <tmp>/pace-band-week.txt, one line,
+// "<epoch s of the reading>|<used %>|<resets at, epoch s>"; statusline.sh takes
+// the higher figure in the same window. Read from the store, not this session's
+// atom: the store holds every session's readings, higher wins (withReading), so
+// a session that has not heard of the latest reading cannot write it back down.
+// Written only when it changes; an interactive session only, as the speed.
+export const WEEK_FILE = 'pace-band-week.txt'
+let weekWritten = ''
+
+export function weekLineOf(w: LimitWindow | undefined): string | undefined {
+  if (w === undefined || !Number.isFinite(w.used) || w.used < 0 || !Number.isFinite(w.resetsAt)) return undefined
+  const at = w.points[w.points.length - 1]?.t
+  if (at === undefined) return undefined
+  return `${Math.floor(at / 1000)}|${w.used}|${Math.round(w.resetsAt / 1000)}\n`
+}
+
+async function writeWeek($: EngineInterface) {
+  if (!speedFor.interactive) return
+  try {
+    const text = weekLineOf((await $.store.get('pace:seven_day')) as LimitWindow | undefined)
+    if (text === undefined || text === weekWritten) return
+    await $.fs.write(`${await tmpDir($)}/${WEEK_FILE}`, text)
+    weekWritten = text
+  } catch {
+    // A temporary directory that refuses the write: the line keeps its own figure.
+  }
+}
+
 // Local midnight of the day `t` falls on.
 function dayStartOf(t: number) {
   const d = new Date(t)
@@ -785,6 +815,7 @@ async function refreshNow($: EngineInterface) {
   await freshFleet($)
   await measureK($)
   await writeSpeed($)
+  await writeWeek($)
   await runOwnLine($)
   $.ui.invalidate('ui.render')
 }
@@ -956,6 +987,7 @@ export const register: Register = (on, options) => {
     const current = figuresOf(u)
     await update($, now, () => current)
     await recordLimits($, u.rateLimits)
+    await writeWeek($)
     // A reload (a new language, say) keeps the state: show the last turn again.
     await showTurn($, options.language, interactive)
     startRefresh($, refreshSecondsOf(options.refresh), interactive)
@@ -1043,6 +1075,7 @@ export const register: Register = (on, options) => {
     await update($, now, () => current)
     if (e.changed.includes('rateLimits')) {
       await recordLimits($, e.rateLimits)
+      await writeWeek($)
       await notifyEarly($, options.language, interactive)
     }
     if (e.changed.includes('context') && (await read($, paneOpen))) await loadContext($, 100)

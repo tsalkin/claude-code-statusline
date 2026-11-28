@@ -459,6 +459,31 @@ check speed-escape "$(render full.json)"
 new_case speed-off; make_git; speed_file "$((NOW - 30))|fast|⚡1.4%/h 2× · 4h left today\n"
 check speed-off "$(render full.json STATUSLINE_SHOW_SPEED=0)"
 
+# 46j-46n. The week as the pace-band mod last read it across the fleet, in
+# <TMPDIR>/pace-band-week.txt, "<epoch s>|<used %>|<resets at>" (owner 1534 А, 28.11:
+# an idle session showed 45 used while the week stood at 49). full.json: 12, reset 1790400000.
+week_file() { printf '%b' "$1" > "$CASE_ROOT/pace-band-week.txt"; }
+
+# 46j. Same window, higher: the fleet's figure, W:84%
+new_case week-fresh; make_git; week_file "$((NOW - 600))|16|1790400000\n"
+check week-fresh "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
+# 46k. Same window, lower (the payload is the fresher): the payload's, W:88%
+new_case week-lower; make_git; week_file "$((NOW - 600))|10|1790400000\n"
+check week-lower "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
+# 46l. A later window (the payload is from before a reset): the file's, W:97%
+new_case week-next; make_git; week_file "$((NOW - 600))|3|$((1790400000 + 604800))\n"
+check week-next "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
+# 46m. The file's window is past: the payload's
+new_case week-past; make_git; week_file "$((NOW - 9000))|60|$((NOW - 10))\n"
+check week-past "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
+# 46n. Not three numbers: the payload's
+new_case week-bad; make_git; week_file "$((NOW - 600))|9x|1790400000\n"
+check week-bad "$(render full.json STATUSLINE_SHOW_SPEED=0)"
+
 # 46. A terminal too narrow for all of line 2: the last turn goes first, the branch stays
 new_case turn-narrow; make_git; turn_file "$SID" 'last turn 43s · $+0.30 · ctx +1%\n'
 check turn-narrow "$(render full.json STATUSLINE_WIDTH=60)"

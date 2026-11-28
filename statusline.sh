@@ -368,6 +368,31 @@ speed_text() {
     if [ "$tone" = "over" ]; then printf '\033[31m%s' "$text"; else printf '\033[33m%s' "$text"; fi
 }
 
+# The week as the pace-band mod last saw it across the fleet, in
+# <tmp>/pace-band-week.txt: "<epoch s of the reading>|<used %>|<resets at, epoch s>".
+# The payload holds this session's last answer, hours old in an idle session
+# (28.11: W 55% left, i.e. 45 used, while the week stood at 49; owner 1534 А).
+# Within one window use only grows, so the higher figure is the fresher; a later
+# window than the payload's (an idle session across a reset) replaces it while
+# not past. Read with builtins; sets rl_week_used and rl_week_reset.
+fresh_week() {
+    local f="${TMPDIR:-/tmp}" line="" at used reset mine d
+    f="${f%/}/pace-band-week.txt"
+    [ -f "$f" ] || return 0
+    IFS= read -r line < "$f" || [ -n "$line" ] || return 0
+    IFS='|' read -r at used reset <<< "$line"
+    [[ "$at" =~ ^[0-9]+$ && "$used" =~ ^[0-9]+(\.[0-9]+)?$ && "$reset" =~ ^[0-9]+$ ]] || return 0
+    [ "$reset" -gt "$NOW" ] || return 0
+    [[ "$rl_week_used" =~ ^[0-9]+(\.[0-9]+)?$ && "$rl_week_reset" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 0
+    mine=${rl_week_reset%.*}
+    d=$((reset - mine))
+    if [ "$d" -ge 60 ]; then
+        rl_week_used=$used; rl_week_reset=$reset
+    elif [ "$d" -gt -60 ] && [ "${used%.*}" -gt "${rl_week_used%.*}" ]; then
+        rl_week_used=$used
+    fi
+}
+
 build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
     local fl wl fc wc t5="" p5="" t7="" p7="" h w
     # remaining % = int(100 - used), truncated toward zero; "?" for a non-number
@@ -398,6 +423,7 @@ build_limits() {  # $1=five_used% $2=week_used% $3=five_reset $4=week_reset
 limits_part=""
 if [ "$STATUSLINE_SHOW_LIMITS" = "1" ]; then
     # rate_limits from the payload (Claude Code 2.1.80+): no stored login, no network
+    fresh_week
     if [ -n "$rl_five_used" ]; then
         limits_part=$(build_limits "$rl_five_used" "${rl_week_used:-0}" "$rl_five_reset" "$rl_week_reset")
     elif [ -n "$rl_week_used" ]; then

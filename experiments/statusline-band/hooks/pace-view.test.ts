@@ -169,6 +169,32 @@ describe('pace now in /pace and the band', () => {
     expect(files[`${DIR}/pace-band-speed.txt`]).toBeUndefined()
   })
 
+  // The line's W:/Н: (owner 1534 А, 28.11): the week as the fleet last read it.
+  test('the week file: the reading, its time and the reset', async ($, on) => {
+    const files: Record<string, string> = {}
+    engine(on, { kind: 'seven_day', used: 21, resetsAt: RESET, points: [{ t: START, used: 0 }, { t: NOW - HOUR, used: 21 }] }, files)
+    await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+    await $.session.measure(measured(22))
+    expect(files[`${DIR}/pace-band-week.txt`]).toBe(`${Math.floor(NOW / 1000)}|22|${RESET / 1000}\n`)
+  })
+
+  test('the week file: a lower reading of an idle session does not write the week back down', async ($, on) => {
+    // 28.11: an idle session's answer said 45 while the week stood at 49.
+    const files: Record<string, string> = {}
+    engine(on, { kind: 'seven_day', used: 49, resetsAt: RESET, points: [{ t: START, used: 0 }, { t: NOW - HOUR, used: 49 }] }, files)
+    await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })
+    await $.session.measure(measured(45))
+    expect(files[`${DIR}/pace-band-week.txt`]).toBe(`${Math.floor((NOW - HOUR) / 1000)}|49|${RESET / 1000}\n`)
+  })
+
+  test('the week file: none from a headless session', async ($, on) => {
+    const files: Record<string, string> = {}
+    engine(on, { kind: 'seven_day', used: 23, resetsAt: RESET, points: [{ t: START, used: 0 }, { t: NOW - HOUR, used: 23 }] }, files)
+    await $.session.start({ cwd: '/work', surface: null, isInteractive: false })
+    await $.session.measure(measured(24))
+    expect(files[`${DIR}/pace-band-week.txt`]).toBeUndefined()
+  })
+
   test('/pace with no run going on: the allowance alone', async ($, on) => {
     engine(on, { kind: 'seven_day', used: 19, resetsAt: RESET, points: [{ t: START, used: 0 }, { t: NOW - HOUR, used: 19 }] }, {})
     await $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true })

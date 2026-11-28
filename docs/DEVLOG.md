@@ -2,6 +2,19 @@
 
 Engineering log: what changed, why, and what bit us. Newest first.
 
+## 2026-11-28 — pace-band 0.21.1: the line's week from the fleet's freshest reading (owner 1534 А)
+
+**Seen.** The owner, two screenshots side by side: /pace «расход 49 %», the line `Н:55%` (left, so 45 used). The line was right about what it had: the payload holds this session's last answer. The session opened at 15:29 and idled seven hours; by the mod's store the week stood at 45 from 14:36 to 16:32 and at 49 from 22:14. `statusline.sh` fed 49 prints `Н:51%`. The `⚡` beside it was fresh (the fleet's file), so one line mixed a seven-hour-old figure with a live one, and nothing told them apart.
+
+**Done (1534 А).**
+- The mod writes `<tmp>/pace-band-week.txt`, `<epoch s of the reading>|<used %>|<resets at, epoch s>`, from the store (`pace:seven_day`), not the session's atom: the store keeps the highest reading of every session (`withReading`), so a session that has not heard of the latest cannot write the week back down. At `session.start`, after each `rateLimits` measure, on each refresh tick; only when the text changes; interactive sessions only.
+- The line (`fresh_week`): same window (resets within 60 s) — the higher of the payload and the file, use only grows within a window; a later window than the payload's while not past — the file's figure and reset; anything else, or no payload week — the payload as before. Builtins only, no process.
+- No new words and no setting: the README never named the speed file either.
+
+**Checked.** `tests/run.sh` 91/91 (46j–46n new: higher, lower, next window, past window, not numbers); reverse — without the `fresh_week` call 46j and 46l go red. pace-band 302/302 on 2.1.332 and 2.1.331 (three new: the file, a lower idle reading does not lower it, none headless). `version-gate.sh 2.1.332 2.1.331` green.
+
+**Bit us.** A fresh worktree has no mod types (ignored by git): the gate stops RED until `.claude-plugin/types` is copied from the main working copy, for each mod.
+
 ## 2026-11-27 — CANI at `/restart`: eight letters never committed to the pool; `scripts/command-look.py`
 
 **Pushed.** The owner pushed `7357a1c`: `origin/main` = `7357a1c` by `git ls-remote`. pace-band 0.21.0 is in the catalog.
